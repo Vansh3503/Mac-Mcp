@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  AXPilot.app Info.plist. FROZEN together with main.swift: the code signature seals this file, so any
+  edit changes the launcher's cdhash and makes every user grant permissions again. That is also why
+  usage strings for features that ship after 1.0 (Calendars, Reminders, Contacts) are declared now.
+  Usage strings only appear in the system prompt when the host actually uses the protected API.
+-->
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>AXPilot</string>
+	<key>CFBundleExecutable</key>
+	<string>AXPilot</string>
+	<key>CFBundleIdentifier</key>
+	<string>io.github.vansh3503.axpilot</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AXPilot</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.developer-tools</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>AXPilot contributors. Licensed under the Apache License 2.0.</string>
+
+	<key>NSAppleEventsUsageDescription</key>
+	<string>AXPilot sends Apple Events to the apps your AI agent works with, for example to read browser tabs or run a script you enabled. You can revoke this per app in System Settings.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>AXPilot reads and edits your calendars only when you enable its calendar tools.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>AXPilot reads and edits your calendars only when you enable its calendar tools.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>AXPilot reads and edits your reminders only when you enable its reminders tools.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>AXPilot reads and edits your reminders only when you enable its reminders tools.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>AXPilot reads your contacts only when you enable its contacts tools.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>AXPilot opens, finds or reveals files on your Desktop when your AI agent asks it to.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>AXPilot opens, finds or reveals files in your Documents folder when your AI agent asks it to.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>AXPilot opens, finds or reveals files in your Downloads folder when your AI agent asks it to.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>AXPilot opens, finds or reveals files on removable volumes when your AI agent asks it to.</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>AXPilot opens, finds or reveals files on network volumes when your AI agent asks it to.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>AXPilot uses the local network only if you turn on remote access to its HTTP server.</string>
+</dict>
+</plist>

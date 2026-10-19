@@ -1,0 +1,14 @@
+{
+  "note": "Targets for `strategies.py plan`. Each entry acts only on the element it names (click) or on the app's focused text element (type). Prepare every app as the entry's note says before running, use scratch documents, and extend the list to the ~15 apps of PLAN.md S3. Never add terminals (typing there is shell access) or password managers.",
+  "apps": [
+    {"app": "Calculator", "action": "click", "target": "7", "note": "the display changes when a click lands; press Escape between runs"},
+    {"app": "TextEdit", "action": "type", "note": "File > New, click into the empty document"},
+    {"app": "Notes", "action": "type", "note": "create a scratch note and put the caret in its body"},
+    {"app": "Safari", "action": "click", "target": "Show sidebar", "note": "toggles the sidebar; the next run finds 'Hide sidebar'"},
+    {"app": "System Settings", "action": "click", "target": "Appearance", "note": "a sidebar row; the pane on the right changes"},
+    {"app": "Finder", "action": "click", "target": "Back", "note": "open a folder, then a subfolder, so Back has somewhere to go"},
+    {"app": "Google Chrome", "action": "type", "note": "focus the address bar (Cmd+L); nothing presses Return"},
+    {"app": "Code", "action": "type", "note": "VS Code (Electron): open an untitled editor"},
+    {"app": "Xcode", "action": "click", "target": "Hide or show the Navigator", "note": "toggles the navigator"}
+  ]
+}

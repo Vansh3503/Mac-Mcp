@@ -1,0 +1,146 @@
+name: Bug report
+description: Something in AXPilot does not work as documented.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug!
+
+        - **Security problem?** Do not file it here. Report it privately: https://github.com/vansh3503/Mac-Mcp/security/advisories/new
+        - **A specific app is hard to control** (thin accessibility tree, elements missing)? Use the *App compatibility* template instead.
+        - **Remove personal data** (names, email addresses, document text, file paths) from logs, dumps and screenshots before posting.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the problem, including the tool call and the result or error code you got (for example `STALE_REF` or `PERMISSION_ACCESSIBILITY`).
+      placeholder: "I called click with ref e12 and got ELEMENT_NOT_ACTIONABLE, but the button is enabled..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The smallest sequence of steps or tool calls that shows the problem.
+      placeholder: |
+        1. Open TextEdit with a new document
+        2. Call snapshot
+        3. Call type_text with ref e5 and text "hello"
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `axpilot doctor`
+      description: |
+        Run `axpilot doctor` (or `uv run axpilot doctor` from a source checkout) and paste the output.
+        If `doctor` is not available in your version, paste `axpilot version` and your macOS version instead.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: ax-dump
+    attributes:
+      label: Accessibility tree dump (optional)
+      description: |
+        For problems with a specific window, attach a dump: `axpilot debug dump-tree --app <App name> > dump.json`.
+        Scrub personal data first. Drag the file into this box, or paste a relevant excerpt.
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: AXPilot version or commit
+      placeholder: "0.1.0a1, or main @ abc1234"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: macos
+    attributes:
+      label: macOS version
+      options:
+        - macOS 14 Sonoma
+        - macOS 15 Sequoia
+        - macOS 26 Tahoe
+        - macOS 27
+        - Other / beta (say which below)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: arch
+    attributes:
+      label: Mac architecture
+      options:
+        - Apple silicon
+        - Intel
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: How was AXPilot running?
+      options:
+        - Through the AXPilot.app launcher (axpilot stdio)
+        - Direct mode (axpilot stdio --direct)
+        - Streamable HTTP (axpilot http)
+        - Fake engine (--engine fake)
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: client
+    attributes:
+      label: MCP client or agent framework (with version)
+      placeholder: "Claude Desktop 1.x, Cursor 1.x, OpenAI Agents SDK 0.x, ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs (optional)
+      description: |
+        Useful sources: `~/Library/Logs/AXPilot/axpilot.log`, `~/Library/Logs/AXPilot/launcher.log`,
+        and your client's MCP log (Claude Desktop: `~/Library/Logs/Claude/mcp*.log`).
+        The audit log (`audit.jsonl`) redacts typed text by default; double-check before pasting.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Configuration changes (profile, enabled toolsets, safety settings), keyboard layout, number of displays, screenshots.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: I removed personal data from everything I attached.
+          required: true

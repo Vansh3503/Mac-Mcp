@@ -1,0 +1,47 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.vansh3503/axpilot",
+  "title": "AXPilot",
+  "description": "Lets AI agents see and operate macOS apps through the Accessibility API, safely.",
+  "repository": {
+    "url": "https://github.com/vansh3503/Mac-Mcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "axpilot",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "stdio"
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "AXPILOT_TOOLS_PROFILE",
+          "description": "Tool profile: minimal (small or local models), standard (default), full, or computer (one vision-first computer tool).",
+          "isRequired": false,
+          "format": "string",
+          "default": "standard",
+          "choices": ["minimal", "standard", "full", "computer"]
+        },
+        {
+          "name": "AXPILOT_SAFETY_CONFIRM",
+          "description": "When to ask the user before running a tool: never, destructive (default) or always.",
+          "isRequired": false,
+          "format": "string",
+          "default": "destructive",
+          "choices": ["never", "destructive", "always"]
+        }
+      ]
+    }
+  ]
+}

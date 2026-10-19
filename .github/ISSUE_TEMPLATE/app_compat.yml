@@ -1,0 +1,94 @@
+name: App compatibility report
+description: A specific Mac app is hard or impossible to observe or control with AXPilot.
+title: "[App compat]: <App name> "
+labels: ["app-compat", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Mac apps differ a lot in how well they support accessibility. Reports like this one build the
+        app-compatibility table and the fixtures that keep AXPilot working with real apps.
+        Positive reports ("works great with X") are welcome too.
+
+        **Remove personal data** (document text, names, email addresses, file paths) from dumps and screenshots.
+
+  - type: input
+    id: app
+    attributes:
+      label: App name and version
+      placeholder: "Slack 4.41.105"
+    validations:
+      required: true
+
+  - type: input
+    id: bundle-id
+    attributes:
+      label: Bundle identifier
+      description: "Find it with `osascript -e 'id of app \"Slack\"'`."
+      placeholder: "com.tinyspeck.slackmacgap"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: app-kind
+    attributes:
+      label: App technology (if known)
+      options:
+        - Native (AppKit / SwiftUI)
+        - Electron
+        - Chromium-based browser
+        - Safari / WebKit
+        - Java / Qt / other cross-platform toolkit
+        - Game or custom canvas
+        - Don't know
+    validations:
+      required: true
+
+  - type: dropdown
+    id: rating
+    attributes:
+      label: How well does it work?
+      options:
+        - Works well
+        - Mostly works, with workarounds
+        - Partially works (some elements missing or not actionable)
+        - Does not work
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What fails?
+      description: Which elements are missing or wrong, and which tools fail (snapshot, find, click, type_text, select_menu, ...) with which error codes.
+      placeholder: "snapshot shows only 3 elements for the main window; clicking the message field with its ref returns ELEMENT_NOT_ACTIONABLE"
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workarounds you found
+      description: For example select_menu instead of clicking, keyboard shortcuts, screenshot coordinates, OCR.
+    validations:
+      required: false
+
+  - type: textarea
+    id: ax-dump
+    attributes:
+      label: Accessibility tree dump
+      description: |
+        `axpilot debug dump-tree --app "<App name>" > dump.json` (scrub personal data first), then drag the
+        file in here. If that command is not available in your version, describe what Accessibility
+        Inspector (Xcode → Open Developer Tool) shows.
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: AXPilot version or commit, macOS version, Apple silicon or Intel, MCP client. `axpilot doctor` output is ideal.
+      render: text
+    validations:
+      required: true

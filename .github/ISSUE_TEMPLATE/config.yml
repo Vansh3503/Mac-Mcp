@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/vansh3503/Mac-Mcp/security/advisories/new
+    about: Please report security problems privately, never in a public issue. See SECURITY.md.
+  - name: Questions and ideas
+    url: https://github.com/vansh3503/Mac-Mcp/discussions
+    about: Ask how to do something, share what you built, or discuss an idea before filing a request.
+  - name: Troubleshooting guide
+    url: https://github.com/vansh3503/Mac-Mcp/blob/main/docs/troubleshooting.md
+    about: Permissions, client setup and common error codes. Most setup problems are answered here.

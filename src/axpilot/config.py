@@ -150,11 +150,11 @@ def _env_layer(env: Mapping[str, str]) -> dict[str, dict[str, Any]]:
         if not name.startswith("AXPILOT_"):
             continue
         rest = name.removeprefix("AXPILOT_").lower()
-        for section in _SECTIONS:
+        for section, model in _SECTIONS.items():
             prefix = section + "_"
             if rest.startswith(prefix):
                 key = rest.removeprefix(prefix)
-                if key in _SECTIONS[section].model_fields:
+                if key in model.model_fields:
                     layer.setdefault(section, {})[key] = _coerce_env_value(section, key, raw)
                 break
     return layer

@@ -21,14 +21,14 @@ def create_engine(kind: str = "auto", *, fixture: Path | None = None, **options:
     if kind == "auto":
         kind = "macos" if sys.platform == "darwin" else "unsupported"
     if kind == "fake":
-        from axpilot.engine.fake import FakeEngine
+        from axpilot.engine.fake import FakeEngine  # noqa: PLC0415 - optional import
 
         return FakeEngine.from_fixture(fixture) if fixture else FakeEngine.demo()
     if kind == "macos":
         if sys.platform != "darwin":
             raise AXPilotError(ErrorCode.UNSUPPORTED_OS, "The macOS engine only runs on macOS.")
         try:
-            from axpilot.engine.macos import MacEngine
+            from axpilot.engine.macos import MacEngine  # noqa: PLC0415 - darwin-only import
         except ImportError as exc:  # pragma: no cover - depends on PyObjC install
             raise AXPilotError(
                 ErrorCode.ENGINE_UNAVAILABLE,

@@ -1,0 +1,164 @@
+# Spike S5 (template, not active): can GitHub-hosted macOS runners grant Accessibility and
+# Screen Recording, to the runner's Python (direct mode) and to the AXPilot launcher?
+#
+# To run it, copy this file to .github/workflows/spike-s5.yml on a branch, push, and start it from
+# the Actions tab ("Run workflow"). Download the artifacts and record the findings with
+# docs/spikes/RESULTS_TEMPLATE.md. Before merging anything derived from it, pin every action to a
+# full commit SHA (the tags below are placeholders that must be verified).
+#
+# Background: TCC checks the *responsible* process. On a runner that is probably the runner agent
+# (or its provisioner), not python, which is why every job first runs the S1 probe without any
+# grant ("baseline") and records `responsibility.path` and the TCC rows the image ships with.
+name: spike-s5-ci-permissions
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PROBE: spikes/s1_launcher_tcc/probe.py
+  GRANT: spikes/s5_ci_permissions/grant_tcc.py
+
+jobs:
+  python-direct:
+    name: python direct (${{ matrix.os }}, ${{ matrix.method }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15] # add macos-26 once the label is available to this repository
+        method: [none, tccdb]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5 # placeholder: pin to a commit SHA
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6 # placeholder: pin to a commit SHA
+        with:
+          python-version: "3.12"
+
+      - name: Runner facts
+        run: |
+          sw_vers
+          uname -m
+          csrutil status || true
+          sudo python3 "$GRANT" list --db both || true
+
+      - name: Baseline probe (no grant yet)
+        run: python "$PROBE" --label "baseline-${{ matrix.os }}" --out-file results/baseline.json --no-app-support-copy
+
+      - name: Grant through TCC.db (python and the responsible process)
+        if: matrix.method == 'tccdb'
+        run: |
+          set -euo pipefail
+          python_path="$(python -c 'import os, sys; print(os.path.realpath(sys.executable))')"
+          responsible="$(python -c 'import json; print(json.load(open("results/baseline.json"))["responsibility"].get("path") or "")')"
+          for client in "$python_path" "$responsible"; do
+            [[ -n "$client" ]] || continue
+            for service in Accessibility ScreenCapture PostEvent; do
+              sudo python3 "$GRANT" grant --service "$service" --client "$client" --db both
+            done
+          done
+          sudo python3 "$GRANT" list --db both
+
+      - name: Probe after the grant
+        run: python "$PROBE" --label "after-${{ matrix.method }}-${{ matrix.os }}" --out-file results/after.json --no-app-support-copy
+
+      - name: TCC log excerpt
+        if: always()
+        run: log show --last 10m --predicate 'subsystem == "com.apple.TCC"' --info --style compact > results/tcc.log || true
+
+      - uses: actions/upload-artifact@v4 # placeholder: pin to a commit SHA
+        if: always()
+        with:
+          name: s5-python-${{ matrix.os }}-${{ matrix.method }}
+          path: results/
+
+  setup-a11y:
+    # A separate job on purpose: a job downloads all of its actions before its first step, so an
+    # unverified action reference here cannot break the other jobs.
+    name: xa11y/setup-a11y (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5 # placeholder: pin to a commit SHA
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6 # placeholder: pin to a commit SHA
+        with:
+          python-version: "3.12"
+      - name: Baseline probe (no grant yet)
+        run: python "$PROBE" --label "baseline-${{ matrix.os }}" --out-file results/baseline.json --no-app-support-copy
+      - name: Grant with xa11y/setup-a11y
+        # PLACEHOLDER: read https://github.com/xa11y/setup-a11y first: what it grants, to which
+        # binary, which inputs it takes. Then pin a verified release by commit SHA.
+        uses: xa11y/setup-a11y@v1
+      - name: Probe after the grant
+        run: python "$PROBE" --label "after-setup-a11y-${{ matrix.os }}" --out-file results/after.json --no-app-support-copy
+      - uses: actions/upload-artifact@v4 # placeholder: pin to a commit SHA
+        if: always()
+        with:
+          name: s5-setup-a11y-${{ matrix.os }}
+          path: results/
+
+  launcher:
+    # The full launcher path in CI: build, behaviour tests, install like pip, grant the bundle id,
+    # start it through LaunchServices and let the S1 probe report from inside it.
+    name: launcher (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5 # placeholder: pin to a commit SHA
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6 # placeholder: pin to a commit SHA
+        with:
+          python-version: "3.12"
+
+      - name: Build the launcher
+        run: launcher/build.sh
+
+      - name: Launcher behaviour tests
+        run: |
+          python -m pip install --quiet pytest
+          python -m pytest launcher/tests -v
+
+      - name: Install AXPilot.app like a package manager
+        run: python spikes/s1_launcher_tcc/install.py bundle launcher/build/AXPilot.app "$HOME/Applications/AXPilot.app"
+
+      - name: Grant the AXPilot bundle through TCC.db
+        run: |
+          set -euo pipefail
+          for service in Accessibility ScreenCapture PostEvent; do
+            sudo python3 "$GRANT" grant --service "$service" --client io.github.vansh3503.axpilot \
+              --client-type bundle --csreq-from "$HOME/Applications/AXPilot.app" --db both
+          done
+
+      - name: S1 through the launcher
+        run: |
+          spikes/s1_launcher_tcc/run_s1.sh --skip-build --skip-install \
+            --python "$(python -c 'import sys; print(sys.executable)')" --label "ci-launcher-${{ matrix.os }}" --timeout 120
+
+      - name: Collect evidence
+        if: always()
+        run: |
+          mkdir -p results
+          cp spikes/s1_launcher_tcc/results/*.json results/ 2>/dev/null || true
+          cp "$HOME/Library/Logs/AXPilot/launcher.log" results/ 2>/dev/null || true
+          log show --last 15m --predicate 'subsystem == "com.apple.TCC"' --info --style compact > results/tcc.log || true
+
+      - uses: actions/upload-artifact@v4 # placeholder: pin to a commit SHA
+        if: always()
+        with:
+          name: s5-launcher-${{ matrix.os }}
+          path: results/

@@ -1,0 +1,2594 @@
+{
+  "os_version": "15.4",
+  "displays": [
+    {
+      "display_id": 1, "frame": [0, 0, 1440, 900], "work_area": [0, 25, 1440, 875], "scale": 2.0,
+      "main": true, "name": "Built-in Retina Display"
+    },
+    {
+      "display_id": 2, "frame": [1440, -180, 2560, 1440], "work_area": [1440, -155, 2560, 1415], "scale": 1.0,
+      "main": false, "name": "DELL U2723QE"
+    }
+  ],
+  "apps": [
+    {
+      "name": "Finder", "bundle_id": "com.apple.finder", "pid": 412,
+      "path": "/System/Library/CoreServices/Finder.app", "frontmost": true
+    },
+    {
+      "name": "TextEdit", "bundle_id": "com.apple.TextEdit", "pid": 1021,
+      "path": "/System/Applications/TextEdit.app"
+    },
+    {"name": "Notes", "bundle_id": "com.apple.Notes", "pid": 812, "path": "/System/Applications/Notes.app"},
+    {
+      "name": "Login Demo", "bundle_id": "com.example.LoginDemo", "pid": 1310,
+      "path": "/Applications/Login Demo.app"
+    },
+    {
+      "name": "Terminal", "bundle_id": "com.apple.Terminal", "pid": 655,
+      "path": "/System/Applications/Utilities/Terminal.app"
+    },
+    {
+      "name": "1Password", "bundle_id": "com.1password.1password", "pid": 990,
+      "path": "/Applications/1Password.app"
+    },
+    {
+      "name": "System Settings", "bundle_id": "com.apple.systempreferences", "pid": 1102,
+      "path": "/System/Applications/System Settings.app"
+    },
+    {
+      "name": "Calculator", "bundle_id": "com.apple.calculator", "running": false,
+      "path": "/System/Applications/Calculator.app"
+    },
+    {"name": "Safari", "bundle_id": "com.apple.Safari", "running": false, "path": "/Applications/Safari.app"}
+  ],
+  "windows": [
+    {
+      "window_id": 201, "app": "com.apple.finder", "title": "Downloads", "frame": [120, 90, 900, 520],
+      "tree": {
+        "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
+        "children": [
+          {
+            "role": "AXButton", "subrole": "AXCloseButton", "frame": [128, 96, 14, 16],
+            "actions": ["AXPress"], "on_press": {"close_window": true}
+          },
+          {
+            "role": "AXButton", "subrole": "AXMinimizeButton", "frame": [148, 96, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXButton", "subrole": "AXFullScreenButton", "frame": [168, 96, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXToolbar", "frame": [120, 90, 900, 52],
+            "children": [
+              {
+                "id": "finder.back", "role": "AXButton", "description": "Back", "frame": [300, 102, 28, 28],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "description": "Forward", "enabled": false, "frame": [330, 102, 28, 28],
+                "actions": ["AXPress"]
+              },
+              {"role": "AXStaticText", "value": "Downloads", "frame": [368, 106, 100, 20]},
+              {
+                "role": "AXRadioGroup", "description": "View", "frame": [600, 102, 120, 28],
+                "children": [
+                  {
+                    "role": "AXRadioButton", "description": "as Icons", "value": 0,
+                    "frame": [600, 102, 30, 28], "actions": ["AXPress"]
+                  },
+                  {
+                    "role": "AXRadioButton", "description": "as List", "value": 1,
+                    "frame": [630, 102, 30, 28], "actions": ["AXPress"]
+                  },
+                  {
+                    "role": "AXRadioButton", "description": "as Columns", "value": 0,
+                    "frame": [660, 102, 30, 28], "actions": ["AXPress"]
+                  },
+                  {
+                    "role": "AXRadioButton", "description": "as Gallery", "value": 0,
+                    "frame": [690, 102, 30, 28], "actions": ["AXPress"]
+                  }
+                ]
+              },
+              {
+                "role": "AXMenuButton", "description": "Group", "frame": [730, 102, 40, 28],
+                "actions": ["AXPress", "AXShowMenu"]
+              },
+              {
+                "role": "AXButton", "description": "Share", "frame": [780, 102, 28, 28],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXMenuButton", "description": "Action", "frame": [815, 102, 40, 28],
+                "actions": ["AXPress", "AXShowMenu"]
+              },
+              {
+                "id": "finder.search", "role": "AXTextField", "subrole": "AXSearchField",
+                "description": "search", "value": "", "placeholder": "Search", "frame": [860, 104, 150, 24],
+                "actions": ["AXConfirm", "AXShowMenu"]
+              }
+            ]
+          },
+          {
+            "role": "AXSplitGroup", "frame": [120, 142, 900, 446],
+            "children": [
+              {
+                "role": "AXScrollArea", "frame": [120, 142, 180, 446],
+                "children": [
+                  {
+                    "id": "finder.sidebar", "role": "AXOutline", "description": "Sidebar",
+                    "frame": [120, 142, 180, 446],
+                    "children": [
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "enabled": false,
+                        "frame": [120, 150, 180, 24],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [120, 150, 180, 24],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Favorites", "frame": [140, 154, 140, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [120, 174, 180, 24],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [120, 174, 180, 24],
+                            "children": [
+                              {"role": "AXStaticText", "value": "AirDrop", "frame": [140, 178, 140, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [120, 198, 180, 24],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [120, 198, 180, 24],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Recents", "frame": [140, 202, 140, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [120, 222, 180, 24],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [120, 222, 180, 24],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Applications", "frame": [140, 226, 140, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [120, 246, 180, 24],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [120, 246, 180, 24],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Desktop", "frame": [140, 250, 140, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [120, 270, 180, 24],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [120, 270, 180, 24],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Documents", "frame": [140, 274, 140, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "selected": true,
+                        "frame": [120, 294, 180, 24],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [120, 294, 180, 24],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Downloads", "frame": [140, 298, 140, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "enabled": false,
+                        "frame": [120, 318, 180, 24],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [120, 318, 180, 24],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Locations", "frame": [140, 322, 140, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [120, 342, 180, 24],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [120, 342, 180, 24],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Macintosh HD", "frame": [140, 346, 140, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [120, 366, 180, 24],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [120, 366, 180, 24],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Network", "frame": [140, 370, 140, 16]}
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {"role": "AXSplitter", "frame": [300, 142, 1, 446]},
+              {
+                "role": "AXScrollArea", "frame": [301, 142, 719, 446],
+                "children": [
+                  {
+                    "id": "finder.files", "role": "AXOutline", "description": "list view", "focused": true,
+                    "frame": [301, 142, 704, 446],
+                    "children": [
+                      {
+                        "role": "AXGroup", "frame": [301, 142, 704, 24],
+                        "children": [
+                          {
+                            "role": "AXButton", "title": "Name", "frame": [301, 142, 300, 24],
+                            "actions": ["AXPress"]
+                          },
+                          {
+                            "role": "AXButton", "title": "Date Modified", "frame": [601, 142, 180, 24],
+                            "actions": ["AXPress"]
+                          },
+                          {
+                            "role": "AXButton", "title": "Size", "frame": [781, 142, 100, 24],
+                            "actions": ["AXPress"]
+                          },
+                          {
+                            "role": "AXButton", "title": "Kind", "frame": [881, 142, 124, 24],
+                            "actions": ["AXPress"]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [301, 166, 704, 26],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [301, 166, 300, 26],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "Quarterly Report.pdf",
+                                "frame": [323, 171, 270, 16]
+                              }
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [601, 166, 180, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Today at 9:41", "frame": [623, 171, 150, 16]}
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [781, 166, 100, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "2.4 MB", "frame": [803, 171, 70, 16]}
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [881, 166, 124, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "PDF document", "frame": [903, 171, 94, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [301, 192, 704, 26],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [301, 192, 300, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "IMG_2041.HEIC", "frame": [323, 197, 270, 16]}
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [601, 192, 180, 26],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "Yesterday at 18:22",
+                                "frame": [623, 197, 150, 16]
+                              }
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [781, 192, 100, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "3.1 MB", "frame": [803, 197, 70, 16]}
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [881, 192, 124, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "HEIF image", "frame": [903, 197, 94, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [301, 218, 704, 26],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [301, 218, 300, 26],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "axpilot-0.1.0.tar.gz",
+                                "frame": [323, 223, 270, 16]
+                              }
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [601, 218, 180, 26],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "Oct 17, 2026 at 11:05",
+                                "frame": [623, 223, 150, 16]
+                              }
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [781, 218, 100, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "48 KB", "frame": [803, 223, 70, 16]}
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [881, 218, 124, 26],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "gzip compressed archive",
+                                "frame": [903, 223, 94, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [301, 244, 704, 26],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [301, 244, 300, 26],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "Meeting Notes.docx",
+                                "frame": [323, 249, 270, 16]
+                              }
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [601, 244, 180, 26],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "Oct 14, 2026 at 16:30",
+                                "frame": [623, 249, 150, 16]
+                              }
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [781, 244, 100, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "86 KB", "frame": [803, 249, 70, 16]}
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [881, 244, 124, 26],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "Microsoft Word document",
+                                "frame": [903, 249, 94, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "expanded": false,
+                        "frame": [301, 270, 704, 26],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [301, 270, 300, 26],
+                            "children": [
+                              {
+                                "id": "finder.invoices.disclosure", "role": "AXDisclosureTriangle",
+                                "expanded": false, "frame": [305, 275, 13, 16], "actions": ["AXPress"]
+                              },
+                              {"role": "AXStaticText", "value": "Invoices", "frame": [323, 275, 270, 16]}
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [601, 270, 180, 26],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "Oct 2, 2026 at 08:12",
+                                "frame": [623, 275, 150, 16]
+                              }
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [781, 270, 100, 26],
+                            "children": [{"role": "AXStaticText", "value": "--", "frame": [803, 275, 70, 16]}]
+                          },
+                          {
+                            "role": "AXCell", "frame": [881, 270, 124, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Folder", "frame": [903, 275, 94, 16]}
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXScrollBar", "frame": [1005, 142, 15, 446],
+                    "children": [{"role": "AXValueIndicator", "frame": [1005, 142, 15, 60]}]
+                  }
+                ]
+              }
+            ]
+          },
+          {"role": "AXStaticText", "value": "5 items, 212.4 GB available", "frame": [120, 588, 900, 22]}
+        ]
+      }
+    },
+    {
+      "window_id": 301, "app": "com.apple.TextEdit", "title": "Untitled", "frame": [260, 140, 820, 600],
+      "tree": {
+        "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
+        "children": [
+          {
+            "role": "AXButton", "subrole": "AXCloseButton", "frame": [268, 146, 14, 16],
+            "actions": ["AXPress"], "on_press": {"close_window": true}
+          },
+          {
+            "role": "AXButton", "subrole": "AXMinimizeButton", "frame": [288, 146, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXButton", "subrole": "AXFullScreenButton", "frame": [308, 146, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXToolbar", "description": "Format Bar", "frame": [260, 168, 820, 30],
+            "children": [
+              {
+                "id": "textedit.style", "role": "AXPopUpButton", "description": "Paragraph Styles",
+                "value": "Body", "frame": [268, 172, 60, 22], "actions": ["AXPress", "AXShowMenu"],
+                "options": ["Body", "Title", "Heading", "Subheading", "Caption", "Monospaced"]
+              },
+              {
+                "id": "textedit.font", "role": "AXPopUpButton", "description": "Font Family",
+                "value": "Helvetica", "frame": [334, 172, 120, 22], "actions": ["AXPress", "AXShowMenu"],
+                "options": ["Helvetica", "Helvetica Neue", "Avenir Next", "Menlo", "Times New Roman"]
+              },
+              {
+                "role": "AXPopUpButton", "description": "Typeface", "value": "Regular",
+                "frame": [458, 172, 80, 22], "actions": ["AXPress", "AXShowMenu"],
+                "options": ["Regular", "Oblique", "Light", "Bold", "Bold Oblique"]
+              },
+              {
+                "id": "textedit.size", "role": "AXComboBox", "description": "Font Size", "value": "12",
+                "frame": [542, 172, 50, 22], "actions": ["AXConfirm", "AXShowMenu"],
+                "options": ["9", "10", "11", "12", "13", "14", "18", "24", "36"]
+              },
+              {
+                "role": "AXColorWell", "description": "Text Color", "frame": [598, 172, 24, 22],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXColorWell", "description": "Text Background Color", "frame": [626, 172, 24, 22],
+                "actions": ["AXPress"]
+              },
+              {
+                "id": "textedit.bold", "role": "AXCheckBox", "description": "Bold", "value": 0,
+                "frame": [656, 172, 24, 22], "actions": ["AXPress"]
+              },
+              {
+                "id": "textedit.italic", "role": "AXCheckBox", "description": "Italic", "value": 0,
+                "frame": [682, 172, 24, 22], "actions": ["AXPress"]
+              },
+              {
+                "role": "AXCheckBox", "description": "Underline", "value": 0, "frame": [708, 172, 24, 22],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXRadioGroup", "description": "Text Alignment", "frame": [740, 172, 104, 22],
+                "children": [
+                  {
+                    "role": "AXRadioButton", "description": "Align Left", "value": 1,
+                    "frame": [740, 172, 26, 22], "actions": ["AXPress"]
+                  },
+                  {
+                    "role": "AXRadioButton", "description": "Center", "value": 0, "frame": [766, 172, 26, 22],
+                    "actions": ["AXPress"]
+                  },
+                  {
+                    "role": "AXRadioButton", "description": "Justify", "value": 0,
+                    "frame": [792, 172, 26, 22], "actions": ["AXPress"]
+                  },
+                  {
+                    "role": "AXRadioButton", "description": "Align Right", "value": 0,
+                    "frame": [818, 172, 26, 22], "actions": ["AXPress"]
+                  }
+                ]
+              },
+              {
+                "role": "AXPopUpButton", "description": "Line and Paragraph Spacing", "value": "1.0",
+                "frame": [852, 172, 56, 22], "actions": ["AXPress", "AXShowMenu"],
+                "options": ["1.0", "1.15", "1.5", "2.0"]
+              },
+              {
+                "role": "AXMenuButton", "description": "Lists", "frame": [914, 172, 56, 22],
+                "actions": ["AXPress", "AXShowMenu"]
+              }
+            ]
+          },
+          {
+            "role": "AXScrollArea", "frame": [260, 198, 820, 542],
+            "children": [
+              {
+                "id": "textedit.body", "role": "AXTextArea",
+                "value": "Meeting agenda\n1. Roadmap review\n2. Launch checklist\n3. Q&A",
+                "identifier": "First Text View", "focused": true, "frame": [260, 198, 805, 542]
+              },
+              {
+                "role": "AXScrollBar", "frame": [1065, 198, 15, 542],
+                "children": [{"role": "AXValueIndicator", "frame": [1065, 198, 15, 60]}]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "window_id": 401, "app": "com.apple.Notes", "title": "Notes", "frame": [0, 25, 1440, 875],
+      "tree": {
+        "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
+        "children": [
+          {
+            "role": "AXButton", "subrole": "AXCloseButton", "frame": [8, 31, 14, 16], "actions": ["AXPress"],
+            "on_press": {"close_window": true}
+          },
+          {
+            "role": "AXButton", "subrole": "AXMinimizeButton", "frame": [28, 31, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXButton", "subrole": "AXFullScreenButton", "frame": [48, 31, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXToolbar", "frame": [0, 25, 1440, 52],
+            "children": [
+              {
+                "role": "AXButton", "description": "Show Folders", "frame": [210, 38, 28, 28],
+                "actions": ["AXPress"]
+              },
+              {
+                "id": "notes.delete", "role": "AXButton", "description": "Delete", "frame": [440, 38, 28, 28],
+                "actions": ["AXPress"],
+                "on_press": [
+                  {"hide": "notes.row.shopping"},
+                  {"select": "notes.row.trip"},
+                  {"set_value": {"id": "notes.body", "value": "Trip ideas\nLisbon, Kyoto, Vancouver"}}
+                ]
+              },
+              {
+                "id": "notes.new-note", "role": "AXButton", "description": "New Note",
+                "frame": [470, 38, 28, 28], "actions": ["AXPress"],
+                "on_press": [
+                  {"show": "notes.row.new"},
+                  {"select": "notes.row.new"},
+                  {"set_value": {"id": "notes.body", "value": ""}},
+                  {"focus": "notes.body"}
+                ]
+              },
+              {
+                "role": "AXMenuButton", "description": "Format", "frame": [560, 38, 28, 28],
+                "actions": ["AXPress", "AXShowMenu"]
+              },
+              {
+                "role": "AXButton", "description": "Checklist", "frame": [596, 38, 28, 28],
+                "actions": ["AXPress"]
+              },
+              {"role": "AXButton", "description": "Table", "frame": [632, 38, 28, 28], "actions": ["AXPress"]},
+              {
+                "role": "AXMenuButton", "description": "Media", "frame": [668, 38, 28, 28],
+                "actions": ["AXPress", "AXShowMenu"]
+              },
+              {
+                "role": "AXMenuButton", "description": "Lock", "frame": [1174, 38, 28, 28],
+                "actions": ["AXPress", "AXShowMenu"]
+              },
+              {
+                "role": "AXMenuButton", "description": "Share", "frame": [1210, 38, 28, 28],
+                "actions": ["AXPress", "AXShowMenu"]
+              },
+              {
+                "id": "notes.search", "role": "AXTextField", "subrole": "AXSearchField",
+                "description": "Search", "value": "", "placeholder": "Search", "frame": [1250, 40, 180, 24],
+                "actions": ["AXConfirm", "AXShowMenu"]
+              }
+            ]
+          },
+          {
+            "role": "AXSplitGroup", "frame": [0, 77, 1440, 823],
+            "children": [
+              {
+                "role": "AXScrollArea", "frame": [0, 77, 200, 823],
+                "children": [
+                  {
+                    "id": "notes.folders", "role": "AXOutline", "description": "Folders",
+                    "frame": [0, 77, 200, 823],
+                    "children": [
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "expanded": true,
+                        "frame": [0, 85, 200, 28],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [0, 85, 200, 28],
+                            "children": [
+                              {"role": "AXStaticText", "value": "iCloud", "frame": [20, 91, 120, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "selected": true,
+                        "frame": [0, 113, 200, 28],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [0, 113, 200, 28],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Notes", "frame": [20, 119, 120, 16]},
+                              {"role": "AXStaticText", "value": "14", "frame": [160, 119, 24, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [0, 141, 200, 28],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [0, 141, 200, 28],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Shared", "frame": [20, 147, 120, 16]},
+                              {"role": "AXStaticText", "value": "2", "frame": [160, 147, 24, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [0, 169, 200, 28],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [0, 169, 200, 28],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "Recently Deleted",
+                                "frame": [20, 175, 120, 16]
+                              },
+                              {"role": "AXStaticText", "value": "3", "frame": [160, 175, 24, 16]}
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {"role": "AXSplitter", "frame": [200, 77, 1, 823]},
+              {
+                "role": "AXScrollArea", "frame": [201, 77, 300, 823],
+                "children": [
+                  {
+                    "id": "notes.list", "role": "AXList", "description": "Notes",
+                    "frame": [201, 77, 285, 1084],
+                    "children": [
+                      {"role": "AXStaticText", "value": "Today", "frame": [217, 81, 260, 18]},
+                      {
+                        "id": "notes.row.new", "role": "AXRow", "visible": false,
+                        "frame": [201, 101, 285, 64],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [201, 101, 285, 64],
+                            "children": [
+                              {"role": "AXStaticText", "value": "New Note", "frame": [217, 111, 250, 18]},
+                              {"role": "AXStaticText", "value": "10:45", "frame": [217, 133, 60, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "notes.row.shopping", "role": "AXRow", "selected": true,
+                        "frame": [201, 165, 285, 64],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [201, 165, 285, 64],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Shopping list", "frame": [217, 175, 250, 18]},
+                              {"role": "AXStaticText", "value": "10:42", "frame": [217, 197, 60, 16]},
+                              {
+                                "role": "AXStaticText", "value": "Milk, eggs, bread",
+                                "frame": [281, 197, 190, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "notes.row.trip", "role": "AXRow", "selected": false,
+                        "frame": [201, 229, 285, 64],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [201, 229, 285, 64],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Trip ideas", "frame": [217, 239, 250, 18]},
+                              {"role": "AXStaticText", "value": "Yesterday", "frame": [217, 261, 60, 16]},
+                              {
+                                "role": "AXStaticText", "value": "Lisbon, Kyoto, Vancouver",
+                                "frame": [281, 261, 190, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "notes.row.book", "role": "AXRow", "selected": false,
+                        "frame": [201, 293, 285, 64],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [201, 293, 285, 64],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "Book recommendations",
+                                "frame": [217, 303, 250, 18]
+                              },
+                              {"role": "AXStaticText", "value": "Monday", "frame": [217, 325, 60, 16]},
+                              {
+                                "role": "AXStaticText", "value": "Piranesi; The Overstory",
+                                "frame": [281, 325, 190, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "notes.row.lemon", "role": "AXRow", "selected": false,
+                        "frame": [201, 357, 285, 64],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [201, 357, 285, 64],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "Lemon pasta recipe",
+                                "frame": [217, 367, 250, 18]
+                              },
+                              {"role": "AXStaticText", "value": "Saturday", "frame": [217, 389, 60, 16]},
+                              {
+                                "role": "AXStaticText", "value": "Zest two lemons",
+                                "frame": [281, 389, 190, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "notes.row.gift", "role": "AXRow", "selected": false,
+                        "frame": [201, 421, 285, 64],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [201, 421, 285, 64],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Gift ideas", "frame": [217, 431, 250, 18]},
+                              {"role": "AXStaticText", "value": "10/14/26", "frame": [217, 453, 60, 16]},
+                              {
+                                "role": "AXStaticText", "value": "Mum: ceramic planter",
+                                "frame": [281, 453, 190, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "notes.row.car", "role": "AXRow", "selected": false,
+                        "frame": [201, 485, 285, 64],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [201, 485, 285, 64],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Car service", "frame": [217, 495, 250, 18]},
+                              {"role": "AXStaticText", "value": "10/12/26", "frame": [217, 517, 60, 16]},
+                              {
+                                "role": "AXStaticText", "value": "Booked for Nov 3",
+                                "frame": [281, 517, 190, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "notes.row.podcast", "role": "AXRow", "selected": false,
+                        "frame": [201, 549, 285, 64],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [201, 549, 285, 64],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Podcast notes", "frame": [217, 559, 250, 18]},
+                              {"role": "AXStaticText", "value": "10/9/26", "frame": [217, 581, 60, 16]},
+                              {
+                                "role": "AXStaticText", "value": "Episode 112 on habits",
+                                "frame": [281, 581, 190, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "notes.row.garden", "role": "AXRow", "selected": false,
+                        "frame": [201, 613, 285, 64],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [201, 613, 285, 64],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Garden plan", "frame": [217, 623, 250, 18]},
+                              {"role": "AXStaticText", "value": "10/3/26", "frame": [217, 645, 60, 16]},
+                              {
+                                "role": "AXStaticText", "value": "Tulips along the fence",
+                                "frame": [281, 645, 190, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "notes.row.wi-fi", "role": "AXRow", "selected": false,
+                        "frame": [201, 677, 285, 64],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [201, 677, 285, 64],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Wi-Fi setup", "frame": [217, 687, 250, 18]},
+                              {"role": "AXStaticText", "value": "9/28/26", "frame": [217, 709, 60, 16]},
+                              {
+                                "role": "AXStaticText", "value": "Router in the hallway",
+                                "frame": [281, 709, 190, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "notes.row.running", "role": "AXRow", "selected": false,
+                        "frame": [201, 741, 285, 64],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [201, 741, 285, 64],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Running log", "frame": [217, 751, 250, 18]},
+                              {"role": "AXStaticText", "value": "9/21/26", "frame": [217, 773, 60, 16]},
+                              {"role": "AXStaticText", "value": "5 km in 27:10", "frame": [281, 773, 190, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "notes.row.quotes", "role": "AXRow", "selected": false,
+                        "frame": [201, 805, 285, 64],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [201, 805, 285, 64],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Quotes", "frame": [217, 815, 250, 18]},
+                              {"role": "AXStaticText", "value": "9/15/26", "frame": [217, 837, 60, 16]},
+                              {
+                                "role": "AXStaticText", "value": "Simple is hard",
+                                "frame": [281, 837, 190, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "notes.row.apartment", "role": "AXRow", "selected": false,
+                        "frame": [201, 869, 285, 64],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [201, 869, 285, 64],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "Apartment checklist",
+                                "frame": [217, 879, 250, 18]
+                              },
+                              {"role": "AXStaticText", "value": "9/2/26", "frame": [217, 901, 60, 16]},
+                              {
+                                "role": "AXStaticText", "value": "Check water pressure",
+                                "frame": [281, 901, 190, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "notes.row.packing", "role": "AXRow", "selected": false,
+                        "frame": [201, 933, 285, 64],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [201, 933, 285, 64],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Packing list", "frame": [217, 943, 250, 18]},
+                              {"role": "AXStaticText", "value": "8/19/26", "frame": [217, 965, 60, 16]},
+                              {
+                                "role": "AXStaticText", "value": "Passport, charger",
+                                "frame": [281, 965, 190, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "notes.row.old", "role": "AXRow", "selected": false,
+                        "frame": [201, 997, 285, 64],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [201, 997, 285, 64],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Old ideas", "frame": [217, 1007, 250, 18]},
+                              {"role": "AXStaticText", "value": "7/30/26", "frame": [217, 1029, 60, 16]},
+                              {"role": "AXStaticText", "value": "Bike to work", "frame": [281, 1029, 190, 16]}
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXScrollBar", "frame": [486, 77, 15, 823],
+                    "children": [{"role": "AXValueIndicator", "frame": [486, 77, 15, 60]}]
+                  }
+                ]
+              },
+              {"role": "AXSplitter", "frame": [501, 77, 1, 823]},
+              {
+                "role": "AXScrollArea", "frame": [502, 77, 938, 823],
+                "children": [
+                  {
+                    "id": "notes.body", "role": "AXTextArea", "description": "Note body",
+                    "value": "Shopping list\nMilk, eggs, bread, coffee beans, olive oil", "focused": true,
+                    "frame": [502, 77, 938, 823]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "window_id": 501, "app": "com.example.LoginDemo", "title": "Login Demo", "frame": [1600, 100, 600, 420],
+      "tree": {
+        "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
+        "children": [
+          {
+            "role": "AXButton", "subrole": "AXCloseButton", "frame": [1608, 106, 14, 16],
+            "actions": ["AXPress"], "on_press": {"close_window": true}
+          },
+          {
+            "role": "AXButton", "subrole": "AXMinimizeButton", "frame": [1628, 106, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXButton", "subrole": "AXFullScreenButton", "frame": [1648, 106, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {"role": "AXImage", "description": "Login Demo logo", "frame": [1860, 160, 80, 80]},
+          {"role": "AXStaticText", "value": "You are signed out.", "frame": [1800, 260, 200, 20]},
+          {
+            "id": "login.open-sheet", "role": "AXButton", "title": "Sign In…", "frame": [1850, 300, 100, 28],
+            "actions": ["AXPress"], "on_press": [{"show": "login.sheet"}, {"focus": "login.email"}]
+          },
+          {
+            "id": "login.sheet", "role": "AXSheet", "frame": [1650, 128, 500, 300],
+            "children": [
+              {"role": "AXImage", "description": "Login Demo", "frame": [1880, 140, 40, 40]},
+              {"role": "AXStaticText", "value": "Sign in to Login Demo", "frame": [1750, 186, 300, 22]},
+              {"role": "AXStaticText", "value": "Email", "frame": [1690, 224, 80, 18]},
+              {
+                "id": "login.email", "role": "AXTextField", "description": "Email", "value": "",
+                "identifier": "login.email", "placeholder": "name@example.com", "focused": true,
+                "frame": [1780, 220, 330, 24], "actions": ["AXConfirm", "AXShowMenu"]
+              },
+              {"role": "AXStaticText", "value": "Password", "frame": [1690, 260, 80, 18]},
+              {
+                "id": "login.password", "role": "AXTextField", "subrole": "AXSecureTextField",
+                "description": "Password", "value": "correct horse battery staple",
+                "identifier": "login.password", "secure": true, "frame": [1780, 256, 330, 24],
+                "actions": ["AXConfirm", "AXShowMenu"]
+              },
+              {
+                "id": "login.remember", "role": "AXCheckBox", "title": "Remember me", "value": 0,
+                "frame": [1780, 292, 140, 20], "actions": ["AXPress"]
+              },
+              {
+                "id": "login.error", "role": "AXStaticText", "value": "Incorrect email or password.",
+                "visible": false, "frame": [1780, 318, 330, 18]
+              },
+              {
+                "id": "login.cancel", "role": "AXButton", "title": "Cancel", "frame": [1940, 384, 80, 28],
+                "actions": ["AXPress"], "on_press": {"hide": "login.sheet"}
+              },
+              {
+                "id": "login.submit", "role": "AXButton", "title": "Sign In", "identifier": "login.submit",
+                "frame": [2030, 384, 100, 28], "actions": ["AXPress"], "on_press": {"show": "login.error"}
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "window_id": 601, "app": "com.apple.Terminal", "title": "vansh — -zsh — 80×24",
+      "frame": [2300, 200, 740, 480],
+      "tree": {
+        "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
+        "children": [
+          {
+            "role": "AXButton", "subrole": "AXCloseButton", "frame": [2308, 206, 14, 16],
+            "actions": ["AXPress"], "on_press": {"close_window": true}
+          },
+          {
+            "role": "AXButton", "subrole": "AXMinimizeButton", "frame": [2328, 206, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXButton", "subrole": "AXFullScreenButton", "frame": [2348, 206, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXScrollArea", "frame": [2300, 228, 740, 452],
+            "children": [
+              {
+                "id": "terminal.shell", "role": "AXTextArea", "description": "shell",
+                "value": "Last login: Mon Oct 19 09:12:44 on ttys000\nvansh@MacBook-Pro ~ % ",
+                "focused": true, "frame": [2300, 228, 725, 452]
+              },
+              {
+                "role": "AXScrollBar", "frame": [3025, 228, 15, 452],
+                "children": [{"role": "AXValueIndicator", "frame": [3025, 228, 15, 60]}]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "window_id": 701, "app": "com.1password.1password", "title": "1Password",
+      "frame": [1500, 560, 900, 560],
+      "tree": {
+        "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
+        "children": [
+          {
+            "role": "AXButton", "subrole": "AXCloseButton", "frame": [1508, 566, 14, 16],
+            "actions": ["AXPress"], "on_press": {"close_window": true}
+          },
+          {
+            "role": "AXButton", "subrole": "AXMinimizeButton", "frame": [1528, 566, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXButton", "subrole": "AXFullScreenButton", "frame": [1548, 566, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "id": "1password.search", "role": "AXTextField", "subrole": "AXSearchField",
+            "description": "Search", "value": "", "placeholder": "Search in All Items",
+            "frame": [1700, 572, 300, 24], "actions": ["AXConfirm", "AXShowMenu"]
+          },
+          {
+            "role": "AXSplitGroup", "frame": [1500, 608, 900, 512],
+            "children": [
+              {
+                "role": "AXScrollArea", "frame": [1500, 608, 220, 512],
+                "children": [
+                  {
+                    "role": "AXOutline", "description": "Sidebar", "frame": [1500, 608, 220, 512],
+                    "children": [
+                      {
+                        "role": "AXRow", "selected": true, "frame": [1500, 616, 220, 28],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [1500, 616, 220, 28],
+                            "children": [
+                              {"role": "AXStaticText", "value": "All Items", "frame": [1520, 622, 180, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "selected": false, "frame": [1500, 644, 220, 28],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [1500, 644, 220, 28],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Favorites", "frame": [1520, 650, 180, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "selected": false, "frame": [1500, 672, 220, 28],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [1500, 672, 220, 28],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Watchtower", "frame": [1520, 678, 180, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "selected": false, "frame": [1500, 700, 220, 28],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [1500, 700, 220, 28],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Personal", "frame": [1520, 706, 180, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "selected": false, "frame": [1500, 728, 220, 28],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [1500, 728, 220, 28],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Work", "frame": [1520, 734, 180, 16]}
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "role": "AXScrollArea", "frame": [1721, 608, 280, 512],
+                "children": [
+                  {
+                    "id": "1password.items", "role": "AXList", "description": "Items",
+                    "frame": [1721, 608, 265, 512],
+                    "children": [
+                      {
+                        "role": "AXRow", "selected": true, "frame": [1721, 616, 265, 52],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [1721, 616, 265, 52],
+                            "children": [
+                              {"role": "AXStaticText", "value": "GitHub", "frame": [1737, 624, 230, 18]},
+                              {"role": "AXStaticText", "value": "vansh3503", "frame": [1737, 644, 230, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "selected": false, "frame": [1721, 668, 265, 52],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [1721, 668, 265, 52],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "Bank of Example",
+                                "frame": [1737, 676, 230, 18]
+                              },
+                              {
+                                "role": "AXStaticText", "value": "vansh@example.com",
+                                "frame": [1737, 696, 230, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "selected": false, "frame": [1721, 720, 265, 52],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [1721, 720, 265, 52],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Home Wi-Fi", "frame": [1737, 728, 230, 18]},
+                              {
+                                "role": "AXStaticText", "value": "Wireless Router",
+                                "frame": [1737, 748, 230, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "selected": false, "frame": [1721, 772, 265, 52],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [1721, 772, 265, 52],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "Apple Account",
+                                "frame": [1737, 780, 230, 18]
+                              },
+                              {
+                                "role": "AXStaticText", "value": "vansh@icloud.com",
+                                "frame": [1737, 800, 230, 16]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "role": "AXGroup", "description": "Item Details", "frame": [2002, 608, 398, 512],
+                "children": [
+                  {"role": "AXHeading", "title": "GitHub", "frame": [2022, 628, 200, 28]},
+                  {"role": "AXButton", "title": "Edit", "frame": [2330, 628, 50, 24], "actions": ["AXPress"]},
+                  {"role": "AXStaticText", "value": "username", "frame": [2022, 676, 100, 16]},
+                  {
+                    "role": "AXTextField", "description": "username", "value": "vansh3503",
+                    "frame": [2022, 694, 300, 22], "settable": false
+                  },
+                  {"role": "AXStaticText", "value": "password", "frame": [2022, 730, 100, 16]},
+                  {
+                    "id": "1password.password", "role": "AXTextField", "subrole": "AXSecureTextField",
+                    "description": "password", "value": "gh-Sup3r-S3cret!", "secure": true,
+                    "frame": [2022, 748, 300, 22]
+                  },
+                  {"role": "AXButton", "title": "Copy", "frame": [2330, 748, 50, 22], "actions": ["AXPress"]},
+                  {"role": "AXStaticText", "value": "website", "frame": [2022, 784, 100, 16]},
+                  {
+                    "role": "AXLink", "title": "github.com", "url": "https://github.com",
+                    "frame": [2022, 802, 120, 18], "actions": ["AXPress"]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "window_id": 801, "app": "com.apple.systempreferences", "title": "Privacy & Security",
+      "frame": [3100, 120, 715, 640],
+      "tree": {
+        "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
+        "children": [
+          {
+            "role": "AXButton", "subrole": "AXCloseButton", "frame": [3108, 126, 14, 16],
+            "actions": ["AXPress"], "on_press": {"close_window": true}
+          },
+          {
+            "role": "AXButton", "subrole": "AXMinimizeButton", "frame": [3128, 126, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXButton", "subrole": "AXFullScreenButton", "frame": [3148, 126, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "id": "settings.search", "role": "AXTextField", "subrole": "AXSearchField",
+            "description": "Search", "value": "", "placeholder": "Search", "frame": [3110, 160, 200, 24],
+            "actions": ["AXConfirm", "AXShowMenu"]
+          },
+          {
+            "role": "AXScrollArea", "frame": [3100, 192, 220, 568],
+            "children": [
+              {
+                "id": "settings.sidebar", "role": "AXOutline", "description": "Sidebar",
+                "frame": [3100, 192, 220, 568],
+                "children": [
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 196, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 196, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Vansh Agarwal", "frame": [3140, 202, 170, 16]},
+                          {"role": "AXStaticText", "value": "Apple Account", "frame": [3140, 214, 170, 10]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 224, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 224, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Wi-Fi", "frame": [3140, 230, 170, 16]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 252, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 252, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Bluetooth", "frame": [3140, 258, 170, 16]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 280, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 280, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Network", "frame": [3140, 286, 170, 16]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 308, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 308, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Notifications", "frame": [3140, 314, 170, 16]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 336, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 336, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Sound", "frame": [3140, 342, 170, 16]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 364, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 364, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Focus", "frame": [3140, 370, 170, 16]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 392, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 392, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Screen Time", "frame": [3140, 398, 170, 16]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 420, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 420, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "General", "frame": [3140, 426, 170, 16]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 448, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 448, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Appearance", "frame": [3140, 454, 170, 16]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 476, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 476, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Accessibility", "frame": [3140, 482, 170, 16]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 504, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 504, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Control Center", "frame": [3140, 510, 170, 16]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 532, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 532, 220, 28],
+                        "children": [{"role": "AXStaticText", "value": "Siri", "frame": [3140, 538, 170, 16]}]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": true, "frame": [3100, 560, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 560, 220, 28],
+                        "children": [
+                          {
+                            "role": "AXStaticText", "value": "Privacy & Security",
+                            "frame": [3140, 566, 170, 16]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 588, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 588, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Desktop & Dock", "frame": [3140, 594, 170, 16]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 616, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 616, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Displays", "frame": [3140, 622, 170, 16]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 644, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 644, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Wallpaper", "frame": [3140, 650, 170, 16]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 672, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 672, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Lock Screen", "frame": [3140, 678, 170, 16]}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 700, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 700, 220, 28],
+                        "children": [
+                          {
+                            "role": "AXStaticText", "value": "Touch ID & Password",
+                            "frame": [3140, 706, 170, 16]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "AXRow", "selected": false, "frame": [3100, 728, 220, 28],
+                    "children": [
+                      {
+                        "role": "AXCell", "frame": [3100, 728, 220, 28],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Users & Groups", "frame": [3140, 734, 170, 16]}
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "role": "AXGroup", "frame": [3321, 148, 494, 612],
+            "children": [
+              {
+                "role": "AXScrollArea", "frame": [3321, 148, 494, 612],
+                "children": [
+                  {"role": "AXHeading", "title": "Privacy & Security", "frame": [3341, 160, 300, 26]},
+                  {
+                    "role": "AXGroup", "description": "Privacy", "frame": [3341, 196, 454, 680],
+                    "children": [
+                      {
+                        "id": "settings.privacy.location-services", "role": "AXButton",
+                        "title": "Location Services", "frame": [3341, 200, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.contacts", "role": "AXButton", "title": "Contacts",
+                        "frame": [3341, 234, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.calendars", "role": "AXButton", "title": "Calendars",
+                        "frame": [3341, 268, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.reminders", "role": "AXButton", "title": "Reminders",
+                        "frame": [3341, 302, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.photos", "role": "AXButton", "title": "Photos",
+                        "frame": [3341, 336, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.bluetooth", "role": "AXButton", "title": "Bluetooth",
+                        "frame": [3341, 370, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.microphone", "role": "AXButton", "title": "Microphone",
+                        "frame": [3341, 404, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.camera", "role": "AXButton", "title": "Camera",
+                        "frame": [3341, 438, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.motion-fitness", "role": "AXButton",
+                        "title": "Motion & Fitness", "frame": [3341, 472, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.homekit", "role": "AXButton", "title": "HomeKit",
+                        "frame": [3341, 506, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.speech-recognition", "role": "AXButton",
+                        "title": "Speech Recognition", "frame": [3341, 540, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.media-apple-music", "role": "AXButton",
+                        "title": "Media & Apple Music", "frame": [3341, 574, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.files-folders", "role": "AXButton",
+                        "title": "Files & Folders", "frame": [3341, 608, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.full-disk-access", "role": "AXButton",
+                        "title": "Full Disk Access", "frame": [3341, 642, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.focus", "role": "AXButton", "title": "Focus",
+                        "frame": [3341, 676, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.accessibility", "role": "AXButton", "title": "Accessibility",
+                        "frame": [3341, 710, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.input-monitoring", "role": "AXButton",
+                        "title": "Input Monitoring", "frame": [3341, 744, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.screen-system-audio-recording", "role": "AXButton",
+                        "title": "Screen & System Audio Recording", "frame": [3341, 778, 454, 34],
+                        "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.automation", "role": "AXButton", "title": "Automation",
+                        "frame": [3341, 812, 454, 34], "actions": ["AXPress"]
+                      },
+                      {
+                        "id": "settings.privacy.app-management", "role": "AXButton",
+                        "title": "App Management", "frame": [3341, 846, 454, 34], "actions": ["AXPress"]
+                      }
+                    ]
+                  },
+                  {"role": "AXHeading", "title": "Security", "frame": [3341, 890, 300, 26]},
+                  {"role": "AXStaticText", "value": "Allow applications from", "frame": [3341, 926, 200, 18]},
+                  {
+                    "role": "AXPopUpButton", "value": "App Store & Known Developers",
+                    "frame": [3561, 922, 220, 24], "actions": ["AXPress", "AXShowMenu"],
+                    "options": ["App Store", "App Store & Known Developers"]
+                  },
+                  {"role": "AXHeading", "title": "FileVault", "frame": [3341, 970, 300, 26]},
+                  {
+                    "role": "AXStaticText",
+                    "value": "FileVault secures the data on your disk by encrypting its content automatically.",
+                    "frame": [3341, 1000, 440, 32]
+                  },
+                  {
+                    "role": "AXScrollBar", "frame": [3800, 148, 15, 612],
+                    "children": [{"role": "AXValueIndicator", "frame": [3800, 148, 15, 60]}]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "window_id": 302, "app": "com.apple.TextEdit", "title": "Untitled 2", "frame": [290, 170, 820, 600],
+      "open": false,
+      "tree": {
+        "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
+        "children": [
+          {
+            "role": "AXButton", "subrole": "AXCloseButton", "frame": [298, 176, 14, 16],
+            "actions": ["AXPress"], "on_press": {"close_window": true}
+          },
+          {
+            "role": "AXButton", "subrole": "AXMinimizeButton", "frame": [318, 176, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXButton", "subrole": "AXFullScreenButton", "frame": [338, 176, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXToolbar", "description": "Format Bar", "frame": [290, 198, 820, 30],
+            "children": [
+              {
+                "id": "textedit2.style", "role": "AXPopUpButton", "description": "Paragraph Styles",
+                "value": "Body", "frame": [298, 202, 60, 22], "actions": ["AXPress", "AXShowMenu"],
+                "options": ["Body", "Title", "Heading", "Subheading", "Caption", "Monospaced"]
+              },
+              {
+                "id": "textedit2.font", "role": "AXPopUpButton", "description": "Font Family",
+                "value": "Helvetica", "frame": [364, 202, 120, 22], "actions": ["AXPress", "AXShowMenu"],
+                "options": ["Helvetica", "Helvetica Neue", "Avenir Next", "Menlo", "Times New Roman"]
+              },
+              {
+                "role": "AXPopUpButton", "description": "Typeface", "value": "Regular",
+                "frame": [488, 202, 80, 22], "actions": ["AXPress", "AXShowMenu"],
+                "options": ["Regular", "Oblique", "Light", "Bold", "Bold Oblique"]
+              },
+              {
+                "id": "textedit2.size", "role": "AXComboBox", "description": "Font Size", "value": "12",
+                "frame": [572, 202, 50, 22], "actions": ["AXConfirm", "AXShowMenu"],
+                "options": ["9", "10", "11", "12", "13", "14", "18", "24", "36"]
+              },
+              {
+                "role": "AXColorWell", "description": "Text Color", "frame": [628, 202, 24, 22],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXColorWell", "description": "Text Background Color", "frame": [656, 202, 24, 22],
+                "actions": ["AXPress"]
+              },
+              {
+                "id": "textedit2.bold", "role": "AXCheckBox", "description": "Bold", "value": 0,
+                "frame": [686, 202, 24, 22], "actions": ["AXPress"]
+              },
+              {
+                "id": "textedit2.italic", "role": "AXCheckBox", "description": "Italic", "value": 0,
+                "frame": [712, 202, 24, 22], "actions": ["AXPress"]
+              },
+              {
+                "role": "AXCheckBox", "description": "Underline", "value": 0, "frame": [738, 202, 24, 22],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXRadioGroup", "description": "Text Alignment", "frame": [770, 202, 104, 22],
+                "children": [
+                  {
+                    "role": "AXRadioButton", "description": "Align Left", "value": 1,
+                    "frame": [770, 202, 26, 22], "actions": ["AXPress"]
+                  },
+                  {
+                    "role": "AXRadioButton", "description": "Center", "value": 0, "frame": [796, 202, 26, 22],
+                    "actions": ["AXPress"]
+                  },
+                  {
+                    "role": "AXRadioButton", "description": "Justify", "value": 0,
+                    "frame": [822, 202, 26, 22], "actions": ["AXPress"]
+                  },
+                  {
+                    "role": "AXRadioButton", "description": "Align Right", "value": 0,
+                    "frame": [848, 202, 26, 22], "actions": ["AXPress"]
+                  }
+                ]
+              },
+              {
+                "role": "AXPopUpButton", "description": "Line and Paragraph Spacing", "value": "1.0",
+                "frame": [882, 202, 56, 22], "actions": ["AXPress", "AXShowMenu"],
+                "options": ["1.0", "1.15", "1.5", "2.0"]
+              },
+              {
+                "role": "AXMenuButton", "description": "Lists", "frame": [944, 202, 56, 22],
+                "actions": ["AXPress", "AXShowMenu"]
+              }
+            ]
+          },
+          {
+            "role": "AXScrollArea", "frame": [290, 228, 820, 542],
+            "children": [
+              {
+                "id": "textedit2.body", "role": "AXTextArea", "value": "", "identifier": "First Text View",
+                "focused": true, "frame": [290, 228, 805, 542]
+              },
+              {
+                "role": "AXScrollBar", "frame": [1095, 228, 15, 542],
+                "children": [{"role": "AXValueIndicator", "frame": [1095, 228, 15, 60]}]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "window_id": 901, "app": "com.apple.calculator", "title": "Calculator", "frame": [700, 200, 232, 408],
+      "tree": {
+        "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
+        "children": [
+          {
+            "role": "AXButton", "subrole": "AXCloseButton", "frame": [708, 206, 14, 16],
+            "actions": ["AXPress"], "on_press": {"close_window": true}
+          },
+          {
+            "role": "AXButton", "subrole": "AXMinimizeButton", "frame": [728, 206, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXButton", "subrole": "AXFullScreenButton", "frame": [748, 206, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXGroup", "frame": [700, 228, 232, 380],
+            "children": [
+              {
+                "id": "calculator.display", "role": "AXStaticText", "description": "main display",
+                "value": "0", "frame": [708, 236, 216, 60]
+              },
+              {
+                "role": "AXButton", "title": "AC", "description": "all clear", "frame": [700, 300, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "±", "description": "negate", "frame": [758, 300, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "%", "description": "percent", "frame": [816, 300, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "÷", "description": "divide", "frame": [874, 300, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "7", "description": "seven", "frame": [700, 358, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "8", "description": "eight", "frame": [758, 358, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "9", "description": "nine", "frame": [816, 358, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "×", "description": "multiply", "frame": [874, 358, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "4", "description": "four", "frame": [700, 416, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "5", "description": "five", "frame": [758, 416, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "6", "description": "six", "frame": [816, 416, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "−", "description": "subtract", "frame": [874, 416, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "1", "description": "one", "frame": [700, 474, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "2", "description": "two", "frame": [758, 474, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "3", "description": "three", "frame": [816, 474, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "+", "description": "add", "frame": [874, 474, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "0", "description": "zero", "frame": [700, 532, 116, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": ".", "description": "decimal", "frame": [816, 532, 58, 58],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "title": "=", "description": "equals", "frame": [874, 532, 58, 58],
+                "actions": ["AXPress"]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "window_id": 1001, "app": "com.apple.Safari", "title": "Start Page", "frame": [100, 60, 1200, 800],
+      "tree": {
+        "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
+        "children": [
+          {
+            "role": "AXButton", "subrole": "AXCloseButton", "frame": [108, 66, 14, 16],
+            "actions": ["AXPress"], "on_press": {"close_window": true}
+          },
+          {
+            "role": "AXButton", "subrole": "AXMinimizeButton", "frame": [128, 66, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXButton", "subrole": "AXFullScreenButton", "frame": [148, 66, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXToolbar", "frame": [100, 60, 1200, 52],
+            "children": [
+              {
+                "role": "AXButton", "description": "Show Sidebar", "frame": [180, 72, 28, 28],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "description": "Back", "enabled": false, "frame": [220, 72, 28, 28],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "description": "Forward", "enabled": false, "frame": [250, 72, 28, 28],
+                "actions": ["AXPress"]
+              },
+              {
+                "id": "safari.address", "role": "AXTextField", "description": "Smart Search Field",
+                "value": "", "identifier": "WEB_BROWSER_ADDRESS_AND_SEARCH_FIELD",
+                "placeholder": "Search or enter website name", "focused": true, "frame": [460, 74, 420, 24],
+                "actions": ["AXConfirm", "AXShowMenu"]
+              },
+              {
+                "role": "AXButton", "description": "Share", "frame": [1180, 72, 28, 28],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "description": "New Tab", "frame": [1220, 72, 28, 28],
+                "actions": ["AXPress"]
+              }
+            ]
+          },
+          {
+            "role": "AXGroup", "frame": [100, 112, 1200, 748],
+            "children": [
+              {
+                "role": "AXScrollArea", "frame": [100, 112, 1200, 748],
+                "children": [
+                  {
+                    "id": "safari.page", "role": "AXWebArea", "description": "Start Page",
+                    "frame": [100, 112, 1200, 748],
+                    "children": [
+                      {"role": "AXHeading", "title": "Favorites", "frame": [300, 160, 200, 30]},
+                      {
+                        "role": "AXLink", "url": "https://www.apple.com", "frame": [300, 210, 80, 80],
+                        "actions": ["AXPress"],
+                        "children": [{"role": "AXStaticText", "value": "Apple", "frame": [300, 270, 80, 18]}]
+                      },
+                      {
+                        "role": "AXLink", "url": "https://github.com", "frame": [400, 210, 80, 80],
+                        "actions": ["AXPress"],
+                        "children": [{"role": "AXStaticText", "value": "GitHub", "frame": [400, 270, 80, 18]}]
+                      },
+                      {
+                        "role": "AXLink", "url": "https://news.ycombinator.com", "frame": [500, 210, 80, 80],
+                        "actions": ["AXPress"],
+                        "children": [
+                          {"role": "AXStaticText", "value": "Hacker News", "frame": [500, 270, 80, 18]}
+                        ]
+                      },
+                      {"role": "AXHeading", "title": "Privacy Report", "frame": [300, 330, 200, 30]},
+                      {
+                        "role": "AXStaticText",
+                        "value": "In the last seven days, Safari has prevented 112 trackers from profiling you.",
+                        "frame": [300, 370, 600, 20]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "menus": {
+    "com.apple.finder": {
+      "title": "",
+      "children": [
+        {
+          "title": "Apple",
+          "children": [
+            {"title": "About This Mac"},
+            {"separator": true},
+            {"title": "System Settings…"},
+            {"title": "App Store"},
+            {"separator": true},
+            {
+              "title": "Recent Items",
+              "children": [
+                {"title": "TextEdit"},
+                {"title": "Notes"},
+                {"separator": true},
+                {"title": "Clear Menu"}
+              ]
+            },
+            {"separator": true},
+            {"title": "Force Quit…", "shortcut": "⌥⌘⎋"},
+            {"separator": true},
+            {"title": "Sleep"},
+            {"title": "Restart…"},
+            {"title": "Shut Down…"},
+            {"separator": true},
+            {"title": "Lock Screen", "shortcut": "⌃⌘Q"},
+            {"title": "Log Out Vansh Agarwal…", "shortcut": "⇧⌘Q"}
+          ]
+        },
+        {
+          "title": "Finder",
+          "children": [
+            {"title": "About Finder"},
+            {"separator": true},
+            {"title": "Settings…", "shortcut": "⌘,"},
+            {"separator": true},
+            {"title": "Empty Trash…", "shortcut": "⇧⌘⌫"},
+            {"separator": true},
+            {"title": "Services", "children": [{"title": "No Services Apply", "enabled": false}]},
+            {"separator": true},
+            {"title": "Hide Finder", "shortcut": "⌘H"},
+            {"title": "Hide Others", "shortcut": "⌥⌘H"},
+            {"title": "Show All"}
+          ]
+        },
+        {
+          "title": "File",
+          "children": [
+            {"title": "New Finder Window", "shortcut": "⌘N"},
+            {"title": "New Folder", "shortcut": "⇧⌘N"},
+            {"title": "New Tab", "shortcut": "⌘T"},
+            {"title": "Open", "shortcut": "⌘O"},
+            {"title": "Close Window", "shortcut": "⌘W"},
+            {"separator": true},
+            {"title": "Get Info", "shortcut": "⌘I"},
+            {"title": "Rename"},
+            {"title": "Compress"},
+            {"title": "Duplicate", "shortcut": "⌘D"},
+            {"title": "Quick Look", "shortcut": "⌘Y"},
+            {"separator": true},
+            {"title": "Move to Trash", "shortcut": "⌘⌫"}
+          ]
+        },
+        {
+          "title": "Edit",
+          "children": [
+            {"title": "Undo", "shortcut": "⌘Z", "enabled": false},
+            {"title": "Redo", "shortcut": "⇧⌘Z", "enabled": false},
+            {"separator": true},
+            {"title": "Cut", "shortcut": "⌘X", "enabled": false},
+            {"title": "Copy", "shortcut": "⌘C"},
+            {"title": "Paste", "shortcut": "⌘V", "enabled": false},
+            {"title": "Select All", "shortcut": "⌘A"},
+            {"separator": true},
+            {"title": "Show Clipboard"}
+          ]
+        },
+        {
+          "title": "View",
+          "children": [
+            {"title": "as Icons", "shortcut": "⌘1"},
+            {"title": "as List", "shortcut": "⌘2", "checked": true},
+            {"title": "as Columns", "shortcut": "⌘3"},
+            {"title": "as Gallery", "shortcut": "⌘4"},
+            {"separator": true},
+            {"title": "Show Path Bar", "shortcut": "⌥⌘P", "toggle": true},
+            {"title": "Show Status Bar", "shortcut": "⌘/", "checked": true, "toggle": true},
+            {"title": "Hide Sidebar", "shortcut": "⌃⌘S", "toggle": true},
+            {"separator": true},
+            {"title": "Enter Full Screen", "shortcut": "⌃⌘F"}
+          ]
+        },
+        {
+          "title": "Go",
+          "children": [
+            {"title": "Back", "shortcut": "⌘["},
+            {"title": "Forward", "shortcut": "⌘]", "enabled": false},
+            {"title": "Enclosing Folder", "shortcut": "⌘↑"},
+            {"separator": true},
+            {"title": "Recents", "shortcut": "⇧⌘F"},
+            {"title": "Documents", "shortcut": "⇧⌘O"},
+            {"title": "Desktop", "shortcut": "⇧⌘D"},
+            {"title": "Downloads", "shortcut": "⌥⌘L"},
+            {"title": "Home", "shortcut": "⇧⌘H"},
+            {"title": "Applications", "shortcut": "⇧⌘A"},
+            {"title": "Utilities", "shortcut": "⇧⌘U"},
+            {"separator": true},
+            {"title": "Go to Folder…", "shortcut": "⇧⌘G"},
+            {"title": "Connect to Server…", "shortcut": "⌘K"}
+          ]
+        },
+        {
+          "title": "Window",
+          "children": [
+            {"title": "Minimize", "shortcut": "⌘M"},
+            {"title": "Zoom"},
+            {"separator": true},
+            {
+              "title": "Move & Resize",
+              "children": [
+                {"title": "Left"},
+                {"title": "Right"},
+                {"title": "Top"},
+                {"title": "Bottom"},
+                {"separator": true},
+                {"title": "Return to Previous Size"}
+              ]
+            },
+            {
+              "title": "Full Screen Tile",
+              "children": [{"title": "Left of Screen"}, {"title": "Right of Screen"}]
+            },
+            {"separator": true},
+            {"title": "Bring All to Front"},
+            {"separator": true},
+            {"title": "Downloads", "checked": true}
+          ]
+        },
+        {"title": "Help", "children": [{"title": "macOS Help"}, {"title": "Tips for Your Mac"}]}
+      ]
+    },
+    "com.apple.TextEdit": {
+      "title": "",
+      "children": [
+        {
+          "title": "Apple",
+          "children": [
+            {"title": "About This Mac"},
+            {"separator": true},
+            {"title": "System Settings…"},
+            {"title": "App Store"},
+            {"separator": true},
+            {
+              "title": "Recent Items",
+              "children": [
+                {"title": "TextEdit"},
+                {"title": "Notes"},
+                {"separator": true},
+                {"title": "Clear Menu"}
+              ]
+            },
+            {"separator": true},
+            {"title": "Force Quit…", "shortcut": "⌥⌘⎋"},
+            {"separator": true},
+            {"title": "Sleep"},
+            {"title": "Restart…"},
+            {"title": "Shut Down…"},
+            {"separator": true},
+            {"title": "Lock Screen", "shortcut": "⌃⌘Q"},
+            {"title": "Log Out Vansh Agarwal…", "shortcut": "⇧⌘Q"}
+          ]
+        },
+        {
+          "title": "TextEdit",
+          "children": [
+            {"title": "About TextEdit"},
+            {"separator": true},
+            {"title": "Settings…", "shortcut": "⌘,"},
+            {"separator": true},
+            {"title": "Services", "children": [{"title": "No Services Apply", "enabled": false}]},
+            {"separator": true},
+            {"title": "Hide TextEdit", "shortcut": "⌘H"},
+            {"title": "Hide Others", "shortcut": "⌥⌘H"},
+            {"title": "Show All", "enabled": false},
+            {"separator": true},
+            {"title": "Quit TextEdit", "shortcut": "⌘Q"}
+          ]
+        },
+        {
+          "title": "File",
+          "children": [
+            {"title": "New", "shortcut": "⌘N", "on_select": {"open_window": 302}},
+            {"title": "Open…", "shortcut": "⌘O"},
+            {
+              "title": "Open Recent",
+              "children": [
+                {"title": "Meeting agenda.rtf"},
+                {"title": "Draft.txt"},
+                {"separator": true},
+                {"title": "Clear Menu"}
+              ]
+            },
+            {"separator": true},
+            {"title": "Close", "shortcut": "⌘W"},
+            {"title": "Save…", "shortcut": "⌘S"},
+            {"title": "Duplicate", "shortcut": "⇧⌘S"},
+            {"title": "Rename…"},
+            {"title": "Move To…"},
+            {"title": "Revert To", "children": [{"title": "Last Opened"}, {"title": "Browse All Versions…"}]},
+            {"separator": true},
+            {"title": "Export as PDF…"},
+            {"separator": true},
+            {
+              "title": "Share",
+              "children": [{"title": "Mail"}, {"title": "Messages"}, {"title": "AirDrop"}, {"title": "Notes"}]
+            },
+            {"separator": true},
+            {"title": "Show Properties", "shortcut": "⌥⌘P"},
+            {"title": "Page Setup…", "shortcut": "⇧⌘P"},
+            {"title": "Print…", "shortcut": "⌘P"}
+          ]
+        },
+        {
+          "title": "Edit",
+          "children": [
+            {"title": "Undo Typing", "shortcut": "⌘Z"},
+            {"title": "Redo", "shortcut": "⇧⌘Z", "enabled": false},
+            {"separator": true},
+            {"title": "Cut", "shortcut": "⌘X"},
+            {"title": "Copy", "shortcut": "⌘C"},
+            {"title": "Paste", "shortcut": "⌘V"},
+            {"title": "Paste and Match Style", "shortcut": "⌥⇧⌘V"},
+            {"title": "Delete"},
+            {"title": "Complete", "shortcut": "⌥⎋"},
+            {"title": "Select All", "shortcut": "⌘A"},
+            {"separator": true},
+            {
+              "title": "Insert",
+              "children": [{"title": "Line Break"}, {"title": "Paragraph Break"}, {"title": "Page Break"}]
+            },
+            {"separator": true},
+            {
+              "title": "Find",
+              "children": [
+                {"title": "Find…", "shortcut": "⌘F"},
+                {"title": "Find and Replace…", "shortcut": "⌥⌘F"},
+                {"title": "Find Next", "shortcut": "⌘G"},
+                {"title": "Find Previous", "shortcut": "⇧⌘G"},
+                {"title": "Use Selection for Find", "shortcut": "⌘E"},
+                {"title": "Jump to Selection", "shortcut": "⌘J"}
+              ]
+            },
+            {
+              "title": "Spelling and Grammar",
+              "children": [
+                {"title": "Show Spelling and Grammar", "shortcut": "⌘:"},
+                {"title": "Check Document Now", "shortcut": "⌘;"},
+                {"separator": true},
+                {"title": "Check Spelling While Typing", "checked": true, "toggle": true},
+                {"title": "Check Grammar With Spelling", "toggle": true},
+                {"title": "Correct Spelling Automatically", "toggle": true}
+              ]
+            },
+            {
+              "title": "Substitutions",
+              "children": [
+                {"title": "Show Substitutions"},
+                {"separator": true},
+                {"title": "Smart Copy/Paste", "checked": true, "toggle": true},
+                {"title": "Smart Quotes", "checked": true, "toggle": true},
+                {"title": "Smart Dashes", "checked": true, "toggle": true},
+                {"title": "Smart Links", "toggle": true},
+                {"title": "Text Replacement", "checked": true, "toggle": true}
+              ]
+            },
+            {
+              "title": "Transformations",
+              "children": [
+                {"title": "Make Upper Case"},
+                {"title": "Make Lower Case"},
+                {"title": "Capitalize"}
+              ]
+            },
+            {
+              "title": "Speech",
+              "children": [{"title": "Start Speaking"}, {"title": "Stop Speaking", "enabled": false}]
+            },
+            {"separator": true},
+            {"title": "AutoFill", "children": [{"title": "Contact…"}, {"title": "Passwords…"}]},
+            {"title": "Start Dictation…"},
+            {"title": "Emoji & Symbols", "shortcut": "⌃⌘␣"}
+          ]
+        },
+        {
+          "title": "Format",
+          "children": [
+            {
+              "title": "Font",
+              "children": [
+                {"title": "Show Fonts", "shortcut": "⌘T"},
+                {"title": "Bold", "shortcut": "⌘B"},
+                {"title": "Italic", "shortcut": "⌘I"},
+                {"title": "Underline", "shortcut": "⌘U"},
+                {"title": "Outline"},
+                {"title": "Styles…"},
+                {"separator": true},
+                {"title": "Bigger", "shortcut": "⌘+"},
+                {"title": "Smaller", "shortcut": "⌘-"},
+                {"separator": true},
+                {
+                  "title": "Kern",
+                  "children": [
+                    {"title": "Use Default"},
+                    {"title": "Use None"},
+                    {"title": "Tighten"},
+                    {"title": "Loosen"}
+                  ]
+                },
+                {
+                  "title": "Ligatures",
+                  "children": [{"title": "Use Default"}, {"title": "Use None"}, {"title": "Use All"}]
+                },
+                {
+                  "title": "Baseline",
+                  "children": [
+                    {"title": "Use Default"},
+                    {"title": "Superscript"},
+                    {"title": "Subscript"},
+                    {"title": "Raise"},
+                    {"title": "Lower"}
+                  ]
+                },
+                {"separator": true},
+                {"title": "Show Colors", "shortcut": "⇧⌘C"},
+                {"separator": true},
+                {"title": "Copy Style", "shortcut": "⌥⌘C"},
+                {"title": "Paste Style", "shortcut": "⌥⌘V"}
+              ]
+            },
+            {
+              "title": "Text",
+              "children": [
+                {"title": "Align Left", "shortcut": "⌘{"},
+                {"title": "Center", "shortcut": "⌘|"},
+                {"title": "Justify"},
+                {"title": "Align Right", "shortcut": "⌘}"},
+                {"separator": true},
+                {
+                  "title": "Writing Direction",
+                  "children": [{"title": "Natural"}, {"title": "Left to Right"}, {"title": "Right to Left"}]
+                },
+                {"separator": true},
+                {"title": "Show Ruler", "shortcut": "⌘R", "checked": true, "toggle": true},
+                {"title": "Copy Ruler", "shortcut": "⌃⌘C"},
+                {"title": "Paste Ruler", "shortcut": "⌃⌘V"}
+              ]
+            },
+            {"title": "Lists…"},
+            {"title": "Table…"},
+            {"separator": true},
+            {"title": "Make Plain Text", "shortcut": "⇧⌘T"},
+            {"separator": true},
+            {"title": "Prevent Editing"},
+            {"title": "Wrap to Page", "shortcut": "⇧⌘W", "toggle": true},
+            {"separator": true},
+            {"title": "Allow Hyphenation"},
+            {"title": "Font Panel Size…"}
+          ]
+        },
+        {
+          "title": "View",
+          "children": [
+            {"title": "Actual Size", "shortcut": "⌘0"},
+            {"title": "Zoom In", "shortcut": "⌘>"},
+            {"title": "Zoom Out", "shortcut": "⌘<"},
+            {"separator": true},
+            {"title": "Show Tab Bar"},
+            {"title": "Show All Tabs", "shortcut": "⇧⌘\\"},
+            {"separator": true},
+            {"title": "Enter Full Screen", "shortcut": "⌃⌘F"}
+          ]
+        },
+        {
+          "title": "Window",
+          "children": [
+            {"title": "Minimize", "shortcut": "⌘M"},
+            {"title": "Zoom"},
+            {"separator": true},
+            {
+              "title": "Move & Resize",
+              "children": [
+                {"title": "Left"},
+                {"title": "Right"},
+                {"title": "Top"},
+                {"title": "Bottom"},
+                {"separator": true},
+                {"title": "Return to Previous Size"}
+              ]
+            },
+            {
+              "title": "Full Screen Tile",
+              "children": [{"title": "Left of Screen"}, {"title": "Right of Screen"}]
+            },
+            {"separator": true},
+            {"title": "Bring All to Front"},
+            {"separator": true},
+            {"title": "Untitled", "checked": true}
+          ]
+        },
+        {"title": "Help", "children": [{"title": "TextEdit Help"}]}
+      ]
+    },
+    "com.apple.Notes": {
+      "title": "",
+      "children": [
+        {
+          "title": "Apple",
+          "children": [
+            {"title": "About This Mac"},
+            {"separator": true},
+            {"title": "System Settings…"},
+            {"title": "App Store"},
+            {"separator": true},
+            {
+              "title": "Recent Items",
+              "children": [
+                {"title": "TextEdit"},
+                {"title": "Notes"},
+                {"separator": true},
+                {"title": "Clear Menu"}
+              ]
+            },
+            {"separator": true},
+            {"title": "Force Quit…", "shortcut": "⌥⌘⎋"},
+            {"separator": true},
+            {"title": "Sleep"},
+            {"title": "Restart…"},
+            {"title": "Shut Down…"},
+            {"separator": true},
+            {"title": "Lock Screen", "shortcut": "⌃⌘Q"},
+            {"title": "Log Out Vansh Agarwal…", "shortcut": "⇧⌘Q"}
+          ]
+        },
+        {
+          "title": "Notes",
+          "children": [
+            {"title": "About Notes"},
+            {"separator": true},
+            {"title": "Settings…", "shortcut": "⌘,"},
+            {"title": "Accounts…"},
+            {"separator": true},
+            {"title": "Services", "children": [{"title": "No Services Apply", "enabled": false}]},
+            {"separator": true},
+            {"title": "Hide Notes", "shortcut": "⌘H"},
+            {"title": "Hide Others", "shortcut": "⌥⌘H"},
+            {"title": "Show All", "enabled": false},
+            {"separator": true},
+            {"title": "Quit Notes", "shortcut": "⌘Q"}
+          ]
+        },
+        {
+          "title": "File",
+          "children": [
+            {
+              "title": "New Note", "shortcut": "⌘N",
+              "on_select": [
+                {"show": "notes.row.new"},
+                {"select": "notes.row.new"},
+                {"set_value": {"id": "notes.body", "value": ""}},
+                {"focus": "notes.body"}
+              ]
+            },
+            {"title": "New Folder", "shortcut": "⇧⌘N"},
+            {"title": "New Smart Folder"},
+            {"separator": true},
+            {"title": "Close", "shortcut": "⌘W"},
+            {"separator": true},
+            {
+              "title": "Share",
+              "children": [
+                {"title": "Collaborate…"},
+                {"title": "Send Copy"},
+                {"title": "Mail"},
+                {"title": "Messages"}
+              ]
+            },
+            {"separator": true},
+            {"title": "Import to Notes…"},
+            {"title": "Export as PDF…"},
+            {"separator": true},
+            {"title": "Pin Note"},
+            {"title": "Lock Note"},
+            {"separator": true},
+            {"title": "Print…", "shortcut": "⌘P"}
+          ]
+        },
+        {
+          "title": "Edit",
+          "children": [
+            {"title": "Undo", "shortcut": "⌘Z", "enabled": false},
+            {"title": "Redo", "shortcut": "⇧⌘Z", "enabled": false},
+            {"separator": true},
+            {"title": "Cut", "shortcut": "⌘X"},
+            {"title": "Copy", "shortcut": "⌘C"},
+            {"title": "Paste", "shortcut": "⌘V"},
+            {"title": "Paste and Match Style", "shortcut": "⌥⇧⌘V"},
+            {"title": "Delete"},
+            {"title": "Select All", "shortcut": "⌘A"},
+            {"separator": true},
+            {"title": "Attach File…", "shortcut": "⇧⌘A"},
+            {"title": "Add Link…", "shortcut": "⌘K"},
+            {"separator": true},
+            {
+              "title": "Find",
+              "children": [
+                {"title": "Note List Search…", "shortcut": "⌥⌘F", "on_select": {"focus": "notes.search"}},
+                {"title": "Find…", "shortcut": "⌘F"},
+                {"title": "Find Next", "shortcut": "⌘G"},
+                {"title": "Find Previous", "shortcut": "⇧⌘G"}
+              ]
+            },
+            {
+              "title": "Spelling and Grammar",
+              "children": [
+                {"title": "Check Document Now", "shortcut": "⌘;"},
+                {"title": "Check Spelling While Typing", "checked": true, "toggle": true}
+              ]
+            },
+            {"separator": true},
+            {"title": "Start Dictation…"},
+            {"title": "Emoji & Symbols", "shortcut": "⌃⌘␣"}
+          ]
+        },
+        {
+          "title": "Format",
+          "children": [
+            {"title": "Title", "shortcut": "⇧⌘T"},
+            {"title": "Heading", "shortcut": "⇧⌘H"},
+            {"title": "Subheading", "shortcut": "⇧⌘J"},
+            {"title": "Body", "shortcut": "⇧⌘B"},
+            {"title": "Monostyled", "shortcut": "⇧⌘M"},
+            {"separator": true},
+            {"title": "Bulleted List", "shortcut": "⇧⌘7"},
+            {"title": "Dashed List", "shortcut": "⇧⌘8"},
+            {"title": "Numbered List", "shortcut": "⇧⌘9"},
+            {"separator": true},
+            {"title": "Block Quote", "shortcut": "⌘'"},
+            {"separator": true},
+            {"title": "Checklist", "shortcut": "⇧⌘L"},
+            {"title": "Mark as Checked", "shortcut": "⇧⌘U"},
+            {"separator": true},
+            {"title": "Table", "shortcut": "⌥⌘T"},
+            {"separator": true},
+            {
+              "title": "Font",
+              "children": [
+                {"title": "Bold", "shortcut": "⌘B"},
+                {"title": "Italic", "shortcut": "⌘I"},
+                {"title": "Underline", "shortcut": "⌘U"},
+                {"title": "Strikethrough"}
+              ]
+            }
+          ]
+        },
+        {
+          "title": "View",
+          "children": [
+            {"title": "as List", "shortcut": "⌘1", "checked": true},
+            {"title": "as Gallery", "shortcut": "⌘2"},
+            {"separator": true},
+            {
+              "title": "Sort Folder By",
+              "children": [
+                {"title": "Date Edited", "checked": true},
+                {"title": "Date Created"},
+                {"title": "Title"}
+              ]
+            },
+            {"separator": true},
+            {"title": "Hide Folders", "shortcut": "⌥⌘S", "toggle": true},
+            {"title": "Show Note Count", "toggle": true},
+            {"separator": true},
+            {"title": "Zoom In", "shortcut": "⌘>"},
+            {"title": "Zoom Out", "shortcut": "⌘<"},
+            {"title": "Actual Size", "shortcut": "⌘0"},
+            {"separator": true},
+            {"title": "Enter Full Screen", "shortcut": "⌃⌘F"}
+          ]
+        },
+        {
+          "title": "Window",
+          "children": [
+            {"title": "Minimize", "shortcut": "⌘M"},
+            {"title": "Zoom"},
+            {"separator": true},
+            {
+              "title": "Move & Resize",
+              "children": [
+                {"title": "Left"},
+                {"title": "Right"},
+                {"title": "Top"},
+                {"title": "Bottom"},
+                {"separator": true},
+                {"title": "Return to Previous Size"}
+              ]
+            },
+            {
+              "title": "Full Screen Tile",
+              "children": [{"title": "Left of Screen"}, {"title": "Right of Screen"}]
+            },
+            {"separator": true},
+            {"title": "Bring All to Front"},
+            {"separator": true},
+            {"title": "Notes", "checked": true}
+          ]
+        },
+        {"title": "Help", "children": [{"title": "Notes Help"}]}
+      ]
+    }
+  },
+  "clipboard": "Quarterly numbers: revenue up 12%",
+  "permissions": {
+    "accessibility": true, "screen_recording": true,
+    "automation": {"com.apple.Safari": true, "com.apple.Terminal": false}, "responsible_app": "AXPilot"
+  }
+}

@@ -63,18 +63,24 @@ _DEFAULT_HINTS: dict[ErrorCode, str] = {
         "macOS asked whether AXPilot may control this app (Automation). Approve it in System Settings → "
         "Privacy & Security → Automation."
     ),
-    ErrorCode.LAUNCHER_CHANGED: "The AXPilot launcher changed. Re-grant Accessibility once; see `axpilot doctor`.",
+    ErrorCode.LAUNCHER_CHANGED: (
+        "The AXPilot launcher changed. Re-grant Accessibility once; see `axpilot doctor`."
+    ),
     ErrorCode.STALE_REF: "The UI changed since that snapshot. Call `snapshot` again and use the new refs.",
     ErrorCode.SNAPSHOT_NOT_FOUND: "Snapshots expire. Call `snapshot` again.",
     ErrorCode.USER_ACTIVE: "The user is using the mouse/keyboard. Wait a moment and retry.",
-    ErrorCode.PAUSED_BY_USER: "The user paused AXPilot (kill switch). Ask them before continuing.",
-    ErrorCode.NEEDS_USER: "A system dialog needs the user (e.g. a password prompt). Ask the user to handle it.",
+    ErrorCode.PAUSED_BY_USER: ("The user paused AXPilot (kill switch). Ask them before continuing."),
+    ErrorCode.NEEDS_USER: (
+        "A system dialog needs the user (e.g. a password prompt). Ask the user to handle it."
+    ),
     ErrorCode.SECURE_INPUT_ACTIVE: (
         "Secure keyboard entry is active (a password field or a terminal setting), so synthetic "
         "keystrokes are blocked. Ask the user to complete this step."
     ),
     ErrorCode.TOOL_DISABLED: "This tool is disabled by the AXPilot profile/config.",
-    ErrorCode.BLOCKED_BY_POLICY: "AXPilot's safety policy blocks this action. The user can change it in settings.",
+    ErrorCode.BLOCKED_BY_POLICY: (
+        "AXPilot's safety policy blocks this action. The user can change it in settings."
+    ),
     ErrorCode.RATE_LIMITED: "Too many actions in a short time. Slow down and verify the results.",
 }
 
