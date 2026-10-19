@@ -5,11 +5,20 @@ every decision made so far, the exact current state, the rules the owner set, an
 
 - **Repository:** `github.com/Vansh3503/Mac-Mcp` (private). Default branch `main`.
 - **Working branch:** `feature/axpilot-foundation` (all work is here, not merged).
-- **Last commit at handoff:** see `git log -1`. The most recent work commit is `99b08da` (`wip(server)`), which is
-  intentionally incomplete (details below).
+- **Last verified work commit:** `8a13a66` (`feat(server): input tools …`). Run `git log --oneline -15` first:
+  later commits may have landed (see §5, "In flight").
 - **Owner:** Vansh Malhotra (GitHub `Vansh3503`).
 
 ---
+
+## 0. Start here (5 minutes)
+
+1. `git fetch origin feature/axpilot-foundation && git checkout feature/axpilot-foundation && git pull`.
+2. `uv sync && uv run pytest -q -p no:cacheprovider` must be green before you change anything.
+3. Read §5 to find out which build-round-2 packages are already committed. Do **only** the packages that are not.
+4. **One session at a time.** If the owner's other session is still running its workflow (§5, "In flight"),
+   don't work on the same branch in parallel: both sessions would edit the same files. Ask the owner which session
+   owns the branch right now.
 
 ## 1. What we are building
 
@@ -35,9 +44,12 @@ real agent frameworks.
    contract changes.
 3. `docs/dev/QUALITY.md`: **mandatory** error-handling (A1–A9) and testing (B1–B8) rules.
 4. `AGENTS.md` (and `CLAUDE.md`): rules for coding agents working on this repo.
-5. `docs/dev/handoff/build2-task-specs.md`: the detailed specs for the unfinished build round 2.
+5. `docs/dev/handoff/build2-task-specs.md`: the detailed specs for build round 2 (each package is marked done or
+   open).
 6. `docs/dev/handoff/build1-followups.md`: deviations, contract issues and Mac-verification follow-ups reported by
    build round 1.
+7. The two finished tool modules, which are the reference for every new tool: `src/axpilot/server/tools/observe.py`,
+   `src/axpilot/server/tools/input.py` and their tests in `tests/server/tools/`.
 
 ## 3. Decisions already made (don't reopen without the owner)
 
@@ -51,55 +63,63 @@ real agent frameworks.
 | 6 | Windows-MCP names | **Yes**, as a `naming = "windows-mcp"` profile (PascalCase names and parameter shapes), not duplicate tools. |
 | 7 | Telemetry | **None.** |
 | 8 | Positioning | MCP for agents first; SDK/CLI scripting secondary. |
+| 9 | Tool parameter conventions | Keyword-only params; the result-shape param is `report` (`diff`/`snapshot`/`none`), not `return`; values that can be text or numbers are **strings** (schema portability); tool modules don't use `from __future__ import annotations` (the SDK derives schemas from annotations). |
+| 10 | Element refs | **Stable and session-unique** (see §6, Step 1a). A ref keeps meaning the same element across snapshots while it exists; a gone element gives `STALE_REF`; numbers are never reused. |
+| 11 | Input strategy | Accessibility first, then mouse/keystrokes as a single fallback; **never auto-retry input**. Keystrokes first for Electron/CEF/browser/Java/Qt/unknown app kinds; paste (clipboard restored) for text over 200 characters. |
 
 ## 4. Owner's working rules (must follow)
 
 - **Commits and branch names must not mention Claude or Anthropic.** No `Co-Authored-By`/session trailers, no
   "claude/…" branches. Use neutral names (`feature/…`, `fix/…`).
-- **Commit author:** `Vansh Malhotra <85389767+Vansh3503@users.noreply.github.com>` (set as repo-local git config;
-  commit signing is disabled locally because the session's key would mark the owner's commits Unverified).
+- **Commit author:** `Vansh Malhotra <85389767+Vansh3503@users.noreply.github.com>`. Set it as repo-local git config
+  in a fresh clone:
+  `git config user.name "Vansh Malhotra" && git config user.email "85389767+Vansh3503@users.noreply.github.com" && git config commit.gpgsign false`
+  (signing is off because a session's key would mark the owner's commits Unverified).
 - Use Conventional Commits (`feat(server): …`, `fix(perception): …`, `wip(…)` only for interrupted work).
 - Don't open pull requests unless the owner asks.
 - Commit and push often (cloud containers are ephemeral).
+- Never commit personal data in fixtures (the demo fixture uses placeholders such as `example-user`,
+  `alex@example.com`, `Alex Example`).
 - The old remote branch `claude/mac-mcp-plan` still exists and must be **deleted by the owner** in the GitHub UI
   (deletion was blocked from the session). It holds old commits with trailers; all its content is on
   `feature/axpilot-foundation` already.
 
 ## 5. Current state
 
-### Done (committed on `feature/axpilot-foundation`)
+### Done (committed on `feature/axpilot-foundation`, up to `8a13a66`)
 
 | Area | Path | Notes |
 |---|---|---|
 | Plan, contracts, quality bar | `docs/PLAN.md`, `docs/dev/CONTRACTS.md`, `docs/dev/QUALITY.md` | |
 | Foundation | `src/axpilot/{__init__,errors,models,paths,config}.py`, `engine/{__init__,base}.py` | `Engine` ABC, `ErrorCode`, config precedence flags > env > TOML > defaults |
-| Perception | `src/axpilot/perception/*` | snapshots with refs, pruning, text/JSON formats, diffs, fuzzy find, stores, locator re-resolution, serialization — ~350 tests |
-| Fake engine | `src/axpilot/engine/fake.py` + `engine/fixtures/demo_desktop.json` | simulated desktop for tests and `--engine fake` |
-| Input + policy | `src/axpilot/input/*`, `src/axpilot/policy/*` | key parsing, profiles/toolsets, safety rules, rate limit, audit, confirmations, control state — ~420 tests |
-| System integrations | `src/axpilot/system/*` | runner, osascript, shell, Spotlight, Shortcuts, defaults, processes, sysinfo, browsers — ~380 tests |
+| Perception | `src/axpilot/perception/*` | snapshots with refs, pruning, text/JSON formats, diffs, fuzzy find, stores, locator re-resolution, serialization, app-kind detection (`appkind.py`), OCR fallback (`vision.py`), navigation helpers (`navigate.py`: scroll containers, viewports, page signatures, row collection, page merging) |
+| Fake engine | `src/axpilot/engine/fake.py` + `engine/fixtures/demo_desktop.json` | simulated desktop (Notes, Mail with 150 rows, Terminal, 1Password, a login form, System Settings…) for tests and `--engine fake`; reports `AXMinValue`/`AXMaxValue` for ranged controls |
+| Input + policy | `src/axpilot/input/*`, `src/axpilot/policy/*` | key parsing, profiles/toolsets, safety rules (deny lists, Terminal rule, secure fields), rate limit, audit with redaction, confirmations, control state (input lock, pause, yield-to-user) |
+| System integrations | `src/axpilot/system/*` | runner, osascript, shell, Spotlight, Shortcuts, defaults, processes, sysinfo, browsers (modules only; the tools that expose them are open) |
 | macOS engine | `src/axpilot/engine/macos/*` | PyObjC implementation of every `Engine` method. **Never run on real macOS yet.** |
 | Launcher + spikes | `launcher/*`, `spikes/*`, `docs/spikes/RESULTS_TEMPLATE.md` | Swift launcher not compiled yet; spike runbook in `spikes/README.md` |
-| Clients, setup, doctor | `src/axpilot/clients/*`, `src/axpilot/setup/*`, `src/axpilot/doctor.py` | 12 client config writers, runtime venv + launcher install, diagnostics — ~400 tests |
+| Clients, setup, doctor | `src/axpilot/clients/*`, `src/axpilot/setup/*`, `src/axpilot/doctor.py` | 12 client config writers, runtime venv + launcher install, diagnostics |
+| **Server core** | `src/axpilot/server/{context,registry,guard,results,schemas,app,instructions}.py`, `src/axpilot/testing/{faulty_engine,harness}.py` | reviewed and fully tested (guard: every error path; app: registry rules, SDK-level errors). Guard order: enabled → rate limit (input) → confirmation (destructive) → input turn (input) → engine call with deadline → audit. Unexpected exceptions become `INTERNAL` with an incident id, never a traceback. |
+| **Observe tools (9)** | `src/axpilot/server/tools/observe.py` | snapshot, screenshot, inspect, ocr, list_apps, list_windows, list_displays, wait_for, status; 65 tests incl. error matrix and fault injection |
+| **Input tools (9)** | `src/axpilot/server/tools/input.py` | click, type_text, press_keys, drag, move_mouse, set_value, perform_action, select_menu, fill_form; 73 tests. Role-aware `set_value`: toggles set idempotently (radio "off" refused), sliders/steppers clamped with a warning, read-only steppers stepped (≤ 200 steps), pop-up selection verified. Coordinate targets are hit-tested against the policy. |
 | Docs, CI, community | `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/*`, `docs/adr/*`, `.github/*`, `mkdocs.yml`, `packaging/*`, `skills/axpilot/SKILL.md` | |
 
-### Partial (commit `99b08da`, `wip(server)`), from an interrupted run
+Bugs found and fixed by the new tests: collapsed scroll areas lost their viewport (a 150-row table reported a
+4,200-pt frame, so scrolling at its "center" missed the screen); `collect_rows` on a scroll area duplicated rows
+and cells; key sequences with `+`/`-`; app-kind fallback order.
 
-- `src/axpilot/server/{context,registry,guard,results,schemas,app,instructions}.py`,
-  `src/axpilot/server/tools/observe.py` (≈3k lines, **no server tests yet**).
-- `src/axpilot/testing/{faulty_engine,harness}.py` (fault-injection kit).
-- `src/axpilot/perception/{appkind,vision,navigate}.py` (app-kind detection, OCR fallback, navigation helpers) and
-  fixture additions in `demo_desktop.json`; `policy/profiles.py` gained `explore` and `read`.
-- **Treat all of it as unreviewed.** Keep what is correct, finish the rest.
+### Test status (Linux, at `8a13a66`)
 
-### Test status at handoff (Linux)
+`uv run pytest -q -p no:cacheprovider` → **2185 passed, 48 skipped (macOS-only / launcher), 0 failed.**
+`ruff check` and `pyright` are clean on all files touched since the WIP commit.
 
-`uv run pytest -q` → **1957 passed, 48 skipped (macOS-only), 0 failed** (after commit `fix: …` following `99b08da`).
-The three failures that the `wip(server)` commit listed are fixed:
-- key sequences: `KeyCombo.__str__` now writes the `+`/`-` keys as `plus`/`minus`, so sequence strings are unambiguous
-- app kind: well-known bundle ids are only a fallback when the bundle can't be read (matches the docstring)
-- fake desktop: the app-list test checks installed-only apps structurally instead of a brittle count
+### In flight when this file was written (may or may not have landed)
 
-The server package itself still has **no tests**; writing them is part of Step 1.
+The owner's other session launched a workflow (run `wf_7a3407c1-9ea`, about 14:35 UTC on 2026-10-19). It builds
+every open package below with an independent adversarial review and a fix round, then integration, a completeness
+critic and a final fix round. **Its work exists only in that session's working tree until it is committed.** Check
+`git log` on the remote branch: each finished package lands as its own commit (`feat(perception): stable refs…`,
+`feat(server): navigate tools…`, and so on). Anything without a commit is not done; redo it from the specs.
 
 ### GitHub issues already created
 
@@ -109,30 +129,91 @@ link to `docs/PLAN.md` on `feature/axpilot-foundation`.
 
 ## 6. Remaining work, in order
 
-### Step 1: finish build round 2 (the MCP server itself)
+**Important for usability:** until Step 1d lands there is **no runnable `axpilot` command** (`pyproject.toml`
+declares `axpilot = "axpilot.cli:main"`, but `cli.py` doesn't exist yet), so the server can't be connected to any
+MCP client.
 
-Follow `docs/dev/handoff/build2-task-specs.md` exactly. Packages:
-1. **Core:** `server-core` (finish/verify the partial server core + observe tools + `axpilot.testing`, write all
-   server tests), `compat-vision` (finish app-kind/vision/navigation helpers; fix the fixture so existing tests pass).
-2. **Tools** (parallelizable): `tools-input` (click, type_text, press_keys, drag, move_mouse, set_value,
-   perform_action, select_menu, fill_form), `tools-apps-system` (app, window, open, clipboard, notify,
-   spotlight_search, system_info, system_control, processes), `tools-scripting-browser-computer-naming` (shell,
-   applescript, shortcuts, defaults, browser_tabs, browser_read, browser_eval_js, computer, windows-mcp naming),
-   `tools-navigate` (find with scrolling, scroll, explore, read), `host-bridge-cli` (Unix-socket host, pairing,
-   stdio bridge, Streamable HTTP with token + Origin/Host checks, the full Typer CLI incl. `tools` and `call`),
-   `sdk-examples` (`Desktop`/`AsyncDesktop` SDK over the same tools, example scripts, framework examples).
-3. **Integrate:** whole suite + ruff + pyright green (including the 3 failing tests), all tool modules imported
-   unconditionally, `TOOL_ORDER` ↔ registry consistency, golden files `tests/server/golden/tools_<profile>_<naming>.json`,
-   `scripts/gen_tool_docs.py` → `docs/tools.md` (+ freshness test), CLI smoke (`axpilot tools --json`,
-   `axpilot call status --engine fake`, `axpilot call snapshot --engine fake --arg app=Notes`, `axpilot doctor`),
-   coverage gate (`[tool.coverage.report] fail_under` ≥ 85, enforced in CI), CHANGELOG.
+### Step 1: finish build round 2
+
+Specs: `docs/dev/handoff/build2-task-specs.md`. Done: `server-core`, `compat-vision`, `tools-input`. Open, in this
+order (b–e can run in parallel with disjoint file scopes; f–g need all tools; h last):
+
+**1a. Stable refs (core; do first).** The bug: refs are numbered `e1…eN` per snapshot and a bare ref resolves
+against the latest snapshot of *any* app. After an action re-snapshots the window, an old `e29` (the Note body)
+silently hits a different element (a list row). After snapshotting Mail, a Notes `e12` hits Mail's `e12`. Design:
+- Ref numbers are unique per server context. `SnapshotStore` owns a thread-safe counter; a number is never reused
+  for a different element, even after the element disappears, and never across apps or windows.
+- New `perception/refs.py` with `carry_refs(snap, previous, allocate)`. Elements matching the previous snapshot of
+  the same app and window keep its ref; others get fresh numbers. Match passes, strongest first, each previous
+  element used once:
+  1. engine handle equality (Mac handles compare with `CFEqual`; guard hashing)
+  2. `AXIdentifier` + AX role
+  3. locator path + name
+  4. AX role + name + rounded frame
+  5. AX role + name when unique on both sides
+
+  **A named element is never matched by position alone**, so a reused virtualized row with new content gets a new
+  ref. Position-only matching is allowed only for unnamed elements of the same role with overlapping frames.
+  Consider sharing one matcher with `perception/diff.py`.
+- Remap `parent_ref`, `focused_ref` and the page. `Snapshot.element()` stays O(1) through a lazy index field.
+- `ServerContext.build_snapshot(..., previous=None)` defaults to the store's latest snapshot of the same pid.
+  `input.observe_after` passes `previous=before`.
+- `diff_snapshots` pairs equal refs first, so one element no longer shows up as both "removed e29" and "added e29".
+- `SnapshotStore.resolve(ref)` without a snapshot id tries the latest snapshot, then older stored snapshots (newest
+  first), always through `live_handle`. Not found anywhere gives `STALE_REF` with a hint. Fix the STALE_REF message,
+  which assumes contiguous `e1–eN`.
+- Make OCR refs (`o…`) session-unique too, or document that they are per-snapshot.
+- Update CONTRACTS, PLAN wording, server instructions and `skills/axpilot/SKILL.md`.
+- Tests: every pass; named-element position trap; uniqueness across apps and windows; no reuse; store fallback;
+  diff pairing. Also end to end: snapshot Notes, click New Note, then `type_text` into the *old* Note-body ref must
+  reach the note body. Add a hypothesis property: one ref never names two elements.
+
+**1b. `tools-navigate`:** find (with scrolling), scroll (an input tool: rate limit, policy, input turn), explore
+(app map), read (collect long lists exactly once, `complete`/`at_end`, optional restore). Every loop is bounded by a
+count and a ≤ 60 s deadline, returning partial results with `complete=false` and a warning instead of `TIMEOUT`.
+Uses the helpers in `perception/navigate.py` (`scroll_container_for`, `viewport_of`, `page_signature`,
+`collect_rows`, `merge_pages`).
+
+**1c. `tools-apps-system`:** app, window, open (scheme allowlist), clipboard, notify, spotlight_search,
+system_info, system_control, processes (kill destructive → confirmation; refuse pid ≤ 1 and our own pid).
+
+**1d. `host-bridge-cli`:**
+- the Unix-socket host (0600 socket in a 0700 dir, stale-socket cleanup, peer uid check), pairing store
+- the stdio bridge with `ensure_host_running`
+- Streamable HTTP: loopback only, bearer token, Origin/Host checks
+- the full Typer CLI: `stdio --direct/--engine fake`, `http`, `host`, `setup`, `doctor`, `connect`, `config`,
+  `skill install`, `debug dump-tree`, `tools`, `call`, `version`
+- exit codes 0/1/2/3/4/130, no tracebacks without `--debug`, nothing but JSON-RPC on stdout in stdio mode
+- one real subprocess test of `uv run axpilot stdio --engine fake`
+
+**1e. `tools-scripting-browser-computer`:** shell, applescript, shortcuts, defaults (destructive ones confirm with
+the exact command shown), browser_tabs, browser_read, browser_eval_js, and the single `computer` tool (screenshot-
+pixel coordinates, policy hit-testing). Prove injection safety for quotes, backslashes and newlines.
+
+**1f. `naming-windows-mcp`** (split out of 1e; needs all tools registered): the `windows-mcp` naming profile with
+argument adapters (`loc=[x,y]` → `x,y`, `clicks` → `count`, PowerShell → Shell, Registry → Defaults, Mac-only tools
+in PascalCase) and contract tests through that naming.
+
+**1g. `sdk-examples`** (secondary): `Desktop`/`AsyncDesktop` over the same registered tools via an in-process MCP
+client, `Desktop.fake()/direct()/connect()`, typed results, example scripts runnable with `--fake`, framework
+examples with `"<your-model>"` placeholders.
+
+**1h. Integrate:**
+- Get the whole suite, ruff and pyright green.
+- Move every tool module to `REQUIRED_TOOL_MODULES` in `server/app.py`. Today only `observe` is required; the
+  others are skipped if missing.
+- Check that `TOOL_ORDER` and the registry agree.
+- Golden files `tests/server/golden/tools_<profile>_<naming>.json`, regenerated only with `AXPILOT_UPDATE_GOLDEN=1`.
+- `scripts/gen_tool_docs.py` → `docs/tools.md`, with a freshness test.
+- CLI smoke: `axpilot tools --json`, `axpilot call status --engine fake`,
+  `axpilot call snapshot --engine fake --arg app=Notes`, `axpilot doctor`.
+- Coverage gate (`fail_under` ≥ 85, enforced in CI).
+- Sync `SKILL.md`, then update CHANGELOG and this file.
 
 ### Step 2: hardening round (owner's request: "cover all edge cases; any app; any agent framework")
 
-**Controls, handled by their role** (likely via a role-aware `set_value`, a `select_option` tool, and a
-`handle_dialog` tool; update PLAN/CONTRACTS/golden files accordingly):
-- toggles/switches/checkboxes set to a desired state (idempotent, read state first; mixed state)
-- sliders (clamp to AXMinValue/AXMaxValue) and steppers (AXIncrement/AXDecrement until the target)
+**Controls, handled by their role** (`set_value` is already role-aware for toggles, sliders, steppers and
+pop-ups; add a `select_option` tool and a `handle_dialog` tool; update PLAN/CONTRACTS/golden files accordingly):
 - pop-up buttons, combo boxes, menu buttons, radio groups, segmented controls, tab groups: select an option by
   title/index
 - disclosure triangles and outline rows: expand/collapse via AXDisclosing
@@ -144,15 +225,16 @@ Follow `docs/dev/handoff/build2-task-specs.md` exactly. Packages:
 
 **UI conditions to handle:**
 - nested and horizontal scroll areas; virtualized/lazy lists
-- off-screen elements (scroll into view before acting); disabled elements (clear reason)
+- off-screen elements (scroll into view before acting; `click` already does this); disabled elements (clear reason)
 - animations (settle); modal dialogs blocking the window; apps not responding (timeouts)
 - multiple windows, tabs and Spaces; multi-display and Retina coordinates
 - localized/RTL UIs, non-US keyboard layouts, Secure Event Input
 
 **Agent-framework and MCP edge cases:**
 - **Portable input schemas:** must pass OpenAI strict-mode and Gemini function-declaration limits. That means
-  flat objects, no surprising `$ref`/`$defs`/`oneOf`, names matching `^[a-zA-Z0-9_-]{1,64}$`, and descriptions
-  on every parameter. Add a schema-portability test over every tool.
+  flat objects, no surprising `$ref`/`$defs`/`oneOf`, avoiding the `anyOf: [T, null]` pattern where possible, names
+  matching `^[a-zA-Z0-9_-]{1,64}$`, and descriptions on every parameter. Add a schema-portability test over every
+  tool.
 - **Self-sufficient text:** text content must work alone, for clients that ignore `structuredContent` or images.
 - **Bounded results:** result size budgets with paging.
 - **Concurrency and timeouts:** parallel tool calls (input serialized, `BUSY`); stay well under client-side
@@ -181,18 +263,21 @@ launcher (`launcher/build.sh`), run `AXPILOT_MACOS_TESTS=1 uv run pytest tests/e
 
 ## 7. Environment and verified technical facts
 
-- Tooling: `uv` (`uv sync`, `uv run pytest -q`, `uv run ruff check …`, `uv run pyright`), Python 3.12 in dev.
+- Tooling: `uv` (`uv sync`, `uv run pytest -q -p no:cacheprovider`, `uv run ruff check …`, `uv run pyright`),
+  Python 3.12 in dev. `pytest-xdist` is not installed (no `-n`); the full suite takes about 2 minutes.
 - **MCP SDK v2 facts verified in this repo:**
   - Setup: `from mcp.server import MCPServer`; `MCPServer(name=, instructions=, version=)`.
-  - Registration: `server.add_tool(fn, name=, title=, description=, annotations=ToolAnnotations(read_only_hint=, destructive_hint=, idempotent_hint=, open_world_hint=))`.
+  - Registration: `server.add_tool(fn, name=, title=, description=, annotations=ToolAnnotations(read_only_hint=, destructive_hint=, idempotent_hint=, open_world_hint=))`. In this repo tools register through the `@tool(...)` decorator in `server/registry.py`.
   - Structured output: a tool returning `Annotated[CallToolResult, PydanticModel]` advertises `outputSchema`. Return `CallToolResult(content=[TextContent(type="text", text=…)], structured_content={…})`; it is validated unless `is_error=True`.
-  - In-process tests: `async with Client(server) as c` negotiates protocol `2026-07-28`.
+  - In-process tests: `async with Client(server) as c` negotiates protocol `2026-07-28`. The test helpers are in `axpilot.testing` (`make_test_context`, `connected_client`, `call`, `structured`).
   - Imports: types come from `mcp_types`; `ToolError` from `mcp.server.mcpserver.exceptions`.
+- The `full` profile includes the `shell` tool, which lifts the Terminal rule; test the Terminal rule with the
+  `standard` profile.
 - PyObjC is only installed on macOS (`sys_platform == 'darwin'` markers). Only `engine/macos` and `host/ui` may
   import it; everything else must run and be tested on Linux.
 - Paths are redirectable for hermetic tests: `AXPILOT_CONFIG_DIR`, `AXPILOT_HOME`, `AXPILOT_LOG_DIR`,
   `AXPILOT_SOCKET`, `AXPILOT_APP_PATH`.
-- Try the server without a Mac: `uv run axpilot stdio --engine fake` (once the CLI exists; build round 2).
+- Try the server without a Mac: `uv run axpilot stdio --engine fake` (once Step 1d lands).
 - Research basis (Oct 2026): MCP spec `2026-07-28` is stateless (handles in tool args, deterministic `tools/list`,
   SSE and logging deprecated); macOS 27 is Apple-silicon-only; Homebrew removes un-notarized casks; competitors:
   CursorTouch MacOS-MCP (Python, TCC issues), Peekaboo (Swift), mcp-server-macos-use (Swift), cua-driver (Rust).

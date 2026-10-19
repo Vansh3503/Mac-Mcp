@@ -4,6 +4,23 @@ These are the exact work packages for the second build round (MCP server, tools,
 The round was interrupted by a usage limit; partial results are in commit `99b08da` (`wip(server)`).
 Each package lists its file scope. Packages in the same phase can run in parallel; phases run in order: Core → Tools → Integrate.
 
+**Status (see `HANDOFF.md` §5 and `git log` for anything newer):**
+
+| Package | Status |
+|---|---|
+| server-core | **done** (`c83494d` and earlier) |
+| compat-vision | **done** (`736597a`, `e7aa611`) |
+| tools-input | **done** (`8a13a66`) |
+| stable-refs (new, Core) | open; the design is in `HANDOFF.md` §6, Step 1a. Do it before the tool packages. |
+| tools-navigate | open |
+| tools-apps-system | open |
+| tools-scripting-browser-computer-naming | open. Build the Windows-MCP **naming** part after all tools exist (it maps every tool). |
+| host-bridge-cli | open |
+| sdk-examples | open (after the tools: the SDK calls them) |
+| integrator | open |
+
+The "RESUMED RUN" paragraph in the shared rules below is outdated: the three failing tests it mentions are fixed.
+
 ## Shared rules for every package
 
 ```text
