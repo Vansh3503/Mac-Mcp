@@ -162,16 +162,27 @@ def _clip(rect: Rect | None, other: Rect | None) -> Rect | None:
 
 
 def _viewport(index: _Index, container: Element | None) -> Rect | None:
-    """The on-screen part of ``container``: its frame clipped by its scroll-area ancestors and
-    the window (a table's own frame spans its whole content). ``None`` if nothing has a frame."""
+    """The on-screen part of ``container``: its frame clipped by its scroll-area ancestors (or
+    the collapsed scroll area recorded in ``extra["viewport"]``) and the window (a table's own
+    frame spans its whole content). ``None`` if nothing has a frame."""
     window = index.snap.window.frame if index.snap.window is not None else None
     if container is None:
         return window
     rect = container.frame
+    recorded = container.extra.get("viewport")
+    if isinstance(recorded, list | tuple) and len(recorded) == 4:
+        rect = _clip(rect, Rect(*(float(v) for v in recorded)))
     for parent in index.ancestors(container):
         if parent.role == "scrollarea":
             rect = _clip(rect, parent.frame)
     return _clip(rect, window)
+
+
+def viewport_of(snap: Snapshot, container: Element | None) -> Rect | None:
+    """The part of the screen where ``container``'s content is visible (``None`` if unknown).
+
+    Scroll at its center: a list's own frame can extend far beyond the visible area."""
+    return _viewport(_Index(snap), container)
 
 
 def _visible_share(el: Element, viewport: Rect | None) -> float:
@@ -312,6 +323,24 @@ def _reading_lines(elements: Sequence[Element]) -> list[str]:
     return lines
 
 
+def _top_collection(index: _Index, container: Element, inside: Sequence[Element]) -> Element | None:
+    """The largest list/table/outline directly inside ``container`` (not nested in another
+    collection), or ``None``."""
+    best: Element | None = None
+    for el in inside:
+        if el.role not in COLLECTION_ROLES:
+            continue
+        chain = index.ancestors(el)
+        if container not in chain:
+            continue
+        between = chain[: chain.index(container)]
+        if any(parent.role in COLLECTION_ROLES for parent in between):
+            continue
+        if best is None or _area(el) > _area(best):
+            best = el
+    return best
+
+
 def collect_rows(snap: Snapshot, container: Element | None, *, visible_only: bool = True) -> list[str]:
     """The content of ``container`` as text lines, in order.
 
@@ -334,6 +363,9 @@ def collect_rows(snap: Snapshot, container: Element | None, *, visible_only: boo
     index = _Index(snap)
     inside = index.descendants(container)
     if container.role not in COLLECTION_ROLES:
+        inner = _top_collection(index, container, inside)
+        if inner is not None:  # a scroll area around a list/table: its rows are the content
+            return collect_rows(snap, inner, visible_only=visible_only)
         return _reading_lines(inside)
     viewport = _viewport(index, container) if visible_only else None
     rows = [

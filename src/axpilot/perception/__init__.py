@@ -53,6 +53,7 @@ from axpilot.perception.navigate import (
     overlap_length,
     page_signature,
     scroll_container_for,
+    viewport_of,
 )
 from axpilot.perception.resolve import live_handle, match_locator
 from axpilot.perception.roles import INTERACTIVE_ROLES, is_interactive, short_role
@@ -109,4 +110,5 @@ __all__ = [
     "snapshot_payload",
     "tree_from_dict",
     "tree_to_dict",
+    "viewport_of",
 ]

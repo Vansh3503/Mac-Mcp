@@ -249,6 +249,18 @@ def menu_titles(menu_bar: RawNode | None) -> list[str]:
 
 
 # --------------------------------------------------------------------------- builder
+def _child_viewport(node: RawNode, element: Element | None, scope: _Scope) -> Rect | None:
+    """The viewport children inherit: a collapsed scroll area narrows it; a listed element
+    resets it (its own frame and ``parent_ref`` describe the nesting from there on)."""
+    if element is not None:
+        return None
+    if node.role == "AXScrollArea" and node.frame is not None:
+        if scope.viewport is None:
+            return node.frame
+        return scope.viewport.intersection(node.frame) or Rect(node.frame.x, node.frame.y, 0.0, 0.0)
+    return scope.viewport
+
+
 @dataclass(frozen=True, slots=True)
 class _Scope:
     depth: int
@@ -256,6 +268,8 @@ class _Scope:
     in_modal: bool
     in_menu: bool
     scroll_hint: bool
+    viewport: Rect | None = None
+    """Frame of the nearest scroll area that was collapsed away (not listed as an element)."""
 
 
 class _Builder:
@@ -288,6 +302,10 @@ class _Builder:
         if element is not None:
             if scrollable or (scope.scroll_hint and node.role in SCROLL_CONTENT_ROLES):
                 element.extra["scrollable"] = True
+            if scope.viewport is not None and node.role in SCROLL_CONTENT_ROLES:
+                # The scroll area itself is not listed, so remember the part of the screen it
+                # shows: a table's own frame spans its whole content, most of it off-screen.
+                element.extra["viewport"] = scope.viewport.to_list()
             if self._mode == "text" and node.role == "AXHeading":
                 return  # the heading's text is its content; don't repeat it
         child_scope = _Scope(
@@ -296,6 +314,7 @@ class _Builder:
             in_modal=scope.in_modal or is_modal(node),
             in_menu=scope.in_menu or node.role == "AXMenu",
             scroll_hint=element is None and (scrollable or scope.scroll_hint),
+            viewport=_child_viewport(node, element, scope),
         )
         for child, child_path in child_paths(node, path):
             self._visit(child, child_path, child_scope)

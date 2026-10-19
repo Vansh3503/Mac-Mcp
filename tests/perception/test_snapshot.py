@@ -132,7 +132,7 @@ def test_context_roles_need_a_name(node: NodeFactory, make_tree: TreeFactory) ->
     ]
 
 
-def test_lists_report_rows_and_inherit_scrollable_from_collapsed_scroll_area(
+def test_lists_report_rows_and_inherit_scrollable_and_viewport_from_collapsed_scroll_area(
     node: NodeFactory, make_tree: TreeFactory
 ) -> None:
     rows = [node("AXRow", title=f"Row {i}", frame=(0, i * 20, 200, 20)) for i in range(3)]
@@ -144,7 +144,8 @@ def test_lists_report_rows_and_inherit_scrollable_from_collapsed_scroll_area(
         frame=(0, 0, 215, 300),
     )
     lst = build(make_tree(area)).all_elements[0]
-    assert lst.extra == {"rows": 3, "scrollable": True}
+    # The scroll area is collapsed, so its on-screen frame travels with the list.
+    assert lst.extra == {"rows": 3, "scrollable": True, "viewport": [0, 0, 215, 300]}
 
 
 def test_named_scroll_area_is_itself_marked_scrollable(node: NodeFactory, make_tree: TreeFactory) -> None:
@@ -472,7 +473,7 @@ def test_demo_notes_snapshot(snapshot_of: Callable[..., Snapshot]) -> None:
     assert by_name["New Note"].role == "button"
     notes = by_name["Notes"]
     assert notes.role == "list"
-    assert notes.extra == {"rows": 14, "scrollable": True}
+    assert notes.extra == {"rows": 14, "scrollable": True, "viewport": [201, 77, 300, 823]}
     rows = [el for el in snap.all_elements if el.parent_ref == notes.ref]
     assert len(rows) == 12  # the last two rows are scrolled below the window
     assert rows[0].name == "Shopping list — 10:42"
