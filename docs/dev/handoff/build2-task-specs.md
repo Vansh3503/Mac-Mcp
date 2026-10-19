@@ -11,13 +11,14 @@ Each package lists its file scope. Packages in the same phase can run in paralle
 | server-core | **done** (`c83494d` and earlier) |
 | compat-vision | **done** (`736597a`, `e7aa611`) |
 | tools-input | **done** (`8a13a66`) |
-| stable-refs (new, Core) | open; the design is in `HANDOFF.md` §6, Step 1a. Do it before the tool packages. |
-| tools-navigate | open |
-| tools-apps-system | open |
-| tools-scripting-browser-computer-naming | open. Build the Windows-MCP **naming** part after all tools exist (it maps every tool). |
-| host-bridge-cli | open |
-| sdk-examples | open (after the tools: the SDK calls them) |
-| integrator | open |
+| stable-refs (new, Core) | **done** (`355e68e`) |
+| tools-navigate | **done** (`e7b934a`) |
+| tools-apps-system | **done** (`982bfdb`) |
+| host-bridge-cli | **done** (`54681b4`) |
+| tools-scripting-browser-computer | **done** (`9e994e9`) |
+| naming-windows-mcp | **done** (`97050d4`) |
+| sdk-examples | **done** (`c763685`; framework examples are named `*_example.py` so they don't shadow the framework packages) |
+| integrator | **done** (see `git log`: golden files, `scripts/gen_tool_docs.py`, coverage gate) |
 
 The "RESUMED RUN" paragraph in the shared rules below is outdated: the three failing tests it mentions are fixed.
 

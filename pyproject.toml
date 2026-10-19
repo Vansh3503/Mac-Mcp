@@ -108,6 +108,7 @@ ignore = [
 "tests/**" = ["S", "PLC0415", "PT011"]
 "spikes/**" = ["S", "T201", "PLC0415"]
 "src/axpilot/engine/macos/**" = ["PLC0415"]
+"scripts/gen_tool_docs.py" = ["E501"]  # Markdown table rows in the page template
 
 [tool.pyright]
 include = ["src", "tests"]
@@ -129,3 +130,8 @@ filterwarnings = ["error::DeprecationWarning:axpilot.*"]
 source = ["axpilot"]
 branch = true
 omit = ["src/axpilot/engine/macos/*", "src/axpilot/host/ui/*"]
+
+[tool.coverage.report]
+# Measured 94% (branch) on Linux; the gate leaves room for version-specific branches.
+fail_under = 90
+show_missing = true

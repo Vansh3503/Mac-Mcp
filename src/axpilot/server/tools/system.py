@@ -225,7 +225,8 @@ def clipboard_tool(ctx: ServerContext) -> ToolFn:
 NOTIFY_DESCRIPTION = """\
 Show a macOS notification to the user (for example when a long task finishes or needs them).
 Params: title, message, subtitle. Returns once it was posted. Don't use it for chatter: the user
-sees every notification."""
+sees every notification. Errors: COMMAND_FAILED (macOS refused it, e.g. notifications are off for
+the app running AXPilot), TIMEOUT."""
 
 
 class NotifyModel(OutputModel):

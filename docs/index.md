@@ -18,9 +18,9 @@ by default.
   commands by path, apps, windows, files and URLs. Each action tries the most robust strategy
   first and returns a diff of what changed.
 - **Safety.** Profiles and toolsets, app and window deny-lists, protection for password fields,
-  confirmations for destructive actions, a rate limit, an audit log, yield-to-user, and *(planned)*
-  a kill switch, an on-screen indicator and client pairing. **No telemetry.**
-- **Any client, any framework.** Standard MCP over stdio, and *(planned)* Streamable HTTP. Works
+  confirmations for destructive actions, a rate limit, an audit log, yield-to-user, client pairing,
+  and *(planned)* a kill switch and an on-screen indicator. **No telemetry.**
+- **Any client, any framework.** Standard MCP over stdio or Streamable HTTP. Works
   with Claude Desktop, Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI, the OpenAI Agents SDK,
   LangGraph, Pydantic AI and anything else that speaks MCP.
 

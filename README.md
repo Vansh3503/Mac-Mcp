@@ -28,16 +28,17 @@ on by default.
 - **Safe by default.** Scripting is off, destructive actions need your confirmation, password
   managers and the Privacy & Security settings are off limits, secure fields are never read, and
   there is **no telemetry**.
-- **Works with any MCP client or agent framework.** Standard MCP over stdio (and Streamable HTTP,
-  planned): Claude Desktop, Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI, OpenAI Agents SDK,
+- **Works with any MCP client or agent framework.** Standard MCP over stdio or Streamable HTTP:
+  Claude Desktop, Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI, OpenAI Agents SDK,
   LangGraph, Pydantic AI and more.
 - **Permissions that just work** *(planned for v0.2)*. A tiny frozen `AXPilot.app` launcher holds
   the macOS permissions, so you grant Accessibility once and every client can use it, across updates.
 
 ## Features
 
-The feature set planned for 1.0. The [tool reference](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/tools.md)
-says which release brings each tool.
+The feature set planned for 1.0; every tool below is implemented and tested against the simulated
+desktop, and is awaiting verification on real macOS. The
+[tool reference](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/tools.md) documents each one.
 
 | Area | What you get |
 |---|---|
@@ -51,7 +52,7 @@ says which release brings each tool.
 ```
  MCP clients and agent frameworks
  (Claude, Cursor, VS Code, Codex, OpenAI Agents SDK, LangGraph, …)
-        │ spawn `axpilot stdio`                │ Streamable HTTP (planned)
+        │ spawn `axpilot stdio`                │ Streamable HTTP (`axpilot http`)
         ▼                                      │ 127.0.0.1 + bearer token
  ┌────────────────┐   Unix socket (0600)       │
  │ axpilot bridge │──────────────┐             │
@@ -195,12 +196,13 @@ More frameworks: [docs/frameworks.md](https://github.com/vansh3503/Mac-Mcp/blob/
 
 ## Tools
 
-The planned 1.0 tool surface. Profiles pick a starting set: `minimal` (~9 tools, for small or
-local models), `standard` (default), `full`, and `computer` (one vision-first `computer` tool).
+The 1.0 tool surface, implemented. Profiles pick a starting set: `minimal` (10 tools, for small or
+local models), `standard` (default), `full`, and `computer` (one vision-first `computer` tool). A
+`windows-mcp` naming exposes the same tools under Windows-MCP's names and parameters.
 
 | Toolset | Tools | Default |
 |---|---|---|
-| `observe` | `snapshot`, `screenshot`, `find`, `inspect`, `ocr`, `list_apps`, `list_windows`, `list_displays`, `wait_for`, `status` | on (read-only) |
+| `observe` | `snapshot`, `screenshot`, `find`, `explore`, `read`, `inspect`, `ocr`, `list_apps`, `list_windows`, `list_displays`, `wait_for`, `status` | on (read-only) |
 | `input` | `click`, `type_text`, `press_keys`, `scroll`, `drag`, `move_mouse`, `set_value`, `perform_action`, `select_menu`, `fill_form` | on |
 | `apps` | `app`, `window`, `open` | on |
 | `system` | `clipboard`, `notify`, `spotlight_search`, `system_info`, `system_control`, `processes` | `clipboard` on |
@@ -210,22 +212,23 @@ local models), `standard` (default), `full`, and `computer` (one vision-first `c
 
 Every tool has an input and output schema, MCP annotations (`readOnlyHint`, `destructiveHint`, …)
 and stable error codes such as `STALE_REF`, `BLOCKED_BY_POLICY` or `USER_ACTIVE`. Full reference,
-including which release each tool targets: [docs/tools.md](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/tools.md).
+generated from the code: [docs/tools.md](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/tools.md).
 
 ## Safety defaults
 
 | Control | Default |
 |---|---|
 | Profile | `standard`; `scripting` and `browser` toolsets off |
-| Confirmations | Required for destructive actions (shell, AppleScript, JS eval, force quit, `defaults` write, process kill) |
+| Confirmations | Required for destructive actions (shell, AppleScript, JS eval, running a shortcut, force quit, `defaults` write, process kill), showing the exact command |
 | App deny-list | Keychain Access, Passwords, 1Password, Bitwarden, LastPass, Dashlane, KeePassXC |
 | Window deny-list | The Privacy & Security pane of System Settings |
-| Terminal rule | Typing into Terminal, iTerm2, Ghostty, Warp and similar apps is blocked unless `scripting` is enabled |
+| Terminal rule | Typing into Terminal, iTerm2, Ghostty, Warp and similar apps is blocked unless the `shell` tool is enabled |
 | Secure fields | Values never returned; typing refused unless `allow_secure_fields = true` |
 | Rate limit | 120 input actions per minute |
 | Yield to user | On: input pauses while you are using the mouse or keyboard |
 | Audit log | `~/Library/Logs/AXPilot/audit.jsonl`, arguments redacted |
-| Kill switch, indicator, client pairing | ⌃⌥⌘. stops the agent; on-screen indicator; per-client approval *(arrive with the host app, v0.2)* |
+| Client pairing | The host asks once per client app before it may connect |
+| Kill switch, indicator | ⌃⌥⌘. stops the agent; on-screen indicator *(arrive with the host app, v0.2)* |
 | Telemetry | **None** |
 
 Screen content is untrusted input for an agent. Read the

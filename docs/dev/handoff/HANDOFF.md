@@ -5,8 +5,7 @@ every decision made so far, the exact current state, the rules the owner set, an
 
 - **Repository:** `github.com/Vansh3503/Mac-Mcp` (private). Default branch `main`.
 - **Working branch:** `feature/axpilot-foundation` (all work is here, not merged).
-- **Last verified work commit:** `8a13a66` (`feat(server): input tools …`). Run `git log --oneline -15` first:
-  later commits may have landed (see §5, "In flight").
+- **Last verified work commit:** see `git log --oneline -15`; build round 2 (Step 1) is complete (§5).
 - **Owner:** Vansh Malhotra (GitHub `Vansh3503`).
 
 ---
@@ -15,10 +14,9 @@ every decision made so far, the exact current state, the rules the owner set, an
 
 1. `git fetch origin feature/axpilot-foundation && git checkout feature/axpilot-foundation && git pull`.
 2. `uv sync && uv run pytest -q -p no:cacheprovider` must be green before you change anything.
-3. Read §5 to find out which build-round-2 packages are already committed. Do **only** the packages that are not.
-4. **One session at a time.** If the owner's other session is still running its workflow (§5, "In flight"),
-   don't work on the same branch in parallel: both sessions would edit the same files. Ask the owner which session
-   owns the branch right now.
+3. Read §5 for what is committed, then continue with the first open step in §6 (Step 1 is done).
+4. **One session at a time.** Don't work on the branch from two sessions in parallel: both would edit the same
+   files. Ask the owner which session owns the branch right now.
 
 ## 1. What we are building
 
@@ -108,18 +106,29 @@ Bugs found and fixed by the new tests: collapsed scroll areas lost their viewpor
 4,200-pt frame, so scrolling at its "center" missed the screen); `collect_rows` on a scroll area duplicated rows
 and cells; key sequences with `+`/`-`; app-kind fallback order.
 
-### Test status (Linux, at `8a13a66`)
+### Test status (Linux, end of build round 2)
 
-`uv run pytest -q -p no:cacheprovider` → **2185 passed, 48 skipped (macOS-only / launcher), 0 failed.**
-`ruff check` and `pyright` are clean on all files touched since the WIP commit.
+`uv run pytest -q -p no:cacheprovider --cov --cov-branch` → **2880 passed, 50 skipped (macOS-only / launcher /
+root-only), 0 failed; 94% branch coverage** (gate: `fail_under = 90` in `pyproject.toml`, enforced by CI's
+`pytest --cov`). `ruff check`, `ruff format --check` and `pyright` are clean. The full run takes about 5 minutes
+without coverage and 13 with it.
 
-### In flight when this file was written (may or may not have landed)
+### Build round 2 (done, one commit per package)
 
-The owner's other session launched a workflow (run `wf_7a3407c1-9ea`, about 14:35 UTC on 2026-10-19). It builds
-every open package below with an independent adversarial review and a fix round, then integration, a completeness
-critic and a final fix round. **Its work exists only in that session's working tree until it is committed.** Check
-`git log` on the remote branch: each finished package lands as its own commit (`feat(perception): stable refs…`,
-`feat(server): navigate tools…`, and so on). Anything without a commit is not done; redo it from the specs.
+| Package | Commit | Notes |
+|---|---|---|
+| 1a stable refs | `355e68e` | session-unique refs carried across snapshots of a window; list rows that scrolled away give `STALE_REF` |
+| 1b navigate | `e7b934a` | find (with scrolling), scroll, explore, read; every loop bounded, partial results with warnings |
+| 1c apps & system | `982bfdb` | app, window, open (scheme allowlist), clipboard, notify, spotlight_search, system_info, system_control, processes; `manage` policy kind |
+| 1d host, bridge, CLI | `54681b4` | Unix-socket host with pairing, stdio bridge with auto-start, Streamable HTTP, the full Typer CLI; real subprocess tests |
+| 1e scripting, browser, computer | `9e994e9` | `confirms_itself` tools show the exact command/script; AppleScript injection tests; `computer` with per-server screenshot state |
+| 1f windows-mcp naming | `97050d4` | adapters get `(fn, ctx)`; every tool module is required |
+| 1g SDK & examples | `c763685` | `Desktop` (portal thread) / `AsyncDesktop`; 5 scripts run with `--fake`; 11 framework examples (`*_example.py`) |
+| 1h integrate | see `git log` | golden files (`tests/server/golden`, `AXPILOT_UPDATE_GOLDEN=1`), `scripts/gen_tool_docs.py` → `docs/tools.md` with a freshness test, coverage gate |
+
+Not verified on a real Mac: everything in `engine/macos`, the dialog confirmer, `ensure_host_running` (`open -g -a`),
+`LOCAL_PEERCRED`, parent-app identification, and every AppleScript the browser/scripting tools send. All of it is
+covered by Linux tests with fakes only.
 
 ### GitHub issues already created
 
@@ -129,14 +138,9 @@ link to `docs/PLAN.md` on `feature/axpilot-foundation`.
 
 ## 6. Remaining work, in order
 
-**Important for usability:** until Step 1d lands there is **no runnable `axpilot` command** (`pyproject.toml`
-declares `axpilot = "axpilot.cli:main"`, but `cli.py` doesn't exist yet), so the server can't be connected to any
-MCP client.
+### Step 1: finish build round 2 — **done** (commits in §5)
 
-### Step 1: finish build round 2
-
-Specs: `docs/dev/handoff/build2-task-specs.md`. Done: `server-core`, `compat-vision`, `tools-input`. Open, in this
-order (b–e can run in parallel with disjoint file scopes; f–g need all tools; h last):
+Specs: `docs/dev/handoff/build2-task-specs.md`. Kept for reference:
 
 **1a. Stable refs (core; do first).** The bug: refs are numbered `e1…eN` per snapshot and a bare ref resolves
 against the latest snapshot of *any* app. After an action re-snapshots the window, an old `e29` (the Note body)

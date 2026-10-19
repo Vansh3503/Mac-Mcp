@@ -1,0 +1,929 @@
+[
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "Snapshot an app's UI"
+  },
+  "description": "Capture an app's UI as a numbered list of elements (refs e1, e2…) that other tools act on.\nUse it before acting and whenever the UI may have changed. Refs stay valid across snapshots while\ntheir element exists (unchanged elements keep their ref; numbers are never reused).\nParams: app / window_id (default: the frontmost app's focused window); mode: auto (default: the\naccessibility tree, plus OCR text elements o1… when the tree is poor), interactive (actionable\nelements only), full (every element), text (reading view), vision (always add OCR elements);\nmax_elements / offset to page (or snapshot_id + offset to page an existing snapshot without\nre-capturing); include_screenshot / annotate (image with refs drawn on it).\nReturns one line per element (ref, role, name, value, states, center point), the focused element,\nthe menu bar, app kind and AX quality, and paging info; structuredContent has every field.\nErrors: APP_NOT_FOUND, WINDOW_NOT_FOUND, SNAPSHOT_NOT_FOUND, PERMISSION_ACCESSIBILITY,\nBLOCKED_BY_POLICY, TIMEOUT.",
+  "input_schema": {
+   "properties": {
+    "annotate": {
+     "default": false,
+     "description": "Return a screenshot with element refs drawn on it (implies include_screenshot).",
+     "title": "Annotate",
+     "type": "boolean"
+    },
+    "app": {
+     "anyOf": [
+      {
+       "maxLength": 256,
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app.",
+     "title": "App"
+    },
+    "include_menus": {
+     "default": true,
+     "description": "List the app's top-level menus.",
+     "title": "Include Menus",
+     "type": "boolean"
+    },
+    "include_screenshot": {
+     "default": false,
+     "description": "Also return a screenshot of the window.",
+     "title": "Include Screenshot",
+     "type": "boolean"
+    },
+    "max_elements": {
+     "anyOf": [
+      {
+       "maximum": 2000,
+       "minimum": 1,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Elements per page (default from config, 150).",
+     "title": "Max Elements"
+    },
+    "mode": {
+     "default": "auto",
+     "description": "auto | interactive | full | text | vision (see the tool description).",
+     "enum": [
+      "auto",
+      "interactive",
+      "full",
+      "text",
+      "vision"
+     ],
+     "title": "Mode",
+     "type": "string"
+    },
+    "offset": {
+     "default": 0,
+     "description": "Index of the first element to return (paging).",
+     "minimum": 0,
+     "title": "Offset",
+     "type": "integer"
+    },
+    "snapshot_id": {
+     "anyOf": [
+      {
+       "maxLength": 16,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Page through this existing snapshot instead of capturing again.",
+     "title": "Snapshot Id"
+    },
+    "window_id": {
+     "anyOf": [
+      {
+       "minimum": 0,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Window id from list_windows; scopes the call to that window.",
+     "title": "Window Id"
+    }
+   },
+   "title": "snapshotArguments",
+   "type": "object"
+  },
+  "name": "snapshot",
+  "output_schema": "sha256:312907dc8afefe07",
+  "title": "Snapshot an app's UI"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "Take a screenshot"
+  },
+  "description": "Take a screenshot of a display, a window, an app's front window or a screen region.\nUse it to see what the accessibility tree cannot show (images, canvases, layout); prefer snapshot\nfor acting. Params: display_id | window_id | app | rect [x, y, width, height] in points (at most\none; default: the main display), max_edge (longest edge in pixels, default 1280), format.\nReturns the image plus a screenshot_id and its scale: to click something you see in it, pass its\npixel x/y with coordinate_space=\"screenshot\" and that screenshot_id. Apps on the deny list are\nleft out of the image. Errors: PERMISSION_SCREEN_RECORDING, DISPLAY_NOT_FOUND, WINDOW_NOT_FOUND,\nAPP_NOT_FOUND, BLOCKED_BY_POLICY, TIMEOUT.",
+  "input_schema": {
+   "properties": {
+    "app": {
+     "anyOf": [
+      {
+       "maxLength": 256,
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Capture the front window of this app (name, bundle id or pid).",
+     "title": "App"
+    },
+    "display_id": {
+     "anyOf": [
+      {
+       "minimum": 0,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Display id from list_displays. Default: the main display.",
+     "title": "Display Id"
+    },
+    "format": {
+     "anyOf": [
+      {
+       "enum": [
+        "png",
+        "jpeg"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Image format (default from config, jpeg).",
+     "title": "Format"
+    },
+    "max_edge": {
+     "anyOf": [
+      {
+       "maximum": 8192,
+       "minimum": 256,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Longest image edge in pixels (default from config, 1280).",
+     "title": "Max Edge"
+    },
+    "rect": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "number"
+       },
+       "maxItems": 4,
+       "minItems": 4,
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Region [x, y, width, height] in screen points (e.g. a frame from a snapshot).",
+     "title": "Rect"
+    },
+    "window_id": {
+     "anyOf": [
+      {
+       "minimum": 0,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Window id from list_windows; scopes the call to that window.",
+     "title": "Window Id"
+    }
+   },
+   "title": "screenshotArguments",
+   "type": "object"
+  },
+  "name": "screenshot",
+  "output_schema": "sha256:d098f25410378429",
+  "title": "Take a screenshot"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "Explore an app"
+  },
+  "description": "Map an app in one call: its windows, menu bar (top-level menus with item counts), toolbar buttons,\ntabs, sidebar sections, scroll areas, open dialogs and the focused element, plus how well AXPilot can\ndrive it (app kind, accessibility quality, strategies, tips).\nCall it first for an unfamiliar app, then snapshot for the full element list. Params: app / window_id.\nReturns a compact overview with refs (usable with click, read, scroll…) and the snapshot_id they belong\nto. Errors: APP_NOT_FOUND, WINDOW_NOT_FOUND, PERMISSION_ACCESSIBILITY, BLOCKED_BY_POLICY, TIMEOUT.",
+  "input_schema": {
+   "properties": {
+    "app": {
+     "anyOf": [
+      {
+       "maxLength": 256,
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app.",
+     "title": "App"
+    },
+    "window_id": {
+     "anyOf": [
+      {
+       "minimum": 0,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Window id from list_windows; scopes the call to that window.",
+     "title": "Window Id"
+    }
+   },
+   "title": "exploreArguments",
+   "type": "object"
+  },
+  "name": "explore",
+  "output_schema": "sha256:eac076e4b74716d7",
+  "title": "Explore an app"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "Wait for a condition"
+  },
+  "description": "Wait until something happens on screen (polling, at most 60 s), instead of sleeping and guessing.\nConditions: element (an element matching query/role appears; returns its ref), element_gone,\nwindow (a window whose title contains query, or any window of app, opens), app_running (query =\napp name or bundle id), text_visible (query appears as text; ocr=true also checks pixels), idle\n(the app's UI stops changing for 0.5 s), duration (just wait timeout_ms).\nParams: condition, query, role, app (default: frontmost app), timeout_ms (default 10000).\nReturns what matched and how long it took. Errors: TIMEOUT (the condition never became true:\ntake a snapshot to see why), INVALID_ARGUMENT, BLOCKED_BY_POLICY, PERMISSION_ACCESSIBILITY.",
+  "input_schema": {
+   "properties": {
+    "app": {
+     "anyOf": [
+      {
+       "maxLength": 256,
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app.",
+     "title": "App"
+    },
+    "condition": {
+     "description": "What to wait for (see the tool description).",
+     "enum": [
+      "element",
+      "element_gone",
+      "window",
+      "app_running",
+      "text_visible",
+      "idle",
+      "duration"
+     ],
+     "title": "Condition",
+     "type": "string"
+    },
+    "ocr": {
+     "default": false,
+     "description": "text_visible only: also look for the text with OCR (slower).",
+     "title": "Ocr",
+     "type": "boolean"
+    },
+    "query": {
+     "anyOf": [
+      {
+       "maxLength": 500,
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Element text, window title, app name/bundle id or text (depends on condition).",
+     "title": "Query"
+    },
+    "role": {
+     "anyOf": [
+      {
+       "maxLength": 64,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Element role filter (button, field, row…) for element conditions.",
+     "title": "Role"
+    },
+    "timeout_ms": {
+     "default": 10000,
+     "description": "Give up after this many ms (max 60000); for duration, how long to wait.",
+     "maximum": 60000,
+     "minimum": 0,
+     "title": "Timeout Ms",
+     "type": "integer"
+    }
+   },
+   "required": [
+    "condition"
+   ],
+   "title": "wait_forArguments",
+   "type": "object"
+  },
+  "name": "wait_for",
+  "output_schema": "sha256:f6ea3bd88513b5d8",
+  "title": "Wait for a condition"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "AXPilot status"
+  },
+  "description": "Report AXPilot's state: version, engine, macOS version, permissions (Accessibility, Screen\nRecording), whether the user paused it (kill switch), the input lock, the active profile and\nenabled tools, rate limit and confirmation mode.\nUse it first when tools fail with permission errors, or to check what this server can do.",
+  "input_schema": {
+   "properties": {},
+   "title": "statusArguments",
+   "type": "object"
+  },
+  "name": "status",
+  "output_schema": "sha256:626675068d82520b",
+  "title": "AXPilot status"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false,
+   "title": "Click"
+  },
+  "description": "Click an element (by ref) or a point.\nPrefer ref from the latest snapshot: AXPilot presses it through accessibility (works even when the\nwindow is in the background, without moving the pointer) and falls back to a real mouse click.\nParams: ref | x+y (coordinate_space \"points\" or \"screenshot\" + screenshot_id), button\n(left|right|middle), count (2 = double-click), modifiers (e.g. [\"cmd\"] to add to a selection),\nstrategy (auto|ax|mouse), report (diff|snapshot|none).\nReturns how it clicked and what changed (new/removed elements, focus and value changes) with the\nnew snapshot_id. Errors: STALE_REF (take a new snapshot), ELEMENT_NOT_ACTIONABLE (disabled or\ncovered), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER, INVALID_ARGUMENT.",
+  "input_schema": {
+   "properties": {
+    "button": {
+     "default": "left",
+     "description": "Mouse button.",
+     "enum": [
+      "left",
+      "right",
+      "middle"
+     ],
+     "title": "Button",
+     "type": "string"
+    },
+    "coordinate_space": {
+     "default": "points",
+     "description": "\"points\" (screen points) or \"screenshot\" (pixels of the screenshot given by screenshot_id, or the latest one).",
+     "enum": [
+      "points",
+      "screenshot"
+     ],
+     "title": "Coordinate Space",
+     "type": "string"
+    },
+    "count": {
+     "default": 1,
+     "description": "Clicks: 2 = double-click, 3 = triple-click.",
+     "maximum": 3,
+     "minimum": 1,
+     "title": "Count",
+     "type": "integer"
+    },
+    "modifiers": {
+     "default": [],
+     "description": "Modifier keys held during the action, e.g. [\"cmd\"] to add to a selection.",
+     "items": {
+      "enum": [
+       "cmd",
+       "shift",
+       "option",
+       "ctrl",
+       "fn"
+      ],
+      "type": "string"
+     },
+     "maxItems": 5,
+     "title": "Modifiers",
+     "type": "array"
+    },
+    "ref": {
+     "anyOf": [
+      {
+       "maxLength": 32,
+       "minLength": 2,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Element ref from the latest snapshot, e.g. \"e12\" (or an OCR ref \"o3\"). Give either ref or x/y.",
+     "title": "Ref"
+    },
+    "report": {
+     "default": "diff",
+     "description": "What to return after acting: \"diff\" (what changed, default), \"snapshot\" (the whole new snapshot) or \"none\" (fastest).",
+     "enum": [
+      "diff",
+      "snapshot",
+      "none"
+     ],
+     "title": "Report",
+     "type": "string"
+    },
+    "screenshot_id": {
+     "anyOf": [
+      {
+       "maxLength": 16,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Screenshot the pixel coordinates refer to (\"c_ab12\"). Default: the latest.",
+     "title": "Screenshot Id"
+    },
+    "snapshot_id": {
+     "anyOf": [
+      {
+       "maxLength": 16,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Snapshot the ref belongs to. Default: the latest snapshot.",
+     "title": "Snapshot Id"
+    },
+    "strategy": {
+     "default": "auto",
+     "description": "\"auto\" (AX, then mouse), \"ax\" only, or \"mouse\" only.",
+     "enum": [
+      "auto",
+      "ax",
+      "mouse"
+     ],
+     "title": "Strategy",
+     "type": "string"
+    },
+    "x": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "X coordinate (with y). Screen points by default.",
+     "title": "X"
+    },
+    "y": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Y coordinate (with x). Screen points by default.",
+     "title": "Y"
+    }
+   },
+   "title": "clickArguments",
+   "type": "object"
+  },
+  "name": "click",
+  "output_schema": "sha256:4523d1e99584c4d4",
+  "title": "Click"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false,
+   "title": "Type text"
+  },
+  "description": "Type text into a field (by ref) or into whatever has keyboard focus.\nWith ref, AXPilot focuses the field first. It sets the text through accessibility in native apps,\ntypes real keystrokes in web views, Electron, Java and Qt apps (they ignore accessibility edits),\nand pastes long text (restoring your clipboard afterwards).\nParams: text, ref (optional), clear (replace the field's content), submit (press Return after),\nstrategy (auto|ax_value|keystrokes|paste), report.\nErrors: SECURE_INPUT_ACTIVE (a password prompt or secure terminal blocks typing),\nBLOCKED_BY_POLICY (password fields, Terminal unless the shell tool is enabled), STALE_REF,\nELEMENT_NOT_ACTIONABLE, USER_ACTIVE, PAUSED_BY_USER.",
+  "input_schema": {
+   "properties": {
+    "clear": {
+     "default": false,
+     "description": "Replace the field's current content.",
+     "title": "Clear",
+     "type": "boolean"
+    },
+    "ref": {
+     "anyOf": [
+      {
+       "maxLength": 32,
+       "minLength": 2,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Element ref from the latest snapshot, e.g. \"e12\" (or an OCR ref \"o3\"). Give either ref or x/y.",
+     "title": "Ref"
+    },
+    "report": {
+     "default": "diff",
+     "description": "What to return after acting: \"diff\" (what changed, default), \"snapshot\" (the whole new snapshot) or \"none\" (fastest).",
+     "enum": [
+      "diff",
+      "snapshot",
+      "none"
+     ],
+     "title": "Report",
+     "type": "string"
+    },
+    "snapshot_id": {
+     "anyOf": [
+      {
+       "maxLength": 16,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Snapshot the ref belongs to. Default: the latest snapshot.",
+     "title": "Snapshot Id"
+    },
+    "strategy": {
+     "default": "auto",
+     "description": "How to enter the text (default auto).",
+     "enum": [
+      "auto",
+      "ax_value",
+      "keystrokes",
+      "paste"
+     ],
+     "title": "Strategy",
+     "type": "string"
+    },
+    "submit": {
+     "default": false,
+     "description": "Press Return after typing.",
+     "title": "Submit",
+     "type": "boolean"
+    },
+    "text": {
+     "description": "Text to type (may contain newlines).",
+     "maxLength": 20000,
+     "title": "Text",
+     "type": "string"
+    }
+   },
+   "required": [
+    "text"
+   ],
+   "title": "type_textArguments",
+   "type": "object"
+  },
+  "name": "type_text",
+  "output_schema": "sha256:4523d1e99584c4d4",
+  "title": "Type text"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false,
+   "title": "Press keys"
+  },
+  "description": "Press keyboard shortcuts or keys, e.g. \"cmd+s\", \"cmd+shift+t\", \"escape\", \"tab\", or a sequence\n\"cmd+a delete\". Keys go to the frontmost app (pass app to bring one forward first).\nNames: cmd, option, ctrl, shift, fn; return, escape, tab, space, delete, forward_delete, up, down,\nleft, right, home, end, page_up, page_down, f1-f20, plus, minus, any character.\nParams: keys, repeat (1-50), app, report. Prefer select_menu for menu commands (it works without\nknowing the shortcut). Errors: SECURE_INPUT_ACTIVE, INVALID_ARGUMENT (unknown key),\nBLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER.",
+  "input_schema": {
+   "properties": {
+    "app": {
+     "anyOf": [
+      {
+       "maxLength": 256,
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app.",
+     "title": "App"
+    },
+    "keys": {
+     "description": "A combo or a space-separated sequence, e.g. \"cmd+shift+t\" or \"cmd+a delete\".",
+     "maxLength": 400,
+     "minLength": 1,
+     "title": "Keys",
+     "type": "string"
+    },
+    "repeat": {
+     "default": 1,
+     "description": "Press the whole sequence this many times.",
+     "maximum": 50,
+     "minimum": 1,
+     "title": "Repeat",
+     "type": "integer"
+    },
+    "report": {
+     "default": "diff",
+     "description": "What to return after acting: \"diff\" (what changed, default), \"snapshot\" (the whole new snapshot) or \"none\" (fastest).",
+     "enum": [
+      "diff",
+      "snapshot",
+      "none"
+     ],
+     "title": "Report",
+     "type": "string"
+    }
+   },
+   "required": [
+    "keys"
+   ],
+   "title": "press_keysArguments",
+   "type": "object"
+  },
+  "name": "press_keys",
+  "output_schema": "sha256:4523d1e99584c4d4",
+  "title": "Press keys"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false,
+   "title": "Scroll"
+  },
+  "description": "Scroll a list, table, web page or text area: by lines or pages, to the top or bottom, or until an\nelement is visible.\nTarget: ref (a scroll area, or any element inside one), x/y (a point; coordinate_space / screenshot_id\nas for click), or neither (the largest scroll area of app's window). direction (up|down|left|right),\namount + unit (lines|pages; a page is ~80% of the visible area), to (top|bottom), scroll_into_view\n(ref of an element to bring into view).\nReturns moved, at_end (cannot scroll further that way), scrolls, and what changed (report:\ndiff|snapshot|none) with the new snapshot_id. For long content prefer read (collects everything)\nor find(scroll=true). Errors: STALE_REF, ELEMENT_NOT_ACTIONABLE (nothing scrollable),\nBLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER, INVALID_ARGUMENT.",
+  "input_schema": {
+   "properties": {
+    "amount": {
+     "default": 1,
+     "description": "How far, in units.",
+     "exclusiveMinimum": 0,
+     "maximum": 1000,
+     "title": "Amount",
+     "type": "number"
+    },
+    "app": {
+     "anyOf": [
+      {
+       "maxLength": 256,
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app.",
+     "title": "App"
+    },
+    "coordinate_space": {
+     "default": "points",
+     "description": "\"points\" (screen points) or \"screenshot\" (pixels of the screenshot given by screenshot_id, or the latest one).",
+     "enum": [
+      "points",
+      "screenshot"
+     ],
+     "title": "Coordinate Space",
+     "type": "string"
+    },
+    "direction": {
+     "default": "down",
+     "description": "up | down | left | right.",
+     "enum": [
+      "up",
+      "down",
+      "left",
+      "right"
+     ],
+     "title": "Direction",
+     "type": "string"
+    },
+    "ref": {
+     "anyOf": [
+      {
+       "maxLength": 32,
+       "minLength": 2,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Ref of a scroll area, list, table, web area or text area (or of an element inside one), e.g. \"e13\".",
+     "title": "Ref"
+    },
+    "report": {
+     "default": "diff",
+     "description": "What to return after acting: \"diff\" (what changed, default), \"snapshot\" (the whole new snapshot) or \"none\" (fastest).",
+     "enum": [
+      "diff",
+      "snapshot",
+      "none"
+     ],
+     "title": "Report",
+     "type": "string"
+    },
+    "screenshot_id": {
+     "anyOf": [
+      {
+       "maxLength": 16,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Screenshot the pixel coordinates refer to (\"c_ab12\"). Default: the latest.",
+     "title": "Screenshot Id"
+    },
+    "scroll_into_view": {
+     "anyOf": [
+      {
+       "maxLength": 32,
+       "minLength": 2,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Ref of an element to scroll into view (no other target needed).",
+     "title": "Scroll Into View"
+    },
+    "snapshot_id": {
+     "anyOf": [
+      {
+       "maxLength": 16,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Snapshot the ref belongs to. Default: the latest snapshot.",
+     "title": "Snapshot Id"
+    },
+    "to": {
+     "anyOf": [
+      {
+       "enum": [
+        "top",
+        "bottom"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "\"top\" or \"bottom\": scroll all the way (ignores direction/amount).",
+     "title": "To"
+    },
+    "unit": {
+     "default": "pages",
+     "description": "\"pages\" (~80% of the visible area) or \"lines\".",
+     "enum": [
+      "lines",
+      "pages"
+     ],
+     "title": "Unit",
+     "type": "string"
+    },
+    "x": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "X coordinate (with y). Screen points by default.",
+     "title": "X"
+    },
+    "y": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Y coordinate (with x). Screen points by default.",
+     "title": "Y"
+    }
+   },
+   "title": "scrollArguments",
+   "type": "object"
+  },
+  "name": "scroll",
+  "output_schema": "sha256:9fd5878754c64859",
+  "title": "Scroll"
+ },
+ {
+  "annotations": {
+   "destructiveHint": true,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false,
+   "title": "Manage an app"
+  },
+  "description": "Launch, activate (bring to the front), hide, unhide, quit or force-quit an app.\nUse it to switch apps instead of clicking the Dock. Params: action; name (app name such as \"Notes\",\nbundle id such as \"com.apple.Notes\", or for launch an .app path).\nReturns the app afterwards (pid, frontmost, hidden). quit asks the app to quit (it may ask to save\nfirst); force_quit kills it without saving and asks the user to confirm.\nErrors: APP_NOT_FOUND, BLOCKED_BY_POLICY (protected apps), USER_DENIED, INVALID_ARGUMENT.",
+  "input_schema": {
+   "properties": {
+    "action": {
+     "description": "launch | activate | hide | unhide | quit | force_quit.",
+     "enum": [
+      "launch",
+      "activate",
+      "hide",
+      "unhide",
+      "quit",
+      "force_quit"
+     ],
+     "title": "Action",
+     "type": "string"
+    },
+    "name": {
+     "description": "App name (\"Notes\"), bundle id (\"com.apple.Notes\") or, for launch, an .app path.",
+     "maxLength": 1024,
+     "minLength": 1,
+     "title": "Name",
+     "type": "string"
+    }
+   },
+   "required": [
+    "action",
+    "name"
+   ],
+   "title": "appArguments",
+   "type": "object"
+  },
+  "name": "app",
+  "output_schema": "sha256:b12f25479570d672",
+  "title": "Manage an app"
+ }
+]

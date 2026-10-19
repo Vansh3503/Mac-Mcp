@@ -63,6 +63,8 @@ Pre-alpha. Nothing is published on PyPI yet.
 - Examples: five automation scripts that run against the simulated desktop, and agent examples
   for eleven frameworks (OpenAI Agents SDK, LangGraph, CrewAI, Google ADK, Pydantic AI,
   LlamaIndex, smolagents, Microsoft Agent Framework, Claude Agent SDK, Vercel AI SDK, Mastra).
+- The tool reference ([docs/tools.md](docs/tools.md)) is generated from the tool registry
+  (`scripts/gen_tool_docs.py`), and golden files pin `tools/list` for every profile and naming.
 - The `windows-mcp` tool naming (`[tools] naming` or `--naming windows-mcp`): Windows-MCP's tool
   names and parameter shapes (`Click(loc=[x, y])`, `Type(text, label=12)`, `Shortcut`, `App`,
   `MultiSelect`, `Shell` for PowerShell, `Defaults` for Registry, …) on top of AXPilot's tools, so

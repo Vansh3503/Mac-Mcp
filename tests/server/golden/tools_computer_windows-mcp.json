@@ -1,0 +1,162 @@
+[
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "AXPilot status"
+  },
+  "description": "Report AXPilot's state: version, engine, macOS version, permissions (Accessibility, Screen\nRecording), whether the user paused it (kill switch), the input lock, the active profile and\nenabled tools, rate limit and confirmation mode.\nUse it first when tools fail with permission errors, or to check what this server can do.",
+  "input_schema": {
+   "properties": {},
+   "title": "ControlStatusArguments",
+   "type": "object"
+  },
+  "name": "ControlStatus",
+  "output_schema": "sha256:626675068d82520b",
+  "title": "AXPilot status"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false,
+   "title": "Computer use"
+  },
+  "description": "Control the computer like a person, with screenshots and pixel coordinates.\nStart with action=\"screenshot\"; every coordinate is [x, y] in pixels of the latest screenshot from\nthis tool. Take a new screenshot after the screen changes.\nActions: screenshot; left_click | right_click | middle_click | double_click | triple_click\n(coordinate, default the pointer position; text = modifier keys to hold, e.g. \"shift\" or\n\"cmd+shift\"); mouse_move (coordinate); left_click_drag (start_coordinate → coordinate);\nleft_mouse_down / left_mouse_up (performed together on release: a click, or a drag if the pointer\nmoved); type (text); key (text: a key or combo such as \"Return\", \"cmd+c\", \"ctrl+shift+Tab\", or\nseveral separated by spaces); scroll (coordinate, scroll_direction, scroll_amount in wheel notches);\nwait (duration seconds, at most 60); cursor_position.\nreturn_screenshot=true returns a fresh screenshot after the action.\nPrefer the accessibility tools (snapshot, click by ref) when available: they are faster and more\nreliable. Errors: SNAPSHOT_NOT_FOUND (take a screenshot first), INVALID_ARGUMENT (pixel outside the\nscreenshot, missing parameter), BLOCKED_BY_POLICY (protected app under the pointer, Terminal),\nSECURE_INPUT_ACTIVE, USER_ACTIVE, PAUSED_BY_USER, PERMISSION_SCREEN_RECORDING.",
+  "input_schema": {
+   "properties": {
+    "action": {
+     "description": "What to do (see the tool description).",
+     "enum": [
+      "screenshot",
+      "left_click",
+      "right_click",
+      "middle_click",
+      "double_click",
+      "triple_click",
+      "mouse_move",
+      "left_click_drag",
+      "left_mouse_down",
+      "left_mouse_up",
+      "type",
+      "key",
+      "scroll",
+      "wait",
+      "cursor_position"
+     ],
+     "title": "Action",
+     "type": "string"
+    },
+    "coordinate": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "integer"
+       },
+       "maxItems": 2,
+       "minItems": 2,
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "[x, y] in pixels of the latest screenshot.",
+     "title": "Coordinate"
+    },
+    "duration": {
+     "anyOf": [
+      {
+       "maximum": 60.0,
+       "minimum": 0,
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "wait: seconds to wait.",
+     "title": "Duration"
+    },
+    "return_screenshot": {
+     "default": false,
+     "description": "Return a fresh screenshot after the action.",
+     "title": "Return Screenshot",
+     "type": "boolean"
+    },
+    "scroll_amount": {
+     "default": 3,
+     "description": "scroll: wheel notches.",
+     "maximum": 50,
+     "minimum": 1,
+     "title": "Scroll Amount",
+     "type": "integer"
+    },
+    "scroll_direction": {
+     "anyOf": [
+      {
+       "enum": [
+        "up",
+        "down",
+        "left",
+        "right"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "scroll: up|down|left|right.",
+     "title": "Scroll Direction"
+    },
+    "start_coordinate": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "integer"
+       },
+       "maxItems": 2,
+       "minItems": 2,
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "left_click_drag: where the drag starts.",
+     "title": "Start Coordinate"
+    },
+    "text": {
+     "anyOf": [
+      {
+       "maxLength": 20000,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "type: the text; key: keys such as cmd+c; clicks: modifier keys to hold.",
+     "title": "Text"
+    }
+   },
+   "required": [
+    "action"
+   ],
+   "title": "ComputerArguments",
+   "type": "object"
+  },
+  "name": "Computer",
+  "output_schema": "sha256:7e018edd11ec1680",
+  "title": "Computer use"
+ }
+]

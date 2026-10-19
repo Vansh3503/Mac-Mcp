@@ -148,7 +148,7 @@ log and error codes as agents:
 ```python
 from axpilot import Desktop
 
-with Desktop.connect() as mac:             # through AXPilot.app; Desktop.fake() for tests
+with Desktop.connect() as mac:  # through AXPilot.app; Desktop.fake() for tests
     mac.app("Notes").activate()
     mac.menu("File", "New Note")
     mac.type_text("Groceries\nMilk, eggs")
