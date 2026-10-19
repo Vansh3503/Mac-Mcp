@@ -216,6 +216,24 @@ examples with `"<your-model>"` placeholders.
 
 ### Step 2: hardening round (owner's request: "cover all edge cases; any app; any agent framework")
 
+**Status: core done in `3a54f05`.** Delivered: `select_option` (pop-ups, combo boxes, radio and tab
+groups, segmented controls, lists and outline rows, by title or index) and `handle_dialog` (sheets,
+alerts and dialog windows: inspect, accept, cancel, press a button by title, fill the first text field;
+buttons that delete or discard ask first); portable input schemas for every tool under both namings
+(no `$ref`/`$defs`, no `null` unions, `additionalProperties: false`, a description on every parameter;
+`tests/server/test_portability.py`); the `[tools] prefix` setting; self-sufficient, bounded text for
+every observe call and older protocol versions (`tests/server/test_hardening.py`); `shortcuts` waits
+30 s by default so calls stay under client timeouts. Already covered before: disclosure triangles
+(`set_value`), multi-select with modifiers (`click`), right-click (`click button=right`) and
+`AXShowMenu` (`perform_action`), off-screen and disabled elements, `SECURE_INPUT_ACTIVE`.
+
+**Still open** (no dedicated handling yet; agents can get there with the generic tools): date pickers,
+color wells, table header sort and cell editing, open/save panels (⌘⇧G + path), toolbar overflow (»),
+menu-bar extras. UI conditions that only a real Mac can exercise: Spaces, multi-display and Retina
+coordinates, RTL and localized UIs, non-US keyboard layouts, animations settling.
+
+The original brief, kept for reference:
+
 **Controls, handled by their role** (`set_value` is already role-aware for toggles, sliders, steppers and
 pop-ups; add a `select_option` tool and a `handle_dialog` tool; update PLAN/CONTRACTS/golden files accordingly):
 - pop-up buttons, combo boxes, menu buttons, radio groups, segmented controls, tab groups: select an option by
@@ -253,6 +271,26 @@ pop-ups; add a `select_option` tool and a `handle_dialog` tool; update PLAN/CONT
 Audit every module against QUALITY.md (A1–A9, B1–B8), the safety model (PLAN §7), MCP compliance, PyObjC
 correctness of `engine/macos` (against Apple/PyObjC docs), and docs accuracy. Use independent reviewers who try to
 refute each finding. Fix the confirmed ones and keep everything green.
+
+**Findings fixed so far** (each with a test):
+- `cf43771` B7: the SDK's `Desktop.direct()` test wrote the real `~/Library/Logs/AXPilot`; sdk tests now get a tmp
+  `HOME` and `AXPILOT_*` folders. A full run with `HOME` pointed at an empty folder leaves it empty. The root
+  `tests/conftest.py` (ruled out by AGENTS.md) became `axpilot.testing.host.short_socket_dir` + per-folder fixtures.
+- `1c51a63` safety: `click` (and `handle_dialog`) fell back to a mouse click when an AX press hit the engine
+  deadline, although the abandoned press may still land: a possible double press. Now `TIMEOUT` with a hint.
+- `cebbb18` A8: silent `pass`/`suppress(Exception)` on disconnects and late cancels now log at debug.
+- `a6749d3` B2: fault-injection and policy tests for `select_option`/`handle_dialog`; toolset contract, README
+  table (now tested), CONTRIBUTING "Adding a tool" checklist and QUALITY.md brought in line with the code.
+- `14ac35d` config: misspelled `AXPILOT_<SECTION>_<KEY>` variables were ignored silently (now a warning with a suggestion);
+  four settings were undocumented; `tests/test_config.py` added (there were no direct config tests).
+- `76a6aba` docs: commands shipped in round 2 were still marked *planned* (connect, setup, update, uninstall, doctor,
+  `debug dump-tree`, the `computer` profile, `ocr`).
+- `c439cc8` A5: `read`/`find` restore spun on zero-line scrolls until the time budget ran out when half a line was
+  left (`round(0.5) == 0`).
+
+Checked and found fine: the MCP surface (capabilities come from the SDK's subscription model; errors are
+`isError` results with a code and hint; unknown tools give `INVALID_ARGUMENT`), stderr excerpts ≤ 500 chars,
+clipboard restore in `finally`, audit redaction of the new tools' text, every loop in the tools bounded.
 
 ### Step 4: final verification and report
 
