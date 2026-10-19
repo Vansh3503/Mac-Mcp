@@ -9,6 +9,8 @@ from enum import Enum
 from pathlib import Path
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.policy.audit import REDACTED_KEYS, AuditEvent, AuditLog, redact_args
@@ -88,6 +90,40 @@ def test_everything_under_a_sensitive_key_is_redacted() -> None:
         "values": {"e1": "<redacted 5 chars>", "e2": ["<redacted 1 chars>", "<redacted 2 chars>"]},
         "keys": ["cmd+a"],
     }
+
+
+KEYS = st.sampled_from(
+    [*sorted(REDACTED_KEYS), "Text", "VALUE", "Script", "ref", "app", "x", "fields"]
+) | st.text(max_size=8)
+JSON_VALUES = st.recursive(
+    st.none() | st.booleans() | st.integers() | st.text(max_size=20),
+    lambda children: st.lists(children, max_size=4) | st.dictionaries(KEYS, children, max_size=4),
+    max_leaves=25,
+)
+
+
+def _check_redacted(original: object, logged: object, sensitive: bool) -> None:
+    if isinstance(original, str):
+        assert logged == (f"<redacted {len(original)} chars>" if sensitive else original)
+    elif isinstance(original, dict):
+        assert isinstance(logged, dict)
+        for key, value in original.items():
+            _check_redacted(value, logged[str(key)], sensitive or key.casefold() in REDACTED_KEYS)
+    elif isinstance(original, list):
+        assert isinstance(logged, list)
+        for value, logged_value in zip(original, logged, strict=True):
+            _check_redacted(value, logged_value, sensitive)
+    else:
+        assert logged == original
+
+
+@given(st.dictionaries(KEYS, JSON_VALUES, max_size=5))
+def test_redaction_never_leaks_a_sensitive_string(args: dict[str, object]) -> None:
+    """Every string under a sensitive key, at any depth and in any letter case, is redacted;
+    everything else is kept as it was."""
+    logged = redact_args(args, "redacted")
+    _check_redacted(args, logged, sensitive=False)
+    json.dumps(logged)
 
 
 def test_redaction_does_not_mutate_the_input() -> None:
