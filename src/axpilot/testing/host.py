@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+import shutil
+import tempfile
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +15,18 @@ from axpilot.host.daemon import Host
 from axpilot.host.pairing import PairingStore
 from axpilot.server.context import ServerContext
 
-__all__ = ["running_host"]
+__all__ = ["running_host", "short_socket_dir"]
+
+
+@contextmanager
+def short_socket_dir() -> Iterator[Path]:
+    """A new, short folder for Unix sockets, removed when the block ends (``AF_UNIX`` paths are
+    limited to about 104 bytes, too few for pytest's ``tmp_path``)."""
+    folder = Path(tempfile.mkdtemp(prefix="ax", dir="/tmp"))
+    try:
+        yield folder
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
 
 
 @asynccontextmanager
