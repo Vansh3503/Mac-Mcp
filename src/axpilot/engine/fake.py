@@ -43,6 +43,29 @@ Effects are dicts with one key (or lists of them): ``{"open_window": 302}``,
 ``{"activate": "Notes"}``, ``{"launch": "com.apple.calculator"}``, ``{"clipboard": "text"}``.
 Element references are fixture ids or ``AXIdentifier`` values.
 
+App compatibility fixtures (all optional):
+
+* an app's ``"bundle"`` describes its ``.app`` contents for app-kind detection:
+  ``{"files": ["Contents/Frameworks/Electron Framework.framework/", ...],
+  "plists": {"Contents/Info.plist": {...}}}`` (paths relative to the app's ``path``); see
+  :meth:`FakeEngine.bundle_fs`;
+* a window's ``"ocr"`` lists what text recognition sees in it,
+  ``[{"text": "Brush", "frame": [x, y, w, h], "confidence": 0.9}, ...]`` (global points). It
+  replaces the text derived from static-text nodes, so apps with a poor accessibility tree can
+  still be "read";
+* an ``AXScrollArea`` node with ``"content_rows"`` simulates a long, virtualized list. Its first
+  ``AXTable``/``AXList``/``AXOutline`` child receives one ``AXRow`` (``AXCell`` →
+  ``AXStaticText``) per row that intersects the scroll area::
+
+      "content_rows": {"rows": ["text", ["cell 1", "cell 2"], ...], "row_height": 28,
+                       "points_per_line": 10, "offset": 0}
+
+  :meth:`FakeEngine.scroll` over the area moves the content by ``dy × points_per_line`` points
+  (clamped at the top and the end), keeps the nodes of rows that stay visible, registers new
+  rows with fresh handles and drops rows that scrolled out (their refs go stale). The
+  collection's ``child_count`` reports the total row count, and an ``AXScrollBar`` child of the
+  area gets ``value`` 0…1. :meth:`FakeEngine.content_scroll` reports the position.
+
 Every state-changing call, and ``screenshot``, appends ``(kind, details)`` to
 :attr:`FakeEngine.events`; pressing an element (``AXPress`` or a click) also appends
 ``("press", {"handle": ..., "name": ...})``. Tests can steer the environment through
@@ -56,6 +79,8 @@ import dataclasses
 import io
 import itertools
 import json
+import math
+import posixpath
 import threading
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -85,6 +110,7 @@ from axpilot.models import (
     WindowAction,
     WindowInfo,
 )
+from axpilot.perception.appkind import MemoryBundleFS
 from axpilot.perception.roles import TEXT_INPUT_ROLES, is_interactive
 from axpilot.perception.serialize import node_from_dict, rect_from_list, rect_to_list
 from axpilot.perception.snapshot import node_name
@@ -93,12 +119,20 @@ FIXTURES_DIR = Path(__file__).with_name("fixtures")
 DEMO_FIXTURE = FIXTURES_DIR / "demo_desktop.json"
 
 _DESKTOP_KEYS = frozenset({"os_version", "displays", "apps", "windows", "menus", "clipboard", "permissions"})
-_APP_KEYS = frozenset({"name", "bundle_id", "pid", "path", "running", "frontmost", "hidden"})
+_APP_KEYS = frozenset({"name", "bundle_id", "pid", "path", "running", "frontmost", "hidden", "bundle"})
 _WINDOW_KEYS = frozenset(
-    {"window_id", "app", "title", "frame", "display_id", "open", "minimized", "fullscreen", "tree"}
+    {"window_id", "app", "title", "frame", "display_id", "open", "minimized", "fullscreen", "tree", "ocr"}
 )
 _DISPLAY_KEYS = frozenset({"display_id", "frame", "work_area", "scale", "main", "name"})
-_FAKE_NODE_KEYS = frozenset({"id", "on_press", "options", "settable", "min", "max", "step"})
+_FAKE_NODE_KEYS = frozenset({"id", "on_press", "options", "settable", "min", "max", "step", "content_rows"})
+_BUNDLE_KEYS = frozenset({"files", "plists"})
+_OCR_KEYS = frozenset({"text", "frame", "confidence"})
+_CONTENT_ROWS_KEYS = frozenset({"rows", "row_height", "points_per_line", "offset"})
+_ROW_COLLECTION_ROLES = ("AXTable", "AXList", "AXOutline")
+_DEFAULT_ROW_HEIGHT = 24.0
+_DEFAULT_POINTS_PER_LINE = 10.0
+"""Points one scroll "line" moves (macOS's default pixels-per-line for line-unit scroll events)."""
+_CELL_TEXT_INSET = 4.0
 _MENU_KEYS = frozenset(
     {"title", "enabled", "checked", "shortcut", "children", "separator", "toggle", "on_select"}
 )
@@ -218,6 +252,37 @@ def _effects(value: Any, where: str) -> list[Effect]:
     return out
 
 
+def _positive_number(value: Any) -> bool:
+    return (
+        isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value) and value > 0
+    )
+
+
+def _check_content_rows(node: RawNode, spec: Any, where: str) -> None:
+    """Validate a ``content_rows`` spec on its (already parsed) scroll-area node."""
+    data = _check_keys(spec, _CONTENT_ROWS_KEYS, where)
+    if node.role != "AXScrollArea" or node.frame is None:
+        raise _fixture_error(f"{where}: content_rows belongs on an AXScrollArea with a frame.")
+    collections = [child for child in node.children if child.role in _ROW_COLLECTION_ROLES]
+    if not collections:
+        raise _fixture_error(f"{where}: the scroll area needs an AXTable, AXList or AXOutline child.")
+    if any(child.role == "AXRow" for child in collections[0].children):
+        raise _fixture_error(f"{where}: rows are generated; remove the AXRow children of the collection.")
+    rows = data.get("rows")
+    if not isinstance(rows, list) or not rows:
+        raise _fixture_error(f"{where}.rows must be a non-empty list.")
+    for index, row in enumerate(rows):
+        cells = [row] if isinstance(row, str) else row
+        if not isinstance(cells, list) or not cells or not all(isinstance(cell, str) for cell in cells):
+            raise _fixture_error(f"{where}.rows[{index}] must be a string or a non-empty list of strings.")
+    for key in ("row_height", "points_per_line"):
+        if key in data and not _positive_number(data[key]):
+            raise _fixture_error(f"{where}.{key} must be a positive number.")
+    offset = data.get("offset", 0)
+    if not isinstance(offset, int | float) or isinstance(offset, bool) or not 0 <= offset < math.inf:
+        raise _fixture_error(f"{where}.offset must be a number of points ≥ 0.")
+
+
 def parse_shortcut(text: str | None) -> KeyCombo | None:
     """Parse a menu shortcut in glyph form (``"⇧⌘S"``, ``"⌃⌘F"``, ``"⌘,"``) into a key combo."""
     if not text:
@@ -275,6 +340,40 @@ class _Window:
     minimized: bool = False
     fullscreen: bool = False
     restore_frame: Rect | None = None
+    ocr: list[OcrLine] | None = None
+    """Fixture OCR text (global points); ``None`` derives OCR from static-text nodes."""
+
+
+@dataclass(slots=True, eq=False)
+class _ScrollContent:
+    """A scroll area whose rows are generated from ``content_rows`` (a virtualized list)."""
+
+    area: RawNode
+    collection: RawNode
+    window: _Window
+    rows: list[list[str]]
+    row_height: float
+    points_per_line: float
+    offset: float = 0.0
+    live: dict[int, RawNode] = field(default_factory=dict)
+    """Row index → node, for the rows currently materialized."""
+    selected: set[int] = field(default_factory=set)
+
+    @property
+    def viewport(self) -> Rect:
+        return self.area.frame or Rect(0, 0, 0, 0)
+
+    @property
+    def max_offset(self) -> float:
+        return max(0.0, len(self.rows) * self.row_height - self.viewport.h)
+
+    def visible_range(self) -> range:
+        """Indices of rows that intersect the viewport at the current offset."""
+        if self.viewport.h <= 0:
+            return range(0)
+        first = int(self.offset // self.row_height)
+        last = min(len(self.rows), math.ceil((self.offset + self.viewport.h) / self.row_height))
+        return range(first, last)
 
 
 @dataclass(slots=True, eq=False)
@@ -447,6 +546,9 @@ class FakeEngine(Engine):
         self._generations: dict[int, int] = {}
         self._windows: list[_Window] = []
         self._frontmost: _App | None = None
+        self._scroll_states: dict[str, _ScrollContent] = {}
+        self._bundle_files: list[str] = []
+        self._bundle_plists: dict[str, Mapping[str, Any]] = {}
         self._load(desktop)
 
     # ------------------------------------------------------------------ construction
@@ -479,6 +581,7 @@ class FakeEngine(Engine):
         self._os_version = str(desktop.get("os_version", "15.4"))
         self._displays = self._parse_displays(desktop.get("displays", _DEFAULT_DISPLAYS))
         self._apps, frontmost = self._parse_apps(desktop.get("apps"))
+        self._bundle_fs = MemoryBundleFS(self._bundle_files, self._bundle_plists)
         self._menus = self._parse_menus(desktop.get("menus") or {})
         self._window_defs = self._parse_window_defs(desktop.get("windows") or [])
         self.clipboard: ClipboardContent = self._parse_clipboard(desktop.get("clipboard"))
@@ -543,6 +646,8 @@ class FakeEngine(Engine):
                 pending_pids.append(app)
             if data.get("frontmost") and running and frontmost is None:
                 frontmost = app
+            if "bundle" in data:
+                self._collect_bundle(app, data["bundle"], f"{where}.bundle")
             apps.append(app)
         keys = [app.key for app in apps]
         if len(set(keys)) != len(keys):
@@ -551,6 +656,30 @@ class FakeEngine(Engine):
         for app in pending_pids:
             app.pid = next(self._pids)
         return apps, frontmost
+
+    def _collect_bundle(self, app: _App, data: Any, where: str) -> None:
+        """Add an app's ``bundle`` description to the in-memory bundle file system."""
+        bundle = _check_keys(data, _BUNDLE_KEYS, where)
+        if not app.path or not app.path.startswith("/"):
+            raise _fixture_error(f"{where} needs the app to have an absolute 'path'.")
+        files = bundle.get("files", [])
+        plists = bundle.get("plists", {})
+        if not isinstance(files, list) or not all(isinstance(item, str) for item in files):
+            raise _fixture_error(f"{where}.files must be a list of relative paths.")
+        if not isinstance(plists, Mapping) or not all(isinstance(v, Mapping) for v in plists.values()):
+            raise _fixture_error(f"{where}.plists must map relative paths to objects.")
+        for relative in [*files, *plists]:
+            parts = str(relative).strip("/").split("/")
+            if not relative or str(relative).startswith("/") or ".." in parts:
+                raise _fixture_error(f"{where} path {relative!r} must be relative to the bundle.")
+        self._bundle_files.extend(posixpath.join(app.path, item) for item in files)
+        self._bundle_plists.update({posixpath.join(app.path, k): v for k, v in plists.items()})
+
+    def bundle_fs(self) -> MemoryBundleFS:
+        """The fixture apps' bundles as a read-only file system for
+        :func:`axpilot.perception.appkind.detect_app_kind` (apps without a ``bundle`` have
+        no files, so detection falls back to their bundle ids)."""
+        return self._bundle_fs
 
     def _parse_menus(self, data: Any) -> dict[str, _MenuItem]:
         if not isinstance(data, Mapping):
@@ -576,6 +705,7 @@ class FakeEngine(Engine):
             raise _fixture_error("windows must be a list.")
         defs: dict[int, Mapping[str, Any]] = {}
         self._definition_apps: dict[int, _App] = {}
+        self._window_ocr: dict[int, list[OcrLine]] = {}
         for index, item in enumerate(items):
             where = f"windows[{index}]"
             data = _check_keys(item, _WINDOW_KEYS, where)
@@ -586,9 +716,32 @@ class FakeEngine(Engine):
             if app is None:
                 raise _fixture_error(f"{where}.app must name an app from 'apps'.")
             rect_from_list(data.get("frame"), f"{where}.frame")
+            if "ocr" in data:
+                self._window_ocr[window_id] = self._parse_ocr(data["ocr"], f"{where}.ocr")
             defs[window_id] = data
             self._definition_apps[window_id] = app
         return defs
+
+    @staticmethod
+    def _parse_ocr(items: Any, where: str) -> list[OcrLine]:
+        if not isinstance(items, list):
+            raise _fixture_error(f"{where} must be a list of {{text, frame, confidence}} objects.")
+        lines: list[OcrLine] = []
+        for index, item in enumerate(items):
+            entry = _check_keys(item, _OCR_KEYS, f"{where}[{index}]")
+            text = entry.get("text")
+            confidence = entry.get("confidence", _OCR_CONFIDENCE)
+            if not isinstance(text, str) or not text.strip():
+                raise _fixture_error(f"{where}[{index}].text must be a non-empty string.")
+            if (
+                not isinstance(confidence, int | float)
+                or isinstance(confidence, bool)
+                or not 0.0 <= confidence <= 1.0
+            ):
+                raise _fixture_error(f"{where}[{index}].confidence must be a number from 0 to 1.")
+            frame = rect_from_list(entry.get("frame"), f"{where}[{index}].frame")
+            lines.append(OcrLine(text=text, confidence=float(confidence), frame=frame))
+        return lines
 
     @staticmethod
     def _parse_clipboard(data: Any) -> ClipboardContent:
@@ -638,6 +791,10 @@ class FakeEngine(Engine):
                 ids.add(fid)
             if node.identifier:
                 identifiers.add(node.identifier)
+            if "content_rows" in data:
+                _check_content_rows(
+                    node, data["content_rows"], f"content_rows of {data.get('id') or node.role}"
+                )
             effects.extend(
                 (f"on_press of {data.get('id') or node.role}", e)
                 for e in _effects(data.get("on_press"), "on_press")
@@ -719,8 +876,11 @@ class FakeEngine(Engine):
             minimized=bool(definition.get("minimized", False)),
             fullscreen=bool(definition.get("fullscreen", False)),
         )
+        if window_id in self._window_ocr:
+            window.ocr = [dataclasses.replace(line) for line in self._window_ocr[window_id]]
         batch = _Registration(window=window, raw=raw, generation=generation)
         self._register(root, None, batch)
+        self._init_scroll_contents(window, generation)
         if batch.focused and (take_focus or app.focused is None):
             app.focused = batch.focused[0]
         return window
@@ -753,7 +913,10 @@ class FakeEngine(Engine):
             self._register(child, node, batch)
 
     def _unregister(self, window: _Window) -> None:
-        for node in window.root.walk():
+        self._unregister_subtree(window.root, window.app)
+
+    def _unregister_subtree(self, root: RawNode, app: _App) -> None:
+        for node in root.walk():
             handle = node.handle
             self._nodes.pop(handle, None)
             self._parents.pop(handle, None)
@@ -761,8 +924,119 @@ class FakeEngine(Engine):
             self._behaviour.pop(handle, None)
             self._secrets.pop(handle, None)
             self._select_all.discard(handle)
-            if window.app.focused == handle:
-                window.app.focused = None
+            self._scroll_states.pop(handle, None)
+            if app.focused == handle:
+                app.focused = None
+
+    # ------------------------------------------------------------------ virtualized lists
+    def _init_scroll_contents(self, window: _Window, generation: int) -> None:
+        """Materialize the visible rows of every ``content_rows`` scroll area of a new window."""
+        for node in list(window.root.walk()):
+            spec = self._behaviour.get(node.handle, {}).get("content_rows")
+            if spec is None:
+                continue
+            collection = next(child for child in node.children if child.role in _ROW_COLLECTION_ROLES)
+            state = _ScrollContent(
+                area=node,
+                collection=collection,
+                window=window,
+                rows=[[row] if isinstance(row, str) else [str(cell) for cell in row] for row in spec["rows"]],
+                row_height=float(spec.get("row_height", _DEFAULT_ROW_HEIGHT)),
+                points_per_line=float(spec.get("points_per_line", _DEFAULT_POINTS_PER_LINE)),
+            )
+            state.offset = min(max(float(spec.get("offset", 0.0)), 0.0), state.max_offset)
+            self._scroll_states[node.handle] = state
+            self._layout_rows(state, generation)
+
+    def _layout_rows(self, state: _ScrollContent, generation: int = 1) -> None:
+        """Place the collection and its visible rows for the current offset (rows that stay
+        visible keep their nodes; new ones get fresh handles; hidden ones are unregistered)."""
+        view = state.viewport
+        collection = state.collection
+        for index, node in state.live.items():
+            if node.selected:
+                state.selected.add(index)
+            else:
+                state.selected.discard(index)
+        wanted = state.visible_range()
+        for index in [i for i in state.live if i not in wanted]:
+            self._unregister_subtree(state.live.pop(index), state.window.app)
+        top = view.y - state.offset
+        width = collection.frame.w if collection.frame is not None else view.w
+        collection.frame = Rect(view.x, top, width, len(state.rows) * state.row_height)
+        collection.child_count = len(state.rows)
+        batch = _Registration(window=state.window, raw={}, generation=generation)
+        for index in wanted:
+            frame = Rect(view.x, top + index * state.row_height, width, state.row_height)
+            node = state.live.get(index)
+            if node is None:
+                node = self._row_node(state.rows[index], frame, selected=index in state.selected)
+                self._register(node, collection, batch)
+                state.live[index] = node
+            else:
+                self._move_subtree(node, frame)
+        others = [child for child in collection.children if child.role != "AXRow"]
+        collection.children = others + [state.live[index] for index in wanted]
+        for child in state.area.children:
+            if child.role == "AXScrollBar":
+                child.value = round(state.offset / state.max_offset, 4) if state.max_offset else 0.0
+
+    @staticmethod
+    def _row_node(cells: list[str], frame: Rect, *, selected: bool) -> RawNode:
+        width = frame.w / max(len(cells), 1)
+        children: list[RawNode] = []
+        for column, text in enumerate(cells):
+            cell = Rect(frame.x + column * width, frame.y, width, frame.h)
+            inner = Rect(
+                cell.x + _CELL_TEXT_INSET,
+                cell.y + _CELL_TEXT_INSET,
+                max(cell.w - 2 * _CELL_TEXT_INSET, 1.0),
+                max(cell.h - 2 * _CELL_TEXT_INSET, 1.0),
+            )
+            text_node = RawNode(role="AXStaticText", value=text, frame=inner)
+            children.append(RawNode(role="AXCell", frame=cell, children=[text_node]))
+        return RawNode(role="AXRow", selected=selected, frame=frame, children=children)
+
+    @staticmethod
+    def _move_subtree(node: RawNode, frame: Rect) -> None:
+        if node.frame is None:
+            node.frame = frame
+            return
+        dx, dy = frame.x - node.frame.x, frame.y - node.frame.y
+        for item in node.walk():
+            item.frame = _shift(item.frame, dx, dy)
+
+    def _scroll_content(self, handle: str | None, dy: float) -> dict[str, Any]:
+        """Apply a vertical scroll to a ``content_rows`` area; details for the scroll event."""
+        state = self._scroll_states.get(handle) if handle is not None else None
+        if state is None:
+            return {}
+        before = state.offset
+        state.offset = min(max(before + dy * state.points_per_line, 0.0), state.max_offset)
+        moved = state.offset != before
+        if moved:
+            self._layout_rows(state)
+        return {"moved": moved, "offset": state.offset, "at_end": state.offset >= state.max_offset}
+
+    def content_scroll(self, ref: str) -> dict[str, Any]:
+        """Scroll position of a ``content_rows`` area, by fixture id, ``AXIdentifier`` or handle
+        (a test helper): ``offset`` (points), ``max_offset``, ``first``/``last`` visible row
+        indices, ``total`` rows, ``at_top``, ``at_end``. Raises ``STALE_REF`` if unknown."""
+        with self._lock:
+            node = self._nodes.get(ref) or self._lookup(ref)
+            state = self._scroll_states.get(node.handle) if node is not None else None
+            if state is None:
+                raise AXPilotError(ErrorCode.STALE_REF, f"{ref!r} is not an open content_rows scroll area.")
+            visible = state.visible_range()
+            return {
+                "offset": state.offset,
+                "max_offset": state.max_offset,
+                "first": visible.start,
+                "last": visible.stop - 1,
+                "total": len(state.rows),
+                "at_top": state.offset <= 0.0,
+                "at_end": state.offset >= state.max_offset,
+            }
 
     def _open_window(self, window_id: int) -> _Window:
         window = self._open_window_by_id(window_id)
@@ -791,6 +1065,9 @@ class FakeEngine(Engine):
         for node in window.root.walk():
             if node is not window.root:
                 node.frame = _shift(node.frame, dx, dy)
+        if window.ocr is not None:
+            for line in window.ocr:
+                line.frame = _shift(line.frame, dx, dy) or line.frame
         window.frame = frame
         if window.root.role == "AXWindow":
             window.root.frame = frame
@@ -1738,7 +2015,8 @@ class FakeEngine(Engine):
             window = self._window_at(at)
             area = self._scroll_area_at(window, at) if window is not None else None
             handle = area.handle if area is not None else None
-            self._record("scroll", point=at.to_list(), dx=dx, dy=dy, target=handle)
+            content = self._scroll_content(handle, dy)
+            self._record("scroll", point=at.to_list(), dx=dx, dy=dy, target=handle, **content)
             if point is not None:
                 self._cursor = point
             old_x, old_y = self.scroll_offsets.get(handle, (0.0, 0.0))
@@ -2039,20 +2317,29 @@ class FakeEngine(Engine):
             lines: list[OcrLine] = []
             for index, window in enumerate(visible):
                 in_front = visible[:index]
-                for node in _walk_visible(window.root):
-                    if node.role != "AXStaticText" or node.frame is None:
+                for text, frame, confidence in self._window_text(window):
+                    if not text.strip() or not frame.intersects(capture.region):
                         continue
-                    text = node.title or ("" if node.value is None else str(node.value))
-                    if not text.strip() or not node.frame.intersects(capture.region):
-                        continue
-                    if not node.frame.intersects(window.frame):
+                    if not frame.intersects(window.frame):
                         continue  # scrolled out of its window
-                    center = node.frame.center
+                    center = frame.center
                     if any(front.frame.contains(center) for front in in_front):
                         continue  # hidden behind a window in front
-                    lines.append(OcrLine(text=text, confidence=_OCR_CONFIDENCE, frame=node.frame))
+                    lines.append(OcrLine(text=text, confidence=confidence, frame=frame))
             lines.sort(key=lambda line: (round(line.frame.y), line.frame.x))
             return lines
+
+    @staticmethod
+    def _window_text(window: _Window) -> Iterator[tuple[str, Rect, float]]:
+        """What OCR sees in a window: its fixture ``ocr`` lines, else its static-text nodes."""
+        if window.ocr is not None:
+            for line in window.ocr:
+                yield line.text, line.frame, line.confidence
+            return
+        for node in _walk_visible(window.root):
+            if node.role != "AXStaticText" or node.frame is None:
+                continue
+            yield node.title or ("" if node.value is None else str(node.value)), node.frame, _OCR_CONFIDENCE
 
     # ------------------------------------------------------------------ clipboard & notifications
     def clipboard_get(self) -> ClipboardContent:

@@ -55,6 +55,10 @@ class ServerConfig(_Section):
     allow_remote: bool = False
     tls_cert: str | None = None
     tls_key: str | None = None
+    engine_timeout_s: float = Field(default=20.0, ge=1.0, le=300.0)
+    """Deadline for one engine call made by a tool; slower calls fail with ``TIMEOUT``."""
+    input_lock_timeout_s: float = Field(default=5.0, ge=0.1, le=5.0)
+    """How long an input tool waits for the single input lock before failing with ``BUSY``."""
 
 
 class ToolsConfig(_Section):
@@ -78,6 +82,8 @@ class SafetyConfig(_Section):
     allow_secure_fields: bool = False
     max_actions_per_minute: int = Field(default=120, ge=1, le=10_000)
     require_pairing: bool = True
+    confirm_timeout_s: float = Field(default=120.0, ge=5.0, le=120.0)
+    """How long a confirmation waits for the user; no answer in time counts as ``USER_DENIED``."""
 
 
 class CaptureConfig(_Section):
@@ -94,6 +100,8 @@ class PerceptionConfig(_Section):
     value_max_chars: int = Field(default=200, ge=20, le=10_000)
     enhance_electron_chrome: bool = True
     settle_ms: int = Field(default=150, ge=0, le=5000)
+    capture_timeout_s: float = Field(default=5.0, ge=0.5, le=60.0)
+    """Budget for one accessibility-tree capture; the snapshot is marked truncated when it runs out."""
 
 
 class ScriptingConfig(_Section):

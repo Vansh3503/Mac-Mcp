@@ -31,6 +31,8 @@ TOOLSETS: dict[str, tuple[str, ...]] = {
         "snapshot",
         "screenshot",
         "find",
+        "explore",
+        "read",
         "inspect",
         "ocr",
         "list_apps",
@@ -90,6 +92,7 @@ PROFILES: dict[str, frozenset[str]] = {
             "app",
             "wait_for",
             "status",
+            "explore",
         }
     ),
     "standard": (_toolsets("observe", "input", "apps") - {"list_displays"}) | {"clipboard"},

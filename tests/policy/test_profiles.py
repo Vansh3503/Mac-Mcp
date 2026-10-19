@@ -20,6 +20,8 @@ def test_toolsets_match_the_contract() -> None:
         "snapshot",
         "screenshot",
         "find",
+        "explore",
+        "read",
         "inspect",
         "ocr",
         "list_apps",
@@ -65,6 +67,7 @@ def test_minimal_profile() -> None:
     assert enabled_tools("minimal") == [
         "snapshot",
         "screenshot",
+        "explore",
         "wait_for",
         "status",
         "click",
@@ -83,6 +86,20 @@ def test_standard_profile() -> None:
     assert "list_displays" not in tools
     assert "shell" not in tools
     assert "browser_tabs" not in tools
+
+
+@pytest.mark.parametrize("profile", ["standard", "full"])
+def test_navigation_tools_follow_find(profile: str) -> None:
+    tools = enabled_tools(profile)
+    start = tools.index("find")
+    assert tools[start : start + 3] == ["find", "explore", "read"]
+
+
+def test_minimal_profile_explores_but_does_not_read() -> None:
+    tools = enabled_tools("minimal")
+    assert "explore" in tools
+    assert "read" not in tools
+    assert "find" not in tools
 
 
 def test_full_profile() -> None:

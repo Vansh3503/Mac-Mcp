@@ -40,7 +40,65 @@
       "name": "Calculator", "bundle_id": "com.apple.calculator", "running": false,
       "path": "/System/Applications/Calculator.app"
     },
-    {"name": "Safari", "bundle_id": "com.apple.Safari", "running": false, "path": "/Applications/Safari.app"}
+    {"name": "Safari", "bundle_id": "com.apple.Safari", "running": false, "path": "/Applications/Safari.app"},
+    {
+      "name": "Slack", "bundle_id": "com.tinyspeck.slackmacgap", "running": false,
+      "path": "/Applications/Slack.app",
+      "bundle": {
+        "files": [
+          "Contents/MacOS/Slack",
+          "Contents/Frameworks/Electron Framework.framework/Versions/A/Electron Framework",
+          "Contents/Frameworks/Slack Helper (Renderer).app/"
+        ],
+        "plists": {
+          "Contents/Info.plist": {
+            "CFBundleIdentifier": "com.tinyspeck.slackmacgap", "CFBundleName": "Slack",
+            "CFBundleExecutable": "Slack", "CFBundlePackageType": "APPL"
+          }
+        }
+      }
+    },
+    {
+      "name": "Canvas Paint", "bundle_id": "com.example.CanvasPaint", "running": false,
+      "path": "/Applications/Canvas Paint.app",
+      "bundle": {
+        "files": ["Contents/MacOS/Canvas Paint", "Contents/Resources/default.metallib"],
+        "plists": {
+          "Contents/Info.plist": {
+            "CFBundleIdentifier": "com.example.CanvasPaint", "CFBundleName": "Canvas Paint",
+            "CFBundleExecutable": "Canvas Paint", "CFBundlePackageType": "APPL",
+            "NSPrincipalClass": "NSApplication"
+          }
+        }
+      }
+    },
+    {
+      "name": "IntelliJ IDEA", "bundle_id": "com.jetbrains.intellij", "running": false,
+      "path": "/Applications/IntelliJ IDEA.app",
+      "bundle": {
+        "files": ["Contents/MacOS/idea", "Contents/jbr/Contents/Home/bin/java", "Contents/lib/app.jar"],
+        "plists": {
+          "Contents/Info.plist": {
+            "CFBundleIdentifier": "com.jetbrains.intellij", "CFBundleName": "IntelliJ IDEA",
+            "CFBundleExecutable": "idea", "CFBundlePackageType": "APPL",
+            "JVMOptions": {"MainClass": "com.intellij.idea.Main"}
+          }
+        }
+      }
+    },
+    {
+      "name": "Mail", "bundle_id": "com.apple.mail", "running": false,
+      "path": "/System/Applications/Mail.app",
+      "bundle": {
+        "files": ["Contents/MacOS/Mail"],
+        "plists": {
+          "Contents/Info.plist": {
+            "CFBundleIdentifier": "com.apple.mail", "CFBundleName": "Mail", "CFBundleExecutable": "Mail",
+            "CFBundlePackageType": "APPL"
+          }
+        }
+      }
+    }
   ],
   "windows": [
     {
@@ -1952,6 +2010,687 @@
                         "role": "AXStaticText",
                         "value": "In the last seven days, Safari has prevented 112 trackers from profiling you.",
                         "frame": [300, 370, 600, 20]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "window_id": 1101, "app": "com.tinyspeck.slackmacgap", "title": "general - Acme - Slack",
+      "frame": [80, 40, 1280, 820],
+      "tree": {
+        "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
+        "children": [
+          {
+            "role": "AXButton", "subrole": "AXCloseButton", "frame": [88, 46, 14, 16], "actions": ["AXPress"],
+            "on_press": {"close_window": true}
+          },
+          {
+            "role": "AXButton", "subrole": "AXMinimizeButton", "frame": [108, 46, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXButton", "subrole": "AXFullScreenButton", "frame": [128, 46, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXGroup", "frame": [80, 40, 1280, 820],
+            "children": [
+              {
+                "role": "AXGroup", "frame": [80, 68, 0, 0],
+                "children": [
+                  {
+                    "id": "slack.web", "role": "AXWebArea", "description": "Slack | general | Acme",
+                    "frame": [80, 68, 1280, 792],
+                    "children": [
+                      {
+                        "role": "AXGroup", "description": "Channels", "frame": [80, 68, 300, 792],
+                        "children": [
+                          {"role": "AXHeading", "title": "Acme", "frame": [96, 84, 160, 24]},
+                          {
+                            "role": "AXButton", "description": "New message", "frame": [300, 82, 28, 28],
+                            "actions": ["AXPress"], "id": "slack.new-message"
+                          },
+                          {
+                            "id": "slack.channel.general", "role": "AXLink", "frame": [96, 130, 260, 28],
+                            "actions": ["AXPress"],
+                            "children": [
+                              {"role": "AXStaticText", "value": "# general", "frame": [116, 136, 200, 16]}
+                            ],
+                            "selected": true
+                          },
+                          {
+                            "id": "slack.channel.random", "role": "AXLink", "frame": [96, 160, 260, 28],
+                            "actions": ["AXPress"],
+                            "children": [
+                              {"role": "AXStaticText", "value": "# random", "frame": [116, 166, 200, 16]}
+                            ]
+                          },
+                          {
+                            "id": "slack.channel.design", "role": "AXLink", "frame": [96, 190, 260, 28],
+                            "actions": ["AXPress"],
+                            "children": [
+                              {"role": "AXStaticText", "value": "# design", "frame": [116, 196, 200, 16]}
+                            ]
+                          },
+                          {
+                            "id": "slack.channel.engineering", "role": "AXLink", "frame": [96, 220, 260, 28],
+                            "actions": ["AXPress"],
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "# engineering",
+                                "frame": [116, 226, 200, 16]
+                              }
+                            ]
+                          },
+                          {"role": "AXHeading", "title": "Direct messages", "frame": [96, 270, 200, 22]},
+                          {
+                            "role": "AXLink", "frame": [96, 300, 260, 28], "actions": ["AXPress"],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Alice Chen", "frame": [116, 306, 200, 16]}
+                            ]
+                          },
+                          {
+                            "role": "AXLink", "frame": [96, 330, 260, 28], "actions": ["AXPress"],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Bob Martin", "frame": [116, 336, 200, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXGroup", "frame": [380, 68, 980, 792],
+                        "children": [
+                          {"role": "AXHeading", "title": "# general", "frame": [420, 84, 200, 28]},
+                          {
+                            "role": "AXButton", "description": "Huddle", "frame": [1240, 82, 60, 28],
+                            "actions": ["AXPress"]
+                          },
+                          {
+                            "role": "AXGroup", "description": "Messages", "frame": [400, 130, 960, 620],
+                            "children": [
+                              {
+                                "role": "AXGroup", "frame": [420, 140, 900, 64],
+                                "children": [
+                                  {
+                                    "role": "AXStaticText", "value": "Alice Chen",
+                                    "frame": [470, 146, 140, 18]
+                                  },
+                                  {"role": "AXStaticText", "value": "9:41 AM", "frame": [620, 146, 80, 18]},
+                                  {
+                                    "role": "AXStaticText", "value": "Morning! Standup moved to 10:30 today.",
+                                    "frame": [470, 170, 700, 18]
+                                  },
+                                  {
+                                    "role": "AXButton", "description": "Add reaction",
+                                    "frame": [1270, 146, 28, 28], "actions": ["AXPress"]
+                                  }
+                                ]
+                              },
+                              {
+                                "role": "AXGroup", "frame": [420, 212, 900, 64],
+                                "children": [
+                                  {
+                                    "role": "AXStaticText", "value": "Bob Martin",
+                                    "frame": [470, 218, 140, 18]
+                                  },
+                                  {"role": "AXStaticText", "value": "9:43 AM", "frame": [620, 218, 80, 18]},
+                                  {
+                                    "role": "AXStaticText",
+                                    "value": "Thanks. I pushed the fix for the login crash.",
+                                    "frame": [470, 242, 700, 18]
+                                  },
+                                  {
+                                    "role": "AXButton", "description": "Add reaction",
+                                    "frame": [1270, 218, 28, 28], "actions": ["AXPress"]
+                                  }
+                                ]
+                              },
+                              {
+                                "role": "AXGroup", "frame": [420, 284, 900, 64],
+                                "children": [
+                                  {
+                                    "role": "AXStaticText", "value": "Carol Diaz",
+                                    "frame": [470, 290, 140, 18]
+                                  },
+                                  {"role": "AXStaticText", "value": "9:50 AM", "frame": [620, 290, 80, 18]},
+                                  {
+                                    "role": "AXStaticText",
+                                    "value": "Design review notes are in the #design channel.",
+                                    "frame": [470, 314, 700, 18]
+                                  },
+                                  {
+                                    "role": "AXButton", "description": "Add reaction",
+                                    "frame": [1270, 290, 28, 28], "actions": ["AXPress"]
+                                  }
+                                ]
+                              },
+                              {
+                                "role": "AXGroup", "frame": [420, 356, 900, 64],
+                                "children": [
+                                  {
+                                    "role": "AXStaticText", "value": "Dev Patel",
+                                    "frame": [470, 362, 140, 18]
+                                  },
+                                  {"role": "AXStaticText", "value": "10:02 AM", "frame": [620, 362, 80, 18]},
+                                  {
+                                    "role": "AXStaticText",
+                                    "value": "Can someone approve the release checklist?",
+                                    "frame": [470, 386, 700, 18]
+                                  },
+                                  {
+                                    "role": "AXButton", "description": "Add reaction",
+                                    "frame": [1270, 362, 28, 28], "actions": ["AXPress"]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "id": "slack.composer", "role": "AXTextArea", "description": "Message #general",
+                            "value": "", "frame": [420, 770, 860, 60], "actions": ["AXConfirm"]
+                          },
+                          {
+                            "role": "AXButton", "description": "Send now", "frame": [1300, 786, 28, 28],
+                            "actions": ["AXPress"], "enabled": false
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "window_id": 1201, "app": "com.example.CanvasPaint", "title": "Untitled-1.paint",
+      "frame": [160, 80, 1100, 760],
+      "tree": {
+        "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
+        "children": [
+          {
+            "role": "AXButton", "subrole": "AXCloseButton", "frame": [168, 86, 14, 16],
+            "actions": ["AXPress"], "on_press": {"close_window": true}
+          },
+          {
+            "role": "AXButton", "subrole": "AXMinimizeButton", "frame": [188, 86, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXButton", "subrole": "AXFullScreenButton", "frame": [208, 86, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {"role": "AXButton", "frame": [176, 92, 28, 28], "actions": ["AXPress"], "id": "canvas.tool.1"},
+          {"role": "AXButton", "frame": [210, 92, 28, 28], "actions": ["AXPress"], "id": "canvas.tool.2"},
+          {
+            "role": "AXButton", "description": "Export", "frame": [1180, 92, 60, 28], "actions": ["AXPress"],
+            "id": "canvas.export"
+          },
+          {"id": "canvas.surface", "role": "AXGroup", "frame": [160, 132, 1100, 708]}
+        ]
+      },
+      "ocr": [
+        {"text": "Untitled-1.paint", "frame": [650, 86, 120, 16], "confidence": 0.97},
+        {"text": "Export", "frame": [1186, 98, 48, 16], "confidence": 0.97},
+        {"text": "Brush", "frame": [180, 150, 44, 16], "confidence": 0.97},
+        {"text": "Size", "frame": [228, 150, 30, 16], "confidence": 0.97},
+        {"text": "12 px", "frame": [300, 150, 40, 16], "confidence": 0.93},
+        {"text": "Opacity", "frame": [180, 176, 56, 16], "confidence": 0.97},
+        {"text": "80%", "frame": [300, 176, 32, 16], "confidence": 0.91},
+        {"text": "Layers", "frame": [1080, 150, 50, 16], "confidence": 0.97},
+        {"text": "Background", "frame": [1080, 176, 80, 16], "confidence": 0.97},
+        {"text": "Sketch", "frame": [1080, 202, 56, 16], "confidence": 0.88},
+        {"text": "Hello Canvas", "frame": [600, 400, 160, 30], "confidence": 0.86},
+        {"text": "~~", "frame": [700, 520, 20, 16], "confidence": 0.12}
+      ]
+    },
+    {
+      "window_id": 1301, "app": "com.jetbrains.intellij", "title": "demo - Main.java",
+      "frame": [40, 30, 1360, 860],
+      "tree": {
+        "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
+        "children": [
+          {
+            "role": "AXButton", "subrole": "AXCloseButton", "frame": [48, 36, 14, 16], "actions": ["AXPress"],
+            "on_press": {"close_window": true}
+          },
+          {
+            "role": "AXButton", "subrole": "AXMinimizeButton", "frame": [68, 36, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXButton", "subrole": "AXFullScreenButton", "frame": [88, 36, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXGroup", "frame": [40, 58, 1360, 832],
+            "children": [
+              {
+                "role": "AXButton", "description": "Run 'Main'", "frame": [1200, 64, 28, 28],
+                "actions": ["AXPress"], "id": "idea.run"
+              },
+              {
+                "role": "AXButton", "description": "Debug 'Main'", "frame": [1236, 64, 28, 28],
+                "actions": ["AXPress"]
+              },
+              {"role": "AXButton", "frame": [1272, 64, 28, 28], "actions": ["AXPress"]},
+              {"role": "AXButton", "frame": [1308, 64, 28, 28], "actions": ["AXPress"]},
+              {"role": "AXButton", "frame": [1344, 64, 28, 28], "actions": ["AXPress"]},
+              {
+                "role": "AXScrollArea", "frame": [40, 100, 300, 760],
+                "children": [
+                  {
+                    "id": "idea.project", "role": "AXOutline", "description": "Project",
+                    "frame": [40, 100, 300, 760],
+                    "children": [
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [40, 110, 300, 26],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [40, 110, 300, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "demo", "frame": [60, 116, 260, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [40, 136, 300, 26],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [40, 136, 300, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "src", "frame": [60, 142, 260, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "selected": true,
+                        "frame": [40, 162, 300, 26],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [40, 162, 300, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Main.java", "frame": [60, 168, 260, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [40, 188, 300, 26],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [40, 188, 300, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Util.java", "frame": [60, 194, 260, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [40, 214, 300, 26],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [40, 214, 300, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "build.gradle", "frame": [60, 220, 260, 16]}
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "role": "AXTabGroup", "frame": [340, 98, 1060, 28],
+                "children": [
+                  {
+                    "role": "AXRadioButton", "subrole": "AXTabButton", "value": 1,
+                    "frame": [350, 100, 90, 24], "actions": ["AXPress"]
+                  },
+                  {
+                    "role": "AXRadioButton", "subrole": "AXTabButton", "value": 0,
+                    "frame": [450, 100, 90, 24], "actions": ["AXPress"]
+                  }
+                ]
+              },
+              {
+                "role": "AXScrollArea", "frame": [340, 130, 1060, 720],
+                "children": [
+                  {
+                    "id": "idea.editor", "role": "AXTextArea", "description": "Editor for Main.java",
+                    "value": "public class Main {\n    public static void main(String[] args) {\n        System.out.println(\"Hello\");\n    }\n}",
+                    "frame": [340, 130, 1060, 720]
+                  }
+                ]
+              },
+              {"role": "AXButton", "frame": [60, 862, 20, 20], "actions": ["AXPress"]},
+              {"role": "AXButton", "frame": [90, 862, 20, 20], "actions": ["AXPress"]}
+            ]
+          }
+        ]
+      },
+      "ocr": [
+        {"text": "demo - Main.java", "frame": [640, 36, 140, 16], "confidence": 0.97},
+        {"text": "Main.java", "frame": [360, 104, 70, 16], "confidence": 0.97},
+        {"text": "Util.java", "frame": [460, 104, 64, 16], "confidence": 0.97},
+        {"text": "Main.java", "frame": [60, 168, 70, 16], "confidence": 0.97},
+        {"text": "UTF-8", "frame": [1200, 864, 40, 14], "confidence": 0.9},
+        {"text": "4 spaces", "frame": [1260, 864, 56, 14], "confidence": 0.9}
+      ]
+    },
+    {
+      "window_id": 1401, "app": "com.apple.mail", "title": "Inbox – 150 messages",
+      "frame": [0, 25, 1440, 875],
+      "tree": {
+        "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
+        "children": [
+          {
+            "role": "AXButton", "subrole": "AXCloseButton", "frame": [8, 31, 14, 16], "actions": ["AXPress"],
+            "on_press": {"close_window": true}
+          },
+          {
+            "role": "AXButton", "subrole": "AXMinimizeButton", "frame": [28, 31, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXButton", "subrole": "AXFullScreenButton", "frame": [48, 31, 14, 16],
+            "actions": ["AXPress"]
+          },
+          {
+            "role": "AXToolbar", "frame": [0, 25, 1440, 52],
+            "children": [
+              {
+                "role": "AXButton", "description": "Get Mail", "frame": [300, 38, 28, 28],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "description": "New Message", "frame": [340, 38, 28, 28],
+                "actions": ["AXPress"], "id": "mail.compose"
+              },
+              {
+                "role": "AXButton", "description": "Archive", "frame": [600, 38, 28, 28],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "description": "Delete", "frame": [636, 38, 28, 28],
+                "actions": ["AXPress"]
+              },
+              {
+                "role": "AXButton", "description": "Reply", "frame": [672, 38, 28, 28],
+                "actions": ["AXPress"]
+              },
+              {
+                "id": "mail.search", "role": "AXTextField", "subrole": "AXSearchField",
+                "description": "Search", "value": "", "placeholder": "Search", "frame": [1250, 40, 180, 24],
+                "actions": ["AXConfirm", "AXShowMenu"]
+              }
+            ]
+          },
+          {
+            "role": "AXSplitGroup", "frame": [0, 77, 1440, 823],
+            "children": [
+              {
+                "role": "AXScrollArea", "frame": [0, 77, 200, 823],
+                "children": [
+                  {
+                    "id": "mail.mailboxes", "role": "AXOutline", "description": "Mailboxes",
+                    "frame": [0, 77, 200, 823],
+                    "children": [
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "selected": true,
+                        "frame": [0, 85, 200, 28],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [0, 85, 200, 28],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Inbox", "frame": [20, 91, 160, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [0, 113, 200, 28],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [0, 113, 200, 28],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Drafts", "frame": [20, 119, 160, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [0, 141, 200, 28],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [0, 141, 200, 28],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Sent", "frame": [20, 147, 160, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [0, 169, 200, 28],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [0, 169, 200, 28],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Junk", "frame": [20, 175, 160, 16]}
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "AXRow", "subrole": "AXOutlineRow", "frame": [0, 197, 200, 28],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [0, 197, 200, 28],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Archive", "frame": [20, 203, 160, 16]}
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "mail.messages.scroll", "role": "AXScrollArea", "frame": [200, 77, 480, 823],
+                "content_rows": {
+                  "rows": [
+                    ["Alice Chen", "Quarterly planning (1)", "9:41 AM"],
+                    ["Bob Martin", "Design review (2)", "2:41 AM"],
+                    ["Carol Diaz", "Lunch on Friday? (3)", "Oct 18"],
+                    ["Dev Patel", "Invoice (4)", "Oct 18"],
+                    ["Eve Moreau", "Build failed (5)", "Oct 18"],
+                    ["Farid Haddad", "Release notes (6)", "Oct 17"],
+                    ["Grace Kim", "Offsite agenda (7)", "Oct 17"],
+                    ["Hiro Tanaka", "Re: Budget (8)", "Oct 17"],
+                    ["Alice Chen", "Travel booking (9)", "Oct 17"],
+                    ["Bob Martin", "Team photo (10)", "Oct 16"],
+                    ["Carol Diaz", "Quarterly planning (11)", "Oct 16"],
+                    ["Dev Patel", "Design review (12)", "Oct 16"],
+                    ["Eve Moreau", "Lunch on Friday? (13)", "Oct 15"],
+                    ["Farid Haddad", "Invoice (14)", "Oct 15"],
+                    ["Grace Kim", "Build failed (15)", "Oct 15"],
+                    ["Hiro Tanaka", "Release notes (16)", "Oct 15"],
+                    ["Alice Chen", "Offsite agenda (17)", "Oct 14"],
+                    ["Bob Martin", "Re: Budget (18)", "Oct 14"],
+                    ["Carol Diaz", "Travel booking (19)", "Oct 14"],
+                    ["Dev Patel", "Team photo (20)", "Oct 13"],
+                    ["Eve Moreau", "Quarterly planning (21)", "Oct 13"],
+                    ["Farid Haddad", "Design review (22)", "Oct 13"],
+                    ["Grace Kim", "Lunch on Friday? (23)", "Oct 12"],
+                    ["Hiro Tanaka", "Invoice (24)", "Oct 12"],
+                    ["Alice Chen", "Build failed (25)", "Oct 12"],
+                    ["Bob Martin", "Release notes (26)", "Oct 12"],
+                    ["Carol Diaz", "Offsite agenda (27)", "Oct 11"],
+                    ["Dev Patel", "Re: Budget (28)", "Oct 11"],
+                    ["Eve Moreau", "Travel booking (29)", "Oct 11"],
+                    ["Farid Haddad", "Team photo (30)", "Oct 10"],
+                    ["Grace Kim", "Quarterly planning (31)", "Oct 10"],
+                    ["Hiro Tanaka", "Design review (32)", "Oct 10"],
+                    ["Alice Chen", "Lunch on Friday? (33)", "Oct 10"],
+                    ["Bob Martin", "Invoice (34)", "Oct 9"],
+                    ["Carol Diaz", "Build failed (35)", "Oct 9"],
+                    ["Dev Patel", "Release notes (36)", "Oct 9"],
+                    ["Eve Moreau", "Offsite agenda (37)", "Oct 8"],
+                    ["Farid Haddad", "Re: Budget (38)", "Oct 8"],
+                    ["Grace Kim", "Travel booking (39)", "Oct 8"],
+                    ["Hiro Tanaka", "Team photo (40)", "Oct 8"],
+                    ["Alice Chen", "Quarterly planning (41)", "Oct 7"],
+                    ["Bob Martin", "Design review (42)", "Oct 7"],
+                    ["Carol Diaz", "Lunch on Friday? (43)", "Oct 7"],
+                    ["Dev Patel", "Invoice (44)", "Oct 6"],
+                    ["Eve Moreau", "Build failed (45)", "Oct 6"],
+                    ["Farid Haddad", "Release notes (46)", "Oct 6"],
+                    ["Grace Kim", "Offsite agenda (47)", "Oct 5"],
+                    ["Hiro Tanaka", "Re: Budget (48)", "Oct 5"],
+                    ["Alice Chen", "Travel booking (49)", "Oct 5"],
+                    ["Bob Martin", "Team photo (50)", "Oct 5"],
+                    ["Carol Diaz", "Quarterly planning (51)", "Oct 4"],
+                    ["Dev Patel", "Design review (52)", "Oct 4"],
+                    ["Eve Moreau", "Lunch on Friday? (53)", "Oct 4"],
+                    ["Farid Haddad", "Invoice (54)", "Oct 3"],
+                    ["Grace Kim", "Build failed (55)", "Oct 3"],
+                    ["Hiro Tanaka", "Release notes (56)", "Oct 3"],
+                    ["Alice Chen", "Offsite agenda (57)", "Oct 3"],
+                    ["Bob Martin", "Re: Budget (58)", "Oct 2"],
+                    ["Carol Diaz", "Travel booking (59)", "Oct 2"],
+                    ["Dev Patel", "Team photo (60)", "Oct 2"],
+                    ["Eve Moreau", "Quarterly planning (61)", "Oct 1"],
+                    ["Farid Haddad", "Design review (62)", "Oct 1"],
+                    ["Grace Kim", "Lunch on Friday? (63)", "Oct 1"],
+                    ["Hiro Tanaka", "Invoice (64)", "Oct 1"],
+                    ["Alice Chen", "Build failed (65)", "Sep 30"],
+                    ["Bob Martin", "Release notes (66)", "Sep 30"],
+                    ["Carol Diaz", "Offsite agenda (67)", "Sep 30"],
+                    ["Dev Patel", "Re: Budget (68)", "Sep 29"],
+                    ["Eve Moreau", "Travel booking (69)", "Sep 29"],
+                    ["Farid Haddad", "Team photo (70)", "Sep 29"],
+                    ["Grace Kim", "Quarterly planning (71)", "Sep 28"],
+                    ["Hiro Tanaka", "Design review (72)", "Sep 28"],
+                    ["Alice Chen", "Lunch on Friday? (73)", "Sep 28"],
+                    ["Bob Martin", "Invoice (74)", "Sep 28"],
+                    ["Carol Diaz", "Build failed (75)", "Sep 27"],
+                    ["Dev Patel", "Release notes (76)", "Sep 27"],
+                    ["Eve Moreau", "Offsite agenda (77)", "Sep 27"],
+                    ["Farid Haddad", "Re: Budget (78)", "Sep 26"],
+                    ["Grace Kim", "Travel booking (79)", "Sep 26"],
+                    ["Hiro Tanaka", "Team photo (80)", "Sep 26"],
+                    ["Alice Chen", "Quarterly planning (81)", "Sep 26"],
+                    ["Bob Martin", "Design review (82)", "Sep 25"],
+                    ["Carol Diaz", "Lunch on Friday? (83)", "Sep 25"],
+                    ["Dev Patel", "Invoice (84)", "Sep 25"],
+                    ["Eve Moreau", "Build failed (85)", "Sep 24"],
+                    ["Farid Haddad", "Release notes (86)", "Sep 24"],
+                    ["Grace Kim", "Offsite agenda (87)", "Sep 24"],
+                    ["Hiro Tanaka", "Re: Budget (88)", "Sep 24"],
+                    ["Alice Chen", "Travel booking (89)", "Sep 23"],
+                    ["Bob Martin", "Team photo (90)", "Sep 23"],
+                    ["Carol Diaz", "Quarterly planning (91)", "Sep 23"],
+                    ["Dev Patel", "Design review (92)", "Sep 22"],
+                    ["Eve Moreau", "Lunch on Friday? (93)", "Sep 22"],
+                    ["Farid Haddad", "Invoice (94)", "Sep 22"],
+                    ["Grace Kim", "Build failed (95)", "Sep 21"],
+                    ["Hiro Tanaka", "Release notes (96)", "Sep 21"],
+                    ["Alice Chen", "Offsite agenda (97)", "Sep 21"],
+                    ["Bob Martin", "Re: Budget (98)", "Sep 21"],
+                    ["Carol Diaz", "Travel booking (99)", "Sep 20"],
+                    ["Dev Patel", "Team photo (100)", "Sep 20"],
+                    ["Eve Moreau", "Quarterly planning (101)", "Sep 20"],
+                    ["Farid Haddad", "Design review (102)", "Sep 19"],
+                    ["Grace Kim", "Lunch on Friday? (103)", "Sep 19"],
+                    ["Hiro Tanaka", "Invoice (104)", "Sep 19"],
+                    ["Alice Chen", "Build failed (105)", "Sep 19"],
+                    ["Bob Martin", "Release notes (106)", "Sep 18"],
+                    ["Carol Diaz", "Offsite agenda (107)", "Sep 18"],
+                    ["Dev Patel", "Re: Budget (108)", "Sep 18"],
+                    ["Eve Moreau", "Travel booking (109)", "Sep 17"],
+                    ["Farid Haddad", "Team photo (110)", "Sep 17"],
+                    ["Grace Kim", "Quarterly planning (111)", "Sep 17"],
+                    ["Hiro Tanaka", "Design review (112)", "Sep 17"],
+                    ["Alice Chen", "Lunch on Friday? (113)", "Sep 16"],
+                    ["Bob Martin", "Invoice (114)", "Sep 16"],
+                    ["Carol Diaz", "Build failed (115)", "Sep 16"],
+                    ["Dev Patel", "Release notes (116)", "Sep 15"],
+                    ["Eve Moreau", "Offsite agenda (117)", "Sep 15"],
+                    ["Farid Haddad", "Re: Budget (118)", "Sep 15"],
+                    ["Grace Kim", "Travel booking (119)", "Sep 14"],
+                    ["Hiro Tanaka", "Team photo (120)", "Sep 14"],
+                    ["Alice Chen", "Quarterly planning (121)", "Sep 14"],
+                    ["Bob Martin", "Design review (122)", "Sep 14"],
+                    ["Carol Diaz", "Lunch on Friday? (123)", "Sep 13"],
+                    ["Dev Patel", "Invoice (124)", "Sep 13"],
+                    ["Eve Moreau", "Build failed (125)", "Sep 13"],
+                    ["Farid Haddad", "Release notes (126)", "Sep 12"],
+                    ["Grace Kim", "Offsite agenda (127)", "Sep 12"],
+                    ["Hiro Tanaka", "Re: Budget (128)", "Sep 12"],
+                    ["Alice Chen", "Travel booking (129)", "Sep 12"],
+                    ["Bob Martin", "Team photo (130)", "Sep 11"],
+                    ["Carol Diaz", "Quarterly planning (131)", "Sep 11"],
+                    ["Dev Patel", "Design review (132)", "Sep 11"],
+                    ["Eve Moreau", "Lunch on Friday? (133)", "Sep 10"],
+                    ["Farid Haddad", "Invoice (134)", "Sep 10"],
+                    ["Grace Kim", "Build failed (135)", "Sep 10"],
+                    ["Hiro Tanaka", "Release notes (136)", "Sep 10"],
+                    ["Alice Chen", "Offsite agenda (137)", "Sep 9"],
+                    ["Bob Martin", "Re: Budget (138)", "Sep 9"],
+                    ["Carol Diaz", "Travel booking (139)", "Sep 9"],
+                    ["Dev Patel", "Team photo (140)", "Sep 8"],
+                    ["Eve Moreau", "Quarterly planning (141)", "Sep 8"],
+                    ["Farid Haddad", "Design review (142)", "Sep 8"],
+                    ["Grace Kim", "Lunch on Friday? (143)", "Sep 7"],
+                    ["Hiro Tanaka", "Invoice (144)", "Sep 7"],
+                    ["Alice Chen", "Build failed (145)", "Sep 7"],
+                    ["Bob Martin", "Release notes (146)", "Sep 7"],
+                    ["Carol Diaz", "Offsite agenda (147)", "Sep 6"],
+                    ["Dev Patel", "Re: Budget (148)", "Sep 6"],
+                    ["Eve Moreau", "Travel booking (149)", "Sep 6"],
+                    ["Farid Haddad", "Team photo (150)", "Sep 5"]
+                  ],
+                  "row_height": 28, "points_per_line": 10
+                },
+                "children": [
+                  {
+                    "id": "mail.messages", "role": "AXTable", "description": "Messages",
+                    "identifier": "mail.messages", "frame": [200, 77, 465, 823]
+                  },
+                  {
+                    "role": "AXScrollBar", "frame": [665, 77, 15, 823], "value": 0.0,
+                    "children": [{"role": "AXValueIndicator", "frame": [665, 77, 15, 46]}]
+                  }
+                ]
+              },
+              {
+                "role": "AXScrollArea", "frame": [680, 77, 760, 823],
+                "children": [
+                  {
+                    "id": "mail.preview", "role": "AXWebArea", "description": "Message",
+                    "frame": [680, 77, 760, 823],
+                    "children": [
+                      {"role": "AXHeading", "title": "Quarterly planning (1)", "frame": [710, 100, 500, 28]},
+                      {"role": "AXStaticText", "value": "From: Alice Chen", "frame": [710, 136, 300, 18]},
+                      {
+                        "role": "AXStaticText", "value": "Hi team, the planning doc is ready for comments.",
+                        "frame": [710, 180, 600, 18]
+                      },
+                      {
+                        "role": "AXStaticText", "value": "Please add your estimates by Thursday.",
+                        "frame": [710, 204, 600, 18]
                       }
                     ]
                   }

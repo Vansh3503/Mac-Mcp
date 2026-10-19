@@ -21,7 +21,8 @@ from axpilot.models import Capture
 from axpilot.perception.model import Element, Snapshot
 
 _ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz"
-_REF_PATTERN = re.compile(r"^(?:(?P<sid>s_[0-9a-z]{4,6}):)?(?P<ref>e[1-9][0-9]*)$")
+_REF_PATTERN = re.compile(r"^(?:(?P<sid>s_[0-9a-z]{4,6}):)?(?P<ref>[eo][1-9][0-9]*)$")
+"""Element refs: ``e12`` (accessibility elements) or ``o3`` (OCR text, see ``perception.vision``)."""
 
 
 def _base36(value: int, width: int) -> str:
@@ -65,7 +66,7 @@ class IdFactory:
 
 
 def parse_ref(ref: str) -> tuple[str | None, str]:
-    """Split ``"e12"`` or ``"s_ab12:e12"`` into ``(snapshot_id | None, "e12")``.
+    """Split ``"e12"``, ``"o3"`` or ``"s_ab12:e12"`` into ``(snapshot_id | None, "e12")``.
 
     Raises ``INVALID_ARGUMENT`` for anything else."""
     match = _REF_PATTERN.match(ref.strip().lower()) if isinstance(ref, str) else None
@@ -73,9 +74,18 @@ def parse_ref(ref: str) -> tuple[str | None, str]:
         raise AXPilotError(
             ErrorCode.INVALID_ARGUMENT,
             f"{ref!r} is not an element ref.",
-            hint='Refs look like "e12" (or "s_ab12:e12"); take them from the latest snapshot.',
+            hint='Refs look like "e12" or "o3" (or "s_ab12:e12"); take them from the latest snapshot.',
         )
     return match.group("sid"), match.group("ref")
+
+
+def _ref_ranges(snap: Snapshot) -> str:
+    """`` (it has e1–e40, o1–o5)`` for a STALE_REF message."""
+    ocr = sum(1 for el in snap.all_elements if el.ref.startswith("o"))
+    ranges = [f"e1–e{snap.total - ocr}"] if snap.total - ocr else []
+    if ocr:
+        ranges.append(f"o1–o{ocr}")
+    return f" (it has {', '.join(ranges)})" if ranges else " (it has no elements)"
 
 
 class SnapshotStore:
@@ -137,7 +147,7 @@ class SnapshotStore:
         return max(candidates, key=lambda pair: pair[0])[1] if candidates else None
 
     def resolve(self, ref: str, snapshot_id: str | None = None) -> tuple[Snapshot, Element]:
-        """Find the element for ``ref`` (``"e12"`` or ``"s_ab12:e12"``).
+        """Find the element for ``ref`` (``"e12"``, OCR text ``"o3"``, or ``"s_ab12:e12"``).
 
         Without a snapshot id (in the ref or the argument) the latest snapshot is used.
         Raises ``INVALID_ARGUMENT`` (malformed ref, conflicting ids), ``SNAPSHOT_NOT_FOUND``
@@ -165,10 +175,9 @@ class SnapshotStore:
             snap = self.get(sid)
         element = snap.element(element_ref)
         if element is None:
-            last = f" (it has e1–e{snap.total})" if snap.total else " (it has no elements)"
             raise AXPilotError(
                 ErrorCode.STALE_REF,
-                f"Ref {element_ref} is not part of snapshot {snap.snapshot_id}{last}.",
+                f"Ref {element_ref} is not part of snapshot {snap.snapshot_id}{_ref_ranges(snap)}.",
             )
         return snap, element
 
