@@ -9,6 +9,8 @@ are comma-separated (``AXPILOT_TOOLS_ENABLE=scripting,browser``).
 
 from __future__ import annotations
 
+import difflib
+import logging
 import os
 import tomllib
 from collections.abc import Mapping
@@ -25,6 +27,8 @@ Profile = Literal["minimal", "standard", "full", "computer"]
 Naming = Literal["default", "windows-mcp"]
 ConfirmMode = Literal["never", "destructive", "always"]
 ArgLogging = Literal["none", "redacted", "full"]
+
+_log = logging.getLogger(__name__)
 
 DEFAULT_DENY_APPS: tuple[str, ...] = (
     "com.apple.keychainaccess",
@@ -167,6 +171,15 @@ def _env_layer(env: Mapping[str, str]) -> dict[str, dict[str, Any]]:
                 key = rest.removeprefix(prefix)
                 if key in model.model_fields:
                     layer.setdefault(section, {})[key] = _coerce_env_value(section, key, raw)
+                else:
+                    close = difflib.get_close_matches(key, list(model.model_fields), n=1)
+                    _log.warning(
+                        "Ignoring %s: [%s] has no key %r%s.",
+                        name,
+                        section,
+                        key,
+                        f" (did you mean AXPILOT_{section.upper()}_{close[0].upper()}?)" if close else "",
+                    )
                 break
     return layer
 

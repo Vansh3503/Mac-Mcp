@@ -14,7 +14,7 @@ The config file is validated when AXPilot starts: an unknown key or an out-of-ra
 error that names the key. Environment variables use the section and key names in upper case; list
 values are comma-separated (`AXPILOT_TOOLS_ENABLE=scripting,browser`).
 
-The `axpilot config` command *(planned)* manages the file:
+The `axpilot config` command manages the file:
 
 ```sh
 axpilot config path                          # where the file is
@@ -36,6 +36,8 @@ http_port = 7788
 allow_remote = false
 # tls_cert = "/path/to/cert.pem"
 # tls_key = "/path/to/key.pem"
+engine_timeout_s = 20.0
+input_lock_timeout_s = 5.0
 
 [tools]
 profile = "standard"      # minimal | standard | full | computer
@@ -67,6 +69,7 @@ allow_apps = []           # non-empty: only these apps may be observed or contro
 allow_secure_fields = false
 max_actions_per_minute = 120
 require_pairing = true
+confirm_timeout_s = 120.0
 
 [capture]
 max_edge = 1280
@@ -81,6 +84,7 @@ ax_timeout_ms = 1000
 value_max_chars = 200
 enhance_electron_chrome = true
 settle_ms = 150
+capture_timeout_s = 5.0
 
 [scripting]
 shell = "/bin/zsh"
@@ -102,6 +106,8 @@ log_args = "redacted"     # none | redacted | full
 | `http_port` | `7788` | Port (1–65535) |
 | `allow_remote` | `false` | Allow non-localhost connections; requires `tls_cert` and `tls_key`. Prefer an SSH tunnel or Tailscale |
 | `tls_cert`, `tls_key` | unset | PEM files for TLS |
+| `engine_timeout_s` | `20.0` | Deadline for one accessibility or input call made by a tool (1–300 s); slower calls fail with `TIMEOUT` |
+| `input_lock_timeout_s` | `5.0` | How long an input tool waits for another input action to finish before failing with `BUSY` (0.1–5 s) |
 
 The HTTP bearer token is generated on first use and stored in
 `~/Library/Application Support/AXPilot/http-token` (mode `0600`), not in this file. Keychain storage
@@ -133,6 +139,7 @@ Unknown tool or toolset names are an error (with a "did you mean" suggestion).
 | `allow_secure_fields` | `false` | Allow typing into password fields. Their values are never returned either way |
 | `max_actions_per_minute` | `120` | Input rate limit (1–10000); excess calls get `RATE_LIMITED` |
 | `require_pairing` | `true` | Ask before a new client app may connect to the host; the answer is remembered |
+| `confirm_timeout_s` | `120.0` | How long a confirmation waits for your answer (5–120 s); no answer counts as `USER_DENIED` |
 
 Setting `deny_apps` or `deny_windows` **replaces** the default list. Copy the defaults from the example
 above if you only want to add an entry.
@@ -165,6 +172,7 @@ Some rules are not configurable:
 | `value_max_chars` | `200` | Element values are truncated to this length |
 | `enhance_electron_chrome` | `true` | Ask Chrome and Electron apps to expose their full accessibility tree (`AXManualAccessibility`) |
 | `settle_ms` | `150` | How long the UI must be quiet before an action's diff is taken |
+| `capture_timeout_s` | `5.0` | Time budget for reading one window's accessibility tree (0.5–60 s); a snapshot that runs out is marked truncated |
 
 ## `[scripting]`
 
