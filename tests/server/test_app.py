@@ -13,8 +13,9 @@ from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.policy.profiles import PROFILES, TOOL_ORDER, enabled_tools
 from axpilot.server import registry
 from axpilot.server.app import NAMINGS, build_server, load_tool_modules
+from axpilot.server.context import ServerContext
 from axpilot.server.instructions import instructions
-from axpilot.server.registry import REGISTRY, RegistryError, ToolSpec, register, specs_for, tool
+from axpilot.server.registry import REGISTRY, RegistryError, ToolFn, ToolSpec, register, specs_for, tool
 from axpilot.server.results import error_code_of, text_of
 from axpilot.testing import connected_client, make_test_context
 
@@ -99,7 +100,7 @@ def test_the_decorator_fills_the_toolset_from_tool_order() -> None:
     REGISTRY.pop("list_displays", None)
 
     @tool("list_displays", title="Displays", description="  List displays.  ", read_only=True)
-    def factory(ctx: object) -> object:  # pragma: no cover - never called
+    def factory(ctx: ServerContext) -> ToolFn:  # pragma: no cover - never called
         raise AssertionError
 
     spec = REGISTRY["list_displays"]

@@ -11,7 +11,9 @@ Tools use the helpers here instead of calling the engine directly:
 * :meth:`ServerContext.run_engine` runs a blocking engine call in a worker thread with a
   deadline (``TIMEOUT``) and never blocks the event loop; a cancelled call is abandoned.
 * :meth:`ServerContext.capture_tree` / :meth:`ServerContext.take_snapshot` apply the
-  ``observe`` policy before and after reading an app's accessibility tree.
+  ``observe`` policy before and after reading an app's accessibility tree;
+  :meth:`ServerContext.build_snapshot` numbers every snapshot with session refs that stay
+  with their element across snapshots (see :mod:`axpilot.perception.refs`).
 * :meth:`ServerContext.confirm_action` asks the user (bounded wait, ``USER_DENIED``).
 * :meth:`ServerContext.report_progress` sends MCP progress notifications for the current call.
 """
@@ -40,6 +42,7 @@ from axpilot.engine.base import Engine
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.models import AppInfo, RawTree, WindowInfo
 from axpilot.perception.model import Snapshot, SnapshotMode
+from axpilot.perception.refs import HISTORY_LIMIT, carry_refs
 from axpilot.perception.snapshot import build_snapshot
 from axpilot.perception.store import CaptureStore, SnapshotStore
 from axpilot.policy.audit import AuditLog
@@ -419,8 +422,15 @@ class ServerContext:
         max_elements: int | None = None,
         offset: int = 0,
         store: bool = True,
+        previous: Snapshot | None = None,
     ) -> Snapshot:
-        """Prune and number ``tree`` with the configured limits; store it (so its refs resolve)."""
+        """Prune ``tree`` with the configured limits, give it session refs, and store it unless
+        ``store`` is false (stored snapshots are what bare refs resolve against).
+
+        Refs come from the store's counter whether or not the snapshot is stored: elements that
+        match an element of ``previous`` (default: the latest stored snapshot of the same app
+        window) keep its ref, elements seen in older stored snapshots of that window keep theirs
+        when the engine handle is the same, and everything else gets a never-used number."""
         snap = build_snapshot(
             tree,
             snapshot_id=self.snapshots.new_id(),
@@ -429,6 +439,9 @@ class ServerContext:
             offset=offset,
             value_max_chars=self.config.perception.value_max_chars,
         )
+        window_id = snap.window.window_id if snap.window is not None else None
+        history = self.snapshots.snapshots_of(snap.app.pid, window_id, limit=HISTORY_LIMIT)
+        snap = carry_refs(snap, previous, self.snapshots.refs, history=history)
         if store:
             self.snapshots.put(snap)
         return snap
@@ -443,11 +456,15 @@ class ServerContext:
         offset: int = 0,
         include_menus: bool = False,
         store: bool = True,
+        previous: Snapshot | None = None,
     ) -> Snapshot:
         """:meth:`capture_tree` + :meth:`build_snapshot` (AX only; the ``snapshot`` tool adds
-        the app profile, OCR and screenshots on top)."""
+        the app profile, OCR and screenshots on top). ``previous`` is the snapshot whose refs
+        to carry (default: the latest stored one of the same window)."""
         tree = await self.capture_tree(app=app, window_id=window_id, include_menus=include_menus)
-        return self.build_snapshot(tree, mode=mode, max_elements=max_elements, offset=offset, store=store)
+        return self.build_snapshot(
+            tree, mode=mode, max_elements=max_elements, offset=offset, store=store, previous=previous
+        )
 
     def close(self) -> None:
         """Release the engine. Safe to call more than once."""

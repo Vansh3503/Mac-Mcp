@@ -288,7 +288,8 @@ async def capture_screen(
 # =========================================================================== snapshot
 SNAPSHOT_DESCRIPTION = """\
 Capture an app's UI as a numbered list of elements (refs e1, e2…) that other tools act on.
-Use it before acting and whenever the UI may have changed; always act with refs from the latest snapshot.
+Use it before acting and whenever the UI may have changed. Refs stay valid across snapshots while
+their element exists (unchanged elements keep their ref; numbers are never reused).
 Params: app / window_id (default: the frontmost app's focused window); mode: auto (default: the
 accessibility tree, plus OCR text elements o1… when the tree is poor), interactive (actionable
 elements only), full (every element), text (reading view), vision (always add OCR elements);
@@ -368,7 +369,8 @@ async def _add_vision(
             raise
         warnings.append(f"Vision fallback skipped: {err.message}")
         return snap, None
-    return merge_vision(snap, ocr_elements(lines)), capture
+    merged = merge_vision(snap, ocr_elements(lines), allocate=ctx.snapshots.refs.allocator("o"))
+    return merged, capture
 
 
 async def _snapshot_screenshot(

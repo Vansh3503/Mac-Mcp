@@ -50,6 +50,7 @@ from axpilot.perception.diff import diff_snapshots
 from axpilot.perception.format import diff_payload, format_diff, format_snapshot, quote, snapshot_payload
 from axpilot.perception.model import Element, Snapshot
 from axpilot.perception.navigate import scroll_container_for, viewport_of
+from axpilot.perception.refs import ROW_AX_ROLES
 from axpilot.perception.resolve import live_handle
 from axpilot.perception.vision import is_vision_element
 from axpilot.server.context import ServerContext
@@ -292,11 +293,11 @@ async def resolve_target(
             f"{el.ref} is OCR text, not an accessibility element.",
             hint='Click it (by ref or its center), or use an e-ref from snapshot(mode="interactive").',
         )
-    visible = _visible_rect(snap, el)
+    visible, frame = await _current_geometry(ctx, snap, el, handle)
     if visible is not None:
         point = visible.center
-    elif el.center is not None:
-        point = el.center
+    elif frame is not None:
+        point = frame.center
     else:
         raise AXPilotError(
             ErrorCode.ELEMENT_NOT_ACTIONABLE,
@@ -304,9 +305,61 @@ async def resolve_target(
             hint="Use perform_action or set_value on it, or pick another element.",
         )
     target = Target(point=point, app=snap.app, window=window, snap=snap, el=el, handle=handle)
-    if visible is None and el.frame is not None:
+    if visible is None and frame is not None:
         await _scroll_into_view(ctx, target)
     return target
+
+
+def _row_of(snap: Snapshot, el: Element) -> Element | None:
+    """The list row ``el`` is, or lies in (``None`` outside rows)."""
+    seen: set[str] = set()
+    current: Element | None = el
+    while current is not None and current.ref not in seen:
+        if current.ax_role in ROW_AX_ROLES:
+            return current
+        seen.add(current.ref)
+        current = snap.element(current.parent_ref) if current.parent_ref else None
+    return None
+
+
+async def _current_geometry(
+    ctx: ServerContext, snap: Snapshot, el: Element, handle: Any
+) -> tuple[Rect | None, Rect | None]:
+    """``(visible part, frame)`` of ``el`` as of the newest snapshot of its window.
+
+    A ref may resolve through an older snapshot (an explicit ``snapshot_id``, or a bare ref that
+    newer snapshots of the window no longer list: scrolled out, filtered by their mode, or
+    gone). Its frame there may be outdated, and a mouse fallback would hit whatever sits there
+    now. So: when a newer snapshot lists the same session ref (the same element), its geometry
+    is used; otherwise the element is read again through its live handle. Rows (and elements in
+    them) that newer snapshots no longer list are refused: table views reuse a row that left the
+    screen for other content, so its handle no longer proves it shows the same item."""
+    newer: Snapshot | None = None
+    window_id = snap.window.window_id if snap.window is not None else None
+    for other in ctx.snapshots.snapshots_of(snap.app.pid, window_id):
+        if other is snap:
+            break
+        same_session = snap.ref_session is not None and other.ref_session == snap.ref_session
+        listed = other.element(el.ref) if same_session else None
+        if listed is not None:
+            return _visible_rect(other, listed), listed.frame
+        newer = newer or other
+    if newer is None or handle is None:
+        return _visible_rect(snap, el), el.frame
+    row = _row_of(snap, el)
+    if row is not None:
+        place = "is a list row" if row is el else f"is in list row {row.ref}"
+        raise AXPilotError(
+            ErrorCode.STALE_REF,
+            f"{el.ref} {place} that snapshot {newer.snapshot_id} no longer shows; lists reuse rows "
+            "for other content, so the ref cannot be trusted any more.",
+            hint="Scroll back to it (or use find with scroll=true), then use the ref a new snapshot gives.",
+        )
+    node = await ctx.run_engine(ctx.engine.refresh_element, handle)
+    if node.frame is None:
+        return None, None
+    window = newer.window
+    return (node.frame.intersection(window.frame) if window is not None else node.frame), node.frame
 
 
 async def _scroll_into_view(ctx: ServerContext, target: Target) -> None:
@@ -381,16 +434,18 @@ async def observe_after(
 ) -> Observation:
     """Let the UI settle, snapshot ``app`` (default: the frontmost app) and describe the change.
 
-    Failing to observe never fails the action: it becomes a warning."""
+    The new snapshot carries its refs from ``before`` (the snapshot the agent acted from), so
+    every ref the agent holds keeps naming its element. Failing to observe never fails the
+    action: it becomes a warning."""
     if report == "none":
         return Observation()
     await ctx.sleep(ctx.config.perception.settle_ms / 1000)
     try:
-        after = await ctx.take_snapshot(app=_app_key(app))
+        after = await ctx.take_snapshot(app=_app_key(app), previous=before)
     except AXPilotError as err:
         if err.code is ErrorCode.APP_NOT_FOUND and app is not None:
             try:  # the app quit or another app came forward: report the frontmost one
-                after = await ctx.take_snapshot()
+                after = await ctx.take_snapshot(previous=before)
             except AXPilotError as again:
                 return Observation(warnings=[f"Could not observe the result: {again.message}"])
         else:

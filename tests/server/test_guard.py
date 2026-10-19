@@ -347,8 +347,12 @@ async def test_cancelling_a_call_releases_the_input_lock_and_is_audited() -> Non
         return await forever(text)
 
     guarded = guard_tool(spec, ctx, tool_fn)
+
+    async def call_guarded() -> None:
+        await guarded()
+
     async with anyio.create_task_group() as tg:
-        tg.start_soon(guarded)
+        tg.start_soon(call_guarded)
         await started.wait()
         assert ctx.control.busy
         tg.cancel_scope.cancel()

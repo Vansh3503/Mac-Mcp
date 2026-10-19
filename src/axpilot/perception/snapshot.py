@@ -18,7 +18,9 @@ Pruning keeps what an agent needs to act and drops the rest:
   (a reading view).
 
 Refs (``e1``, ``e2``, …) are assigned in pre-order over the kept elements, so the same tree
-always yields the same refs.
+always yields the same refs. These are *local* refs: the server renumbers every snapshot with
+:func:`axpilot.perception.refs.carry_refs`, which makes refs unique per session and keeps them
+stable across snapshots of a window.
 """
 
 from __future__ import annotations
@@ -408,7 +410,9 @@ def build_snapshot(
     """Prune and number ``tree`` (see the module docstring for the rules).
 
     ``elements`` is the page ``all_elements[offset:offset + max_elements]``; refs always
-    resolve against ``all_elements``. Raises ``INVALID_ARGUMENT`` for a bad mode or limits.
+    resolve against ``all_elements``. Refs are local (``e1…eN`` in pre-order); pass the result
+    through :func:`~axpilot.perception.refs.carry_refs` for session refs. Raises
+    ``INVALID_ARGUMENT`` for a bad mode or limits.
     """
     if mode not in SNAPSHOT_MODES:
         raise AXPilotError(

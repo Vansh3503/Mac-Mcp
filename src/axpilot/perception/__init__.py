@@ -3,7 +3,9 @@
 Typical flow::
 
     tree = engine.capture_tree(app="Notes", include_menus=True)
-    snap = build_snapshot(tree, snapshot_id=store.new_id())
+    snap = build_snapshot(tree, snapshot_id=store.new_id())      # local refs e1…eN
+    previous = store.latest(pid=snap.app.pid)
+    snap = carry_refs(snap, previous, store.refs)                # session refs, kept across snapshots
     store.put(snap)
     text = format_snapshot(snap)          # for the model
     data = snapshot_payload(snap)         # for structuredContent
@@ -36,7 +38,7 @@ from axpilot.perception.appkind import (
     detect_app_kind,
     measure_ax,
 )
-from axpilot.perception.diff import diff_snapshots, element_changes
+from axpilot.perception.diff import diff_snapshots, element_changes, match_snapshots
 from axpilot.perception.find import find_elements
 from axpilot.perception.format import (
     diff_payload,
@@ -55,11 +57,12 @@ from axpilot.perception.navigate import (
     scroll_container_for,
     viewport_of,
 )
+from axpilot.perception.refs import ElementMatcher, MatchPass, RefCounter, carry_refs, same_handle
 from axpilot.perception.resolve import live_handle, match_locator
 from axpilot.perception.roles import INTERACTIVE_ROLES, is_interactive, short_role
 from axpilot.perception.serialize import tree_from_dict, tree_to_dict
 from axpilot.perception.snapshot import build_snapshot, node_name
-from axpilot.perception.store import CaptureStore, SnapshotStore, parse_ref
+from axpilot.perception.store import CaptureStore, SnapshotStore, describe_refs, parse_ref
 from axpilot.perception.vision import is_vision_element, merge_vision, ocr_elements
 
 __all__ = [
@@ -73,9 +76,12 @@ __all__ = [
     "BundleFS",
     "CaptureStore",
     "Element",
+    "ElementMatcher",
     "LocalBundleFS",
     "Locator",
+    "MatchPass",
     "MemoryBundleFS",
+    "RefCounter",
     "Snapshot",
     "SnapshotDiff",
     "SnapshotMode",
@@ -83,7 +89,9 @@ __all__ = [
     "app_profile",
     "assess_ax_quality",
     "build_snapshot",
+    "carry_refs",
     "collect_rows",
+    "describe_refs",
     "detect_app_kind",
     "diff_payload",
     "diff_snapshots",
@@ -97,6 +105,7 @@ __all__ = [
     "is_vision_element",
     "live_handle",
     "match_locator",
+    "match_snapshots",
     "measure_ax",
     "merge_pages",
     "merge_vision",
@@ -105,6 +114,7 @@ __all__ = [
     "overlap_length",
     "page_signature",
     "parse_ref",
+    "same_handle",
     "scroll_container_for",
     "short_role",
     "snapshot_payload",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 from collections.abc import Callable
 from itertools import count
@@ -10,6 +11,7 @@ from axpilot.engine.fake import FakeEngine
 from axpilot.models import AppInfo, RawNode, RawTree, Rect, WindowInfo
 from axpilot.perception import Snapshot, build_snapshot, diff_payload, diff_snapshots, format_diff
 from axpilot.perception.diff import element_changes
+from axpilot.perception.refs import RefCounter, carry_refs
 from axpilot.perception.serialize import assign_handles
 
 _ids = count(1)
@@ -267,3 +269,55 @@ def test_elements_without_frames_still_match() -> None:
     diff = diff_snapshots(before, after)
     assert diff.added == []
     assert [element_changes(b, a) for b, a in diff.changed] == [{"name": ("Floating", "Sinking")}]
+
+
+# --------------------------------------------------------------------------- session refs
+def carried(*children: RawNode, previous: Snapshot | None = None, counter: RefCounter) -> Snapshot:
+    """A snapshot with session refs (handles must be set by the caller: they say what is what)."""
+    root = n("AXWindow", *children, frame=(0, 0, 800, 600), title="Doc", handle="win")
+    tree = RawTree(
+        app=AppInfo("Demo", 100, "com.example.demo"),
+        window=WindowInfo(7, 100, "Demo", "Doc", Rect(0, 0, 800, 600)),
+        root=root,
+    )
+    return carry_refs(build_snapshot(tree, snapshot_id=f"s_{next(_ids):04d}"), previous, counter)
+
+
+def test_carried_refs_pair_first_so_one_element_is_never_removed_and_added() -> None:
+    counter = RefCounter()
+    play = n("AXButton", title="Play", frame=(0, 0, 50, 20), handle="transport")
+    before = carried(play, n("AXButton", title="Next", frame=(60, 0, 50, 20), handle="next"), counter=counter)
+    # the transport button moved into a toolbar and was renamed: no heuristic would pair it
+    toolbar = n(
+        "AXToolbar",
+        n("AXButton", title="Pause", frame=(300, 40, 50, 20), handle="transport"),
+        title="Controls",
+        frame=(0, 30, 800, 60),
+        handle="tb",
+    )
+    following = n("AXButton", title="Next", frame=(60, 0, 50, 20), handle="next")
+    after = carried(toolbar, following, previous=before, counter=counter)
+    diff = diff_snapshots(before, after)
+    ref = next(el.ref for el in before.all_elements if el.name == "Play")
+    assert [el.name for el in diff.added] == ["Controls"]
+    assert diff.removed == []
+    assert [(b.ref, a.ref, element_changes(b, a)) for b, a in diff.changed] == [
+        (ref, ref, {"name": ("Play", "Pause")})
+    ]
+    # without shared refs the same pair of snapshots falls back to the heuristics
+    plain_before, plain_after = (
+        dataclasses.replace(before, ref_session=None),
+        dataclasses.replace(after, ref_session=None),
+    )
+    plain = diff_snapshots(plain_before, plain_after)
+    assert sorted(el.name or "" for el in plain.added) == ["Controls", "Pause"]
+    assert [el.name for el in plain.removed] == ["Play"]
+
+
+def test_refs_of_another_session_are_not_trusted() -> None:
+    before = carried(n("AXButton", title="A", frame=(0, 0, 50, 20), handle="a"), counter=RefCounter())
+    after = carried(n("AXButton", title="B", frame=(500, 0, 50, 20), handle="b"), counter=RefCounter())
+    assert before.all_elements[0].ref == after.all_elements[0].ref == "e1"
+    diff = diff_snapshots(before, after)
+    assert [el.name for el in diff.added] == ["B"]
+    assert [el.name for el in diff.removed] == ["A"]

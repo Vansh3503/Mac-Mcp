@@ -170,6 +170,26 @@ def test_merging_twice_adds_nothing_new_and_numbering_continues(notes: Snapshot)
     assert [el.ref for el in more.all_elements if is_vision_element(el)] == ["o1", "o2"]
 
 
+def test_allocate_gives_session_unique_o_refs(notes: Snapshot) -> None:
+    assert notes.window is not None
+    frame = notes.window.frame
+    issued = iter(["o41", "o42", "o43"])
+    first = merge_vision(
+        notes,
+        ocr_elements([line("Canvas one", frame.x + 600, frame.y + 600, w=120)]),
+        allocate=lambda: next(issued),
+    )
+    more = merge_vision(
+        first,
+        ocr_elements([line("Canvas two", frame.x + 600, frame.y + 700, w=120)]),
+        allocate=lambda: next(issued),
+    )
+    assert [el.ref for el in more.all_elements if is_vision_element(el)] == ["o41", "o42"]
+    added = more.element("o42")
+    assert added is not None
+    assert added.name == "Canvas two"
+
+
 def test_paging_with_max_elements(notes: Snapshot) -> None:
     assert notes.window is not None
     frame = notes.window.frame

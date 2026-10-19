@@ -25,7 +25,11 @@ is authoritative for its exact parameters.
 
 ## Choosing how to act
 
-- **Prefer refs.** Refs come from the latest snapshot; a ref from an older snapshot may be stale.
+- **Prefer refs.** A ref keeps naming its element across snapshots while that element exists
+  (re-snapshotting a window keeps the refs of unchanged elements), and a ref number is never
+  reused for another element. When the element is gone or its content changed, the ref gives
+  `STALE_REF` instead of hitting something else. OCR refs (`o3`) only work until the window is
+  captured again.
   Qualify it with its snapshot when in doubt (`s_7f3a:e12`).
 - **Use `select_menu` for menu commands.** It is often the most reliable way to drive a Mac app:
   `select_menu` with a path such as `["File", "Export…"]`. It can also list a menu's items when
@@ -47,7 +51,7 @@ Errors come back as `CODE: message` with a `Hint:`. Follow the hint. In particul
 
 | Code | What to do |
 |---|---|
-| `STALE_REF` | The UI changed. Take a new `snapshot`, find the element again (by name), and use its new ref. Never retry with the old ref. |
+| `STALE_REF` | That element is gone or changed. Take a new `snapshot`, find the element again (by name), and use its new ref. Never retry with the old ref. |
 | `SNAPSHOT_NOT_FOUND` | The snapshot or screenshot expired. Take a new one. |
 | `ELEMENT_NOT_ACTIONABLE` | The element is disabled or can't do that. Check its state, then try another route: `select_menu`, a keyboard shortcut, `set_value`, or `perform_action`. |
 | `USER_ACTIVE` | The person is using the mouse or keyboard right now. Wait briefly (`wait_for` with `condition: "duration"`), then retry once or twice. Don't fight them for control. |

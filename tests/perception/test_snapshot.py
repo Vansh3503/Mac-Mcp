@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable
 
 import pytest
@@ -50,6 +51,23 @@ def test_element_lookup_by_ref(node: NodeFactory, make_tree: TreeFactory) -> Non
     assert el.name == "B1"
     assert snap.element("e9") is None
     assert snap.element("x") is None
+    assert snap.ref_session is None  # local refs; the server renumbers them (perception.refs)
+
+
+def test_element_lookup_follows_changes_to_the_element_list(
+    node: NodeFactory, make_tree: TreeFactory
+) -> None:
+    snap = build(make_tree(*[node("AXButton", title=f"B{i}", frame=(0, i * 20, 40, 20)) for i in range(3)]))
+    assert snap.element("e3") is not None  # builds the index
+    renamed = [dataclasses.replace(el, ref=f"e{10 + i}") for i, el in enumerate(snap.all_elements)]
+    snap.all_elements = renamed  # a new list: the index is rebuilt
+    assert snap.element("e3") is None
+    assert snap.element("e11") is renamed[1]
+    extra = dataclasses.replace(renamed[0], ref="e99")
+    snap.all_elements.append(extra)  # the same list, longer: rebuilt too
+    assert snap.element("e99") is extra
+    copy = dataclasses.replace(snap, elements=snap.all_elements[:1])
+    assert copy.element("e99") is extra
 
 
 # --------------------------------------------------------------------------- pruning

@@ -34,7 +34,8 @@ class Locator:
 
 @dataclass(slots=True, eq=False)
 class Element:
-    ref: str                     # "e1", "e2", … unique within its snapshot, assigned in pre-order
+    ref: str                     # "e12" ("o3" for OCR text); session-unique and carried across snapshots
+                                 # (see refs.py); a plain build_snapshot numbers e1…eN in pre-order
     role: str                    # short role, see short_role()
     ax_role: str
     subrole: str | None
@@ -70,6 +71,8 @@ class Snapshot:
     truncated: bool              # engine stopped early (budgets/timeouts)
     menus: list[str]             # top-level menu titles (without the Apple menu) if captured
     created_at: float            # time.monotonic()
+    ref_session: str | None = None  # RefCounter.session that numbered the refs (None: plain build_snapshot)
+    def element(self, ref: str) -> Element | None   # O(1): lazily built ref index (init=False field)
 
 @dataclass(slots=True)
 class SnapshotDiff:
@@ -77,7 +80,7 @@ class SnapshotDiff:
     after_id: str
     app_changed: bool
     window_changed: bool
-    focus_before: str | None     # element names, not refs (refs differ between snapshots)
+    focus_before: str | None     # element labels (name, or short role), not refs
     focus_after: str | None
     added: list[Element]         # elements of `after` with no match in `before`
     removed: list[Element]       # elements of `before` with no match in `after`
@@ -111,7 +114,41 @@ carry a name and are direct ancestors-of-interest (lists/tables/outlines/scrolla
 sheets/dialogs/toolbars/headings). Groups without a name are collapsed (their children promoted).
 Lists/tables/outlines report `extra["rows"]`. Mode `full`: every visible node. Mode `text`: static text
 and headings only (reading view). `elements` = `all_elements[offset:offset+max_elements]`.
-Ref numbering is stable for the same tree (pre-order).
+Refs are *local*: `e1…eN` in pre-order (stable for the same tree). The server turns them into session
+refs with `refs.carry_refs` (below).
+
+### `axpilot/perception/refs.py`
+```python
+class RefCounter:                                   # one per SnapshotStore (= per server context)
+    session: str                                    # random id of this counter
+    def next(self, prefix: str = "e") -> str        # "e57": never issued before (thread-safe; "o" for OCR)
+    def allocator(self, prefix: str = "e") -> Callable[[], str]
+    def issued(self, prefix: str = "e") -> int      # highest number issued or reserved
+    def reserve(self, refs: Iterable[str]) -> None  # never issue these numbers (refs numbered elsewhere)
+def carry_refs(snap: Snapshot, previous: Snapshot | None, counter: RefCounter, *,
+               history: Sequence[Snapshot] = ()) -> Snapshot
+def view_of(snap: Snapshot) -> tuple[int, int | None]          # (pid, window_id)
+def same_handle(a: Any, b: Any) -> bool                         # ==, guarded; None never matches
+@dataclass(frozen=True) class MatchPass: name; kind: "handle"|"key"|"overlap"; key; unique; accept; structural
+class ElementMatcher:                                # shared by carry_refs and diff_snapshots
+    def __init__(self, before, after, *, allowed=None, on_match=None) -> None
+    def pair(self, after_index: int, before_index: int) -> None
+    def run(self, passes, *, before_indices=None, after_indices=None) -> dict[int, int]  # after → before
+```
+`carry_refs` returns a copy of `snap` whose refs are session refs: every element matching an element
+of `previous` keeps that element's ref; elements of older `history` snapshots keep theirs when the engine
+handle is equal; all others get fresh numbers from the counter in document order (`o` refs for OCR text,
+never carried). Only snapshots of the same pid and window numbered by the same counter are used (a
+`previous` that does not qualify is replaced by the first qualifying `history` snapshot); refs never cross
+apps or windows. Matching passes, strongest first, each earlier element used at most once: engine handle
+equality (same AX role; hashing guarded against `TypeError`, falling back to a linear scan) →
+`AXIdentifier`+AX role (unique on both sides) → AX role+locator path+name (named only) → AX role+name+
+rounded frame → AX role+name (unique on both sides) → position, for **unnamed** elements only, under a
+parent that kept its ref (same path with overlapping frames, else intersection-over-union ≥ 0.5). A named
+element is never matched by position alone. List rows (`AXRow`) are matched first; a row whose name
+changed never keeps its ref (even with an equal handle: table views recycle rows), and an element inside a
+row keeps its ref only if its row kept the row's ref. `parent_ref`, `focused_ref` and the page are
+remapped; the copy's `ref_session` is `counter.session`.
 
 ### `axpilot/perception/format.py`
 ```python
@@ -136,8 +173,12 @@ Coordinates shown are element **centers** in points, rounded to ints. States app
 `disabled`, `selected`, `focused`, `expanded`/`collapsed`, `secure`. Values quoted and truncated with `…`.
 
 ### `axpilot/perception/diff.py`
-`def diff_snapshots(before: Snapshot, after: Snapshot) -> SnapshotDiff` — match elements by
-(identifier) → (locator path) → (ax_role, name, rounded frame) heuristics.
+`def diff_snapshots(before: Snapshot, after: Snapshot) -> SnapshotDiff` — nothing is matched when the app
+or window differs. Otherwise, when both snapshots share a `ref_session`, elements with the same ref are
+paired first (refs are carried, so the same ref is the same element); the rest are matched by
+(identifier) → (locator path + name) → (ax_role, name, rounded frame) → (ax_role, name, unique) →
+(locator path, frames overlap) on `refs.ElementMatcher`. `match_snapshots(before, after) -> dict[int, int]`
+exposes the pairing.
 
 ### `axpilot/perception/find.py`
 `def find_elements(snap: Snapshot, *, text: str | None = None, role: str | None = None,
@@ -148,13 +189,27 @@ substring > token overlap; `difflib` ratio as tiebreaker); `role` accepts short 
 ### `axpilot/perception/store.py`
 ```python
 class SnapshotStore:
-    def __init__(self, capacity: int = 32) -> None
+    def __init__(self, capacity: int = 32, *, refs: RefCounter | None = None) -> None
+    refs: RefCounter                                       # the session's ref counter
     def new_id(self) -> str
-    def put(self, snap: Snapshot) -> None
+    def put(self, snap: Snapshot) -> None                  # reserves its ref numbers; ValueError if another
+                                                           # session's counter numbered it
     def get(self, snapshot_id: str) -> Snapshot           # raises SNAPSHOT_NOT_FOUND
     def latest(self, pid: int | None = None) -> Snapshot | None
+    def snapshots_of(self, pid: int, window_id: int | None, *, limit: int | None = None) -> list[Snapshot]
+        # stored snapshots of one app window, newest first
     def resolve(self, ref: str, snapshot_id: str | None = None) -> tuple[Snapshot, Element]
-        # ref "e12" (or "s_ab12:e12"); snapshot_id None → latest snapshot; raises SNAPSHOT_NOT_FOUND / STALE_REF / INVALID_ARGUMENT
+        # ref "e12", "o3" (or "s_ab12:e12"). With a snapshot id: only that snapshot. Without: the latest
+        # snapshot, then every other stored snapshot numbered by `refs`, newest first (a session ref names
+        # one element; plain local refs are positional, so such snapshots only answer as the latest).
+        # STALE_REF when no snapshot lists it ("never issued" / "gone or expired"), when a newer snapshot of
+        # the same window lists its element (equal handle) under another ref, or for an o-ref whose window
+        # was captured again since. Raises SNAPSHOT_NOT_FOUND / STALE_REF / INVALID_ARGUMENT.
+        # Callers still act through resolve.live_handle (element_valid, re-find by locator, STALE_REF).
+        # Input tools aim at an element's geometry in the newest snapshot of its window that lists its
+        # ref; when newer snapshots no longer list it, they re-read its frame through the live handle,
+        # and refuse rows (and elements in rows) with STALE_REF, since table views reuse rows.
+def describe_refs(snap: Snapshot) -> str                   # "e1–e12, e30, o7–o9" for error messages
 class CaptureStore:  # same idea for screenshots (Capture objects), ids "c_xxxx"
     def __init__(self, capacity: int = 16) -> None
     def put(self, capture: Capture) -> str
@@ -361,6 +416,13 @@ class ServerContext:
     @classmethod
     def create(cls, config: Config, engine: Engine, *, confirmer: Confirmer | None = None,
                runner: CommandRunner | None = None) -> ServerContext
+    def build_snapshot(self, tree: RawTree, *, mode="interactive", max_elements=None, offset=0,
+                       store: bool = True, previous: Snapshot | None = None) -> Snapshot
+        # build_snapshot + refs.carry_refs from the store's counter (stored and unstored snapshots alike);
+        # previous defaults to the latest stored snapshot of the same app window, and up to 8 older stored
+        # snapshots of that window are searched by handle
+    async def take_snapshot(self, *, app=None, window_id=None, mode="interactive", max_elements=None,
+                            offset=0, include_menus=False, store=True, previous=None) -> Snapshot
 
 # axpilot/server/app.py
 def build_server(ctx: ServerContext, *, profile: str | None = None, naming: str | None = None,
@@ -417,8 +479,12 @@ key params, and what comes back.
   - `def ocr_elements(lines: list[OcrLine], *, start_index: int = 1, min_confidence: float = 0.3) -> list[Element]` —
     pseudo-elements with refs `o1…`, role `ocrtext`, frame from OCR, `interactive=True` (clickable by center),
     `handle=None`, locator path empty. Merges words on the same line, drops duplicates of AX element names.
-  - `def merge_vision(snap: Snapshot, elements: list[Element]) -> Snapshot` — appends to `all_elements` and the page,
-    keeping AX elements first; the store resolves `o` refs too (click falls back to coordinates).
+  - `def merge_vision(snap: Snapshot, elements: list[Element], *, max_elements: int | None = None,
+    allocate: Callable[[], str] | None = None) -> Snapshot` — appends to `all_elements` and the page, keeping AX
+    elements first; the store resolves `o` refs too (click falls back to coordinates). With `allocate` (the
+    server passes `SnapshotStore.refs.allocator("o")`) o-refs are session-unique, never reused; otherwise they
+    continue after the snapshot's own. o-refs cannot be re-validated, so they resolve only until their window
+    is captured again.
 - Engines: `MacEngine.capture_tree` keeps enabling AX for Electron/Chromium (already implemented); the server decides
   when to add vision (`mode="auto"`: `ax_quality == "poor"` and screen recording permitted; `mode="vision"`: always).
 

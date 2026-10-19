@@ -1271,6 +1271,15 @@ class FakeEngine(Engine):
                 raise AXPilotError(ErrorCode.STALE_REF, f"No open element has id or identifier {ref!r}.")
             return node.handle
 
+    def move_element(self, ref: str, frame: Rect) -> None:
+        """Give an element (fixture id or ``AXIdentifier``) a new frame, as a re-layout would
+        (a test helper; its children stay where they are)."""
+        with self._lock:
+            node = self._lookup(ref)
+            if node is None:
+                raise AXPilotError(ErrorCode.STALE_REF, f"No open element has id or identifier {ref!r}.")
+            node.frame = frame
+
     def secure_value(self, handle: str) -> str | None:
         """What was typed into a secure field (a test helper; never exposed through the engine API)."""
         with self._lock:

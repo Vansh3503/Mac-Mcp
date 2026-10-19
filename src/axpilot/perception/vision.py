@@ -5,7 +5,9 @@ draw text on screen. :func:`ocr_elements` turns OCR results into :class:`Element
 look like snapshot elements: role ``ocrtext``, a frame in screen points, ``interactive=True``
 (the server clicks their center), no engine handle and an empty locator path.
 :func:`merge_vision` appends them to a snapshot after the AX elements, dropping text that the
-AX tree already names and anything inside a secure field.
+AX tree already names and anything inside a secure field. In the server, o-refs are numbered
+from the session's ref counter (never reused, like e-refs), but unlike e-refs they cannot be
+re-checked: an o-ref only resolves until its window is captured again.
 
 Processing in :func:`ocr_elements`:
 
@@ -22,7 +24,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
 from axpilot.errors import AXPilotError, ErrorCode
@@ -309,16 +311,23 @@ def _page(snap: Snapshot, merged: list[Element], max_elements: int | None) -> li
     return list(snap.elements)
 
 
-def merge_vision(snap: Snapshot, elements: Sequence[Element], *, max_elements: int | None = None) -> Snapshot:
+def merge_vision(
+    snap: Snapshot,
+    elements: Sequence[Element],
+    *,
+    max_elements: int | None = None,
+    allocate: Callable[[], str] | None = None,
+) -> Snapshot:
     """A copy of ``snap`` with OCR ``elements`` appended after its AX elements.
 
     OCR elements are dropped when their center lies outside the snapshot's window (text of
     another app showing through the capture), when an AX (or earlier OCR) element already
     shows the same text at that place (same normalized name/value, or a non-container name
     containing it, with the OCR text lying on the element's frame), or when they lie inside a
-    secure field. Survivors are renumbered
-    ``o<n>``, continuing after any OCR refs already in ``snap`` (so merging twice adds nothing
-    new), and their locators get the snapshot's pid and window.
+    secure field. Survivors are renumbered: with ``allocate`` (the server passes
+    ``SnapshotStore.refs.allocator("o")``) each gets a fresh session-unique ``o`` ref from it;
+    otherwise ``o<n>``, continuing after any OCR refs already in ``snap`` (so merging twice adds
+    nothing new). Their locators get the snapshot's pid and window.
 
     The page (``elements``) is ``all_elements[offset:offset + max_elements]`` when
     ``max_elements`` is given; otherwise OCR elements join the page only if it was the last
@@ -341,9 +350,14 @@ def merge_vision(snap: Snapshot, elements: Sequence[Element], *, max_elements: i
             continue
         if _covered(el, known):
             continue
+        if allocate is not None:
+            ref = allocate()
+        else:
+            ref = f"{OCR_REF_PREFIX}{next_index}"
+            next_index += 1
         renumbered = dataclasses.replace(
             el,
-            ref=f"{OCR_REF_PREFIX}{next_index}",
+            ref=ref,
             depth=0,
             parent_ref=None,
             handle=None,
@@ -352,7 +366,6 @@ def merge_vision(snap: Snapshot, elements: Sequence[Element], *, max_elements: i
                 pid=pid, window_id=window_id, path=(), ax_role=OCR_AX_ROLE, identifier=None, name=el.name
             ),
         )
-        next_index += 1
         added.append(renumbered)
         known.append(renumbered)
     merged = [*snap.all_elements, *added]

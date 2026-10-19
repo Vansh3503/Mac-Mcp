@@ -1,10 +1,12 @@
 """Perception data model: snapshots of the UI with short element refs.
 
 A :class:`Snapshot` is what the ``snapshot`` tool returns: a pruned, numbered view of one
-app's accessibility tree. Every element gets a ref (``e1``, ``e2``, …) that tools accept
-instead of coordinates. Refs are only meaningful together with the snapshot that minted
-them; :class:`Locator` lets the server re-find an element after its engine handle went
-stale.
+app's accessibility tree. Every element gets a ref (``e12``; OCR text ``o3``) that tools
+accept instead of coordinates. A plain :func:`~axpilot.perception.snapshot.build_snapshot`
+numbers ``e1…eN`` in pre-order; the server then gives every element a *session ref* with
+:func:`~axpilot.perception.refs.carry_refs`: unique per session, never reused for another
+element, and kept by an element across snapshots of its window. :class:`Locator` lets the
+server re-find an element after its engine handle went stale.
 """
 
 from __future__ import annotations
@@ -39,7 +41,9 @@ class Element:
     """One element of a snapshot, as shown to the model."""
 
     ref: str
-    """``"e1"``, ``"e2"``, … unique within its snapshot, assigned in pre-order."""
+    """``"e12"`` (``"o3"`` for OCR text): unique within its snapshot. Session refs (see
+    :mod:`axpilot.perception.refs`) are unique per session and stay with the element across
+    snapshots; a plain ``build_snapshot`` numbers ``e1…eN`` in pre-order."""
     role: str
     """Short role, see :func:`axpilot.perception.roles.short_role`."""
     ax_role: str
@@ -128,6 +132,15 @@ class Snapshot:
     """Top-level menu titles (without the Apple menu) if the menu bar was captured."""
     created_at: float
     """``time.monotonic()`` at creation."""
+    ref_session: str | None = None
+    """The :class:`~axpilot.perception.refs.RefCounter` session that numbered the refs
+    (``None`` for a plain ``build_snapshot``). Equal refs of two snapshots with the same
+    session name the same element."""
+    _index: tuple[list[Element], int, dict[str, Element]] | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+    """Lazily built ``ref → element`` map, with the ``all_elements`` list (and its length) it
+    was built for, so replacing or extending the list rebuilds it."""
 
     @property
     def total(self) -> int:
@@ -141,12 +154,13 @@ class Snapshot:
         return end if end < len(self.all_elements) else None
 
     def element(self, ref: str) -> Element | None:
-        """The element with ``ref`` (any page), or ``None``."""
-        if ref.startswith("e") and ref[1:].isdigit():
-            index = int(ref[1:]) - 1
-            if 0 <= index < len(self.all_elements) and self.all_elements[index].ref == ref:
-                return self.all_elements[index]
-        return next((el for el in self.all_elements if el.ref == ref), None)
+        """The element with ``ref`` (any page), or ``None``. O(1): refs are not positional."""
+        elements = self.all_elements
+        index = self._index
+        if index is None or index[0] is not elements or index[1] != len(elements):
+            index = (elements, len(elements), {el.ref: el for el in elements})
+            self._index = index
+        return index[2].get(ref)
 
     @property
     def focused_element(self) -> Element | None:
@@ -163,13 +177,13 @@ class SnapshotDiff:
     app_changed: bool
     window_changed: bool
     focus_before: str | None
-    """Label (name, or short role if unnamed) of the focused element before; refs differ
-    between snapshots, so names are used."""
+    """Label (name, or short role if unnamed) of the focused element before (a label, so it
+    reads the same whether or not the two snapshots share refs)."""
     focus_after: str | None
     added: list[Element]
     """Elements of ``after`` with no match in ``before``."""
     removed: list[Element]
-    """Elements of ``before`` with no match in ``after`` (their refs belong to ``before``)."""
+    """Elements of ``before`` with no match in ``after`` (their refs no longer name anything on screen)."""
     changed: list[tuple[Element, Element]]
     """Matched ``(before, after)`` pairs whose name, value or state changed."""
     app_before: str | None = None

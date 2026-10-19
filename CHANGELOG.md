@@ -25,6 +25,10 @@ Pre-alpha. Nothing is published on PyPI yet.
   `--engine fake`, and the PyObjC-based macOS engine.
 - Perception: accessibility snapshots with refs, pruning, paging, diffs, fuzzy element search,
   the compact text format, and snapshot and capture stores.
+- Stable element refs: a ref is unique per session, never reused for another element, and kept
+  by its element across snapshots of a window, so refs held from earlier snapshots keep working
+  after actions re-snapshot the UI. A ref whose element is gone, or a list row that scrolled
+  away, gives `STALE_REF` instead of hitting another element. Diffs pair equal refs first.
 - Input helpers: key-combo parsing (`cmd+shift+t`, `⌘⇧T`, `Command-Shift-T`) and screenshot-to-screen
   coordinate mapping.
 - Policy layer: profiles and toolsets, app and window deny-lists, the Terminal rule, secure-field
