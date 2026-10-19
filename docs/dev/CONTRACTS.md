@@ -614,12 +614,34 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
   container toward it.
 
 ## 10. Automation SDK (PLAN §6.11) — `axpilot/sdk/`
-- `class Desktop` (sync) and `class AsyncDesktop` with constructors `Desktop.direct(config=None, engine=None)`,
-  `Desktop.fake(fixture=None)`, `Desktop.connect(socket_path=None)` (talks MCP to the host over the bridge protocol).
-- Methods mirror the tools with Pythonic signatures and typed results (`SnapshotResult`, `ActionResult`, `ReadResult`,
-  `ElementHandle` with `.click()`, `.type_text()`, `.set_value()`, `.inspect()`); they call the same tool
-  implementations (so policy, audit, confirmations and error codes are identical) — no second code path.
-- `AXPilotError` is raised on failure; context manager closes resources.
+- `AsyncDesktop` (`axpilot/sdk/desktop.py`) holds an `mcp.Client` session: in-process with
+  `AsyncDesktop.direct(config=None, engine=None, *, profile=None, confirm=None)` (macOS engine, the user's config;
+  `confirm` True/False/a Confirmer, default a dialog on a Mac) and `AsyncDesktop.fake(fixture=None, *, config=None,
+  profile="full", confirm=True)` (`make_test_context` + `FakeEngine`), or through the host with
+  `AsyncDesktop.connect(socket_path=None, *, profile=None)` (`bridge.client.host_transport`, naming `default`;
+  `HOST_UNAVAILABLE`, `USER_DENIED`… raised as is). `AsyncDesktop.from_context(ctx)` serves an existing context.
+  Use `async with` (or `open()`/`aclose()` in one task); the first call opens lazily.
+- `Desktop` is the blocking twin: an `AsyncDesktop` driven through an anyio blocking portal (its own event loop
+  thread; the MCP session lives in one portal task via `wrap_async_context_manager`). Same constructors and
+  methods, callable from any thread; `with Desktop.fake() as mac:` or `close()`.
+- Methods mirror the tools with Pythonic signatures: `status`, `snapshot`, `screenshot`, `find`, `explore`, `read`,
+  `inspect`, `ocr`, `list_apps/windows/displays`, `wait_for(…, timeout_s)`, `click`, `type_text`, `press_keys`,
+  `scroll`, `scroll_into_view`, `drag`, `move_mouse`, `set_value`, `perform_action`, `menu(*path)`, `menus`,
+  `fill_form({ref: value})`, `app(name)` → handle, `app_action`, `window`, `open_target`, `get/set_clipboard`,
+  `notify`, `shell`, `applescript`, `browser_read`, and `call(tool, **args)` for anything else. `None`
+  arguments are left out (the tool's default applies). They call the registered tools (no second code path),
+  so policy, confirmations, audit (client "AXPilot SDK (<script>)") and error codes are identical.
+- Results (`axpilot/sdk/results.py`) keep `data` (structured content), `text` and `images`: `ToolResult`,
+  `ActionResult` (`message`, `strategy`, `snapshot_id`, `diff`, `changed`), `SnapshotResult` (`elements`,
+  `focused`, `find(name, role=, exact=)` → handle, `find_all`, `element(ref)`), `FindResult` (`found`, `matches`,
+  `first`; handle methods act on the best match), `ReadResult` (`content`, `lines`/`rows`, `complete`,
+  `at_end`, `pages`), `ScreenshotResult` (`image`, `save(path)`). `ElementHandle`/`AsyncElementHandle`
+  (`click`, `type_text`, `set_value`, `perform_action`, `inspect`, `scroll_into_view`) and
+  `AppHandle`/`AsyncAppHandle` (`launch`, `activate`, `hide`, `quit`, `windows`, `snapshot`).
+- A failed call raises `AXPilotError.from_dict(result.meta["axpilot/error"])` (unknown codes → `INTERNAL`).
+- `from axpilot import Desktop, AsyncDesktop` is a lazy re-export (`import axpilot` stays cheap).
+- `examples/scripts/*.py` run with `--fake` in CI; `examples/frameworks/*_example.py` and `ts/*_example.ts` are
+  syntax-checked only.
 
 ## 11. CLI for scripts
 - `axpilot tools [--profile ...] [--naming ...] [--json]` lists tools; `--json` prints

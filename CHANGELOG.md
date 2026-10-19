@@ -55,6 +55,14 @@ Pre-alpha. Nothing is published on PyPI yet.
 - The `computer` tool and profile: screenshot-pixel computer use (clicks, drags, typing, keys with
   xdotool-style names, scrolling, waiting, the cursor position) with the same policy hit-testing,
   rate limit, input lock and kill switch as the other input tools.
+- The automation SDK: `from axpilot import Desktop` (blocking, thread-safe) or `AsyncDesktop`, with
+  typed results and element handles (`mac.find("Share").click()`), on the simulated desktop
+  (`Desktop.fake()`), in-process (`Desktop.direct()`) or through AXPilot.app
+  (`Desktop.connect()`). Scripts use the same tools, policy, confirmations, audit log and error
+  codes as agents.
+- Examples: five automation scripts that run against the simulated desktop, and agent examples
+  for eleven frameworks (OpenAI Agents SDK, LangGraph, CrewAI, Google ADK, Pydantic AI,
+  LlamaIndex, smolagents, Microsoft Agent Framework, Claude Agent SDK, Vercel AI SDK, Mastra).
 - The `windows-mcp` tool naming (`[tools] naming` or `--naming windows-mcp`): Windows-MCP's tool
   names and parameter shapes (`Click(loc=[x, y])`, `Type(text, label=12)`, `Shortcut`, `App`,
   `MultiSelect`, `Shell` for PowerShell, `Defaults` for Registry, …) on top of AXPilot's tools, so

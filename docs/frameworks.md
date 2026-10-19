@@ -1,16 +1,16 @@
 # Agent frameworks
 
 AXPilot is a standard MCP server, so any framework with an MCP client can use it: over **stdio**
-(`axpilot stdio`, the framework starts AXPilot as a subprocess) or, *planned*, over
-**Streamable HTTP** (`http://127.0.0.1:7788/mcp` with a bearer token).
+(`axpilot stdio`, the framework starts AXPilot as a subprocess) or over **Streamable HTTP**
+(`axpilot http`: `http://127.0.0.1:7788/mcp` with a bearer token).
 
 > **Status:** AXPilot is not on PyPI yet. Until v0.1, replace `"command": "axpilot", "args": ["stdio"]`
 > with the from-source command, for example
 > `"command": "uv", "args": ["--directory", "/path/to/axpilot", "run", "axpilot", "stdio", "--engine", "fake"]`
-> (simulated desktop) or `… "stdio", "--direct"` (your Mac). Tested, version-pinned examples for each
-> framework will live in `examples/` and run in CI against the simulated desktop (*planned*, Phase 4).
-> Framework APIs change quickly; the snippets below follow each project's documentation at the time
-> of writing.
+> (simulated desktop) or `… "stdio", "--direct"` (your Mac). A runnable example for each framework is
+> in [`examples/frameworks/`](https://github.com/vansh3503/Mac-Mcp/tree/main/examples/frameworks)
+> (CI checks that they parse; the frameworks are not installed there). Framework APIs change
+> quickly; the snippets follow each project's documentation at the time of writing.
 
 ## Supported frameworks
 
@@ -126,7 +126,7 @@ asyncio.run(main())
 - **Give the agent the operating guide.** The server sends MCP `instructions` describing the
   observe → act → verify loop. If your framework drops them, load the
   [Agent Skill](https://github.com/vansh3503/Mac-Mcp/blob/main/skills/axpilot/SKILL.md) into your
-  system prompt instead (`axpilot skill install`, *planned*, copies it where your tool expects it).
+  system prompt instead (`axpilot skill install` copies it where your tool expects it).
 - **Pick a profile.** `minimal` keeps the tool list short for small or local models; `standard` is
   the default; `computer` exposes a single screenshot-and-coordinates tool for vision-first loops.
 - **Filter tools further** with `[tools] disable = [...]` in the config, or your framework's own
@@ -139,3 +139,23 @@ asyncio.run(main())
   `safety.confirm = "never"` only in a disposable environment such as a VM.
 - **Treat screen content as untrusted.** Web pages, emails and documents can contain instructions
   aimed at your agent. Keep `scripting` and `browser` off unless the task needs them.
+
+## Scripts without an agent
+
+The same tools are a Python automation library. Scripts get the same policy, confirmations, audit
+log and error codes as agents:
+
+```python
+from axpilot import Desktop
+
+with Desktop.connect() as mac:             # through AXPilot.app; Desktop.fake() for tests
+    mac.app("Notes").activate()
+    mac.menu("File", "New Note")
+    mac.type_text("Groceries\nMilk, eggs")
+    for row in mac.read("Notes", mode="rows").rows:
+        print(row)
+    mac.find("Share", app="Notes").click()
+```
+
+`AsyncDesktop` is the async twin. More in
+[`examples/scripts/`](https://github.com/vansh3503/Mac-Mcp/tree/main/examples/scripts).

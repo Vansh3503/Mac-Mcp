@@ -7,6 +7,7 @@ rename or reuse one. Add new codes at the end of their group.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import StrEnum
 from typing import Any
 
@@ -104,6 +105,26 @@ class AXPilotError(Exception):
 
     def __str__(self) -> str:
         return f"{self.code.value}: {self.message}"
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> AXPilotError:
+        """Rebuild an error from :meth:`to_dict` output (e.g. a tool result's error meta). An
+        unknown code becomes ``INTERNAL``, keeping the original in ``details["code"]``."""
+        raw = str(data.get("code", ""))
+        details = dict(data.get("details") or {}) if isinstance(data.get("details"), Mapping) else {}
+        try:
+            code = ErrorCode(raw)
+        except ValueError:
+            code = ErrorCode.INTERNAL
+            details.setdefault("code", raw)
+        hint = data.get("hint")
+        message = data.get("message")
+        return cls(
+            code,
+            message if isinstance(message, str) and message else raw or "Unknown error",
+            hint=hint if isinstance(hint, str) else None,
+            details=details,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {"code": self.code.value, "message": self.message}

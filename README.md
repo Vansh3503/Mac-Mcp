@@ -163,8 +163,8 @@ More clients (Windsurf, Zed, Codex CLI, Gemini CLI, LM Studio, Goose, Cline, Con
 
 ## Use it from an agent framework
 
-Anything that speaks MCP works. Two examples (APIs as of writing; tested examples will live in
-`examples/`):
+Anything that speaks MCP works. Two examples (APIs as of writing; one for each of eleven
+frameworks is in [`examples/frameworks/`](https://github.com/vansh3503/Mac-Mcp/tree/main/examples/frameworks)):
 
 **OpenAI Agents SDK**
 
