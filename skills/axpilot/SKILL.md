@@ -50,6 +50,13 @@ is authoritative for its exact parameters.
   says why in its warnings). `scroll` moves one area by pages, to `top`/`bottom`, or brings an
   element into view (`scroll_into_view`); `at_end` tells you when there is nothing more.
 - **Switch apps** with `app` (`activate`, `launch`), not by clicking the Dock.
+- **Web pages:** when the browser tools are enabled, `browser_read` returns a page's text in
+  reading order (page through long ones with `offset`), and `browser_tabs` lists, switches, opens
+  and closes tabs. They are faster and more reliable than snapshotting a page.
+- **Scripting tools** (`shell`, `applescript`, `shortcuts`, `defaults`, `browser_eval_js`) are off
+  unless the person enabled them, and the person approves each command or script after seeing it.
+  Use them when they are clearly the better route (an app's scripting dictionary, a command-line
+  tool), keep each command small and readable, and say what it does before running it.
 - Keep screenshots to when you need pixels: snapshots are cheaper and work without Screen Recording.
 
 ## When something goes wrong

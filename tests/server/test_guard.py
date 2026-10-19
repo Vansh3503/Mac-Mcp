@@ -282,6 +282,37 @@ def test_confirm_when_needs_a_destructive_tool() -> None:
         register(make_spec("status", confirm_when=lambda args: True))
 
 
+async def test_a_tool_that_confirms_itself_is_not_asked_by_the_guard() -> None:
+    seen: list[ConfirmRequest] = []
+
+    class Recorder:
+        async def confirm(self, request: ConfirmRequest) -> bool:
+            seen.append(request)
+            return True
+
+    ctx = make_test_context({"tools.profile": "full"}, confirm=Recorder())
+
+    async def asks(text: str) -> CallToolResult:
+        await ctx.confirm_action(f"Run {text}?", "the exact command", destructive=True)
+        await ctx.confirm_action("asked again?", destructive=True)  # one question per call
+        return ok(text)
+
+    spec = make_spec("shell", destructive=True, confirms_itself=True)
+    async with serve(ctx, spec, asks) as client:
+        result = await client.call_tool("shell", {"text": "ls"})
+    assert not result.is_error
+    assert [(r.tool, r.summary, r.detail) for r in seen] == [("shell", "Run ls?", "the exact command")]
+
+
+def test_confirms_itself_excludes_the_guard_options() -> None:
+    with pytest.raises(RegistryError, match="confirms itself"):
+        register(make_spec("shell", destructive=True, confirms_itself=True, confirm_when=lambda args: True))
+    with pytest.raises(RegistryError, match="confirms itself"):
+        register(
+            make_spec("shell", destructive=True, confirms_itself=True, confirm_text=lambda args: ("x", None))
+        )
+
+
 async def test_confirm_never_skips_the_question() -> None:
     ctx = make_test_context({"tools.profile": "full", "safety.confirm": "never"}, confirm=False)
     async with serve(ctx, make_spec("shell", destructive=True), echo) as client:

@@ -97,6 +97,11 @@ class ToolSpec:
     """For a destructive tool with harmless actions too (``app``: launch is harmless, force_quit
     is not): the guard treats a call as destructive only when this returns True for its
     arguments. ``None``: every call of a destructive tool is."""
+    confirms_itself: bool = False
+    """The tool asks the user itself (:meth:`ServerContext.confirm_action`) once it has validated
+    the call and knows exactly what will run, so the question can show it (the command line,
+    the script); the guard does not ask. Every path must call ``confirm_action``, with
+    ``destructive=False`` on harmless ones so ``[safety] confirm = "always"`` still asks."""
 
     def annotations(self) -> ToolAnnotations:
         """MCP tool annotations (hints for clients)."""
@@ -138,6 +143,10 @@ def _validate(spec: ToolSpec) -> None:
         raise RegistryError(f"Tool {spec.name!r} needs a title and a description.")
     if spec.confirm_when is not None and not spec.destructive:
         raise RegistryError(f"Tool {spec.name!r} has confirm_when but is not destructive.")
+    if spec.confirms_itself and (spec.confirm_when is not None or spec.confirm_text is not None):
+        raise RegistryError(
+            f"Tool {spec.name!r} confirms itself; confirm_when and confirm_text do not apply."
+        )
 
 
 def register(spec: ToolSpec) -> ToolSpec:
@@ -166,6 +175,7 @@ def tool(
     windows_mcp_name: str | None = None,
     confirm_text: ConfirmText | None = None,
     confirm_when: ConfirmWhen | None = None,
+    confirms_itself: bool = False,
     toolset: str | None = None,
 ) -> Callable[[ToolFactory], ToolFactory]:
     """Decorator that registers a tool factory (see the module docstring). ``toolset``
@@ -187,6 +197,7 @@ def tool(
                 windows_mcp_name=windows_mcp_name,
                 confirm_text=confirm_text,
                 confirm_when=confirm_when,
+                confirms_itself=confirms_itself,
             )
         )
         return factory

@@ -44,6 +44,17 @@ Pre-alpha. Nothing is published on PyPI yet.
   apps before asking the user). A `manage` policy kind applies the deny lists to app and window
   management without the Terminal typing rule; protected apps are recognized by their bundle id,
   even renamed.
+- Scripting tools, off by default: `shell` (zsh with the user's PATH), `applescript` (AppleScript
+  and JXA), `shortcuts` (list and run) and `defaults` (read and write preferences). Every command,
+  script, shortcut run and preference change is shown to the user for approval, after the call is
+  validated; apps a script names and preference domains are checked against the deny lists.
+- Browser tools, off by default: `browser_tabs` (list, switch, open, close in Safari and Chromium
+  browsers), `browser_read` (the page's text through accessibility, in reading order, paged) and
+  `browser_eval_js` (approved per script, showing the page and the code). URLs and scripts are
+  embedded as escaped AppleScript strings; tabs matching `deny_windows` are hidden.
+- The `computer` tool and profile: screenshot-pixel computer use (clicks, drags, typing, keys with
+  xdotool-style names, scrolling, waiting, the cursor position) with the same policy hit-testing,
+  rate limit, input lock and kill switch as the other input tools.
 - The AXPilot host and the stdio bridge: MCP clients run `axpilot stdio`, which starts
   `AXPilot.app` if needed and connects to the host's private Unix socket (`0600` in a `0700`
   folder, same-user only). The host asks once per client app whether it may connect, remembers

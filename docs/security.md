@@ -64,7 +64,17 @@ to work around a `BLOCKED_BY_POLICY` result.
 ## Confirmations
 
 With `safety.confirm = "destructive"` (the default), AXPilot asks you before running `shell`,
-`applescript`, `browser_eval_js`, force-quitting an app, writing `defaults`, or killing a process.
+`applescript`, `browser_eval_js` or a shortcut, force-quitting an app, writing `defaults`, or killing
+a process. The question shows exactly what will run: the command line, the script, the page and its
+JavaScript, the shortcut and its input, or the `defaults write` command (long ones are shortened,
+with a note of how much is hidden). AXPilot validates the call and applies the policy first, so you
+are never asked about something that would be refused anyway.
+
+Scripts are checked against the app rules on a best-effort basis: apps an AppleScript or JXA script
+names literally (`tell application "Notes"`) must be allowed (`deny_apps`, `allow_apps`, and the
+Terminal rule), and a System Events script must be allowed for the frontmost app. A script can
+build names at run time, so this guards against mistakes, not against a determined script: enable
+`applescript` and `shell` only when you trust the agent with what they can reach.
 
 - In launcher mode the host shows a **native dialog**, which works with every client *(v0.2)*.
 - In direct mode, AXPilot uses the client's MCP elicitation support when available *(planned)*.

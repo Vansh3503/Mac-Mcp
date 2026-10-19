@@ -435,9 +435,13 @@ def build_server(ctx: ServerContext, *, profile: str | None = None, naming: str 
 ```
 Every tool is registered through `axpilot/server/registry.py` (`ToolSpec`: name, toolset, factory(ctx)->async fn,
 title, description, read_only, destructive, idempotent, open_world, input_action, windows_mcp_name, confirm_text,
-confirm_when). `confirm_when(args) -> bool` lets a destructive tool with harmless actions too (`app`, `processes`)
-be confirmed only for some calls; tools that must resolve and policy-check their target first return False there
-and ask with `ServerContext.confirm_action` once the target is known. A shared guard wraps
+confirm_when, confirms_itself). `confirm_when(args) -> bool` lets a destructive tool with harmless actions too
+(`app`, `processes`) be confirmed only for some calls; tools that must resolve and policy-check their target first
+return False there and ask with `ServerContext.confirm_action` once the target is known. A tool with
+`confirms_itself=True` (`shell`, `applescript`, `shortcuts`, `defaults`, `browser_eval_js`) is never asked by the
+guard: it validates the call, applies the policy, then calls `confirm_action` on every path, with the exact
+command, script or page and code in the question (`destructive=False` on harmless paths such as `shortcuts` list
+and `defaults` read, so only `[safety] confirm = "always"` asks there). A shared guard wraps
 each tool: tool-enabled check → rate limit (input tools) → policy → confirmation (destructive) →
 `control.input_turn()` (input tools) → engine call in a worker thread → audit. `AXPilotError` becomes
 `CallToolResult(is_error=True, content=[TextContent(text=err.to_text())], meta={"axpilot/error": err.to_dict()})`.
@@ -445,6 +449,31 @@ Success returns `CallToolResult(content=[TextContent, (ImageContent)], structure
 return annotation `Annotated[CallToolResult, <PydanticOutputModel>]` so `outputSchema` is advertised.
 `tools/list` order = `TOOL_ORDER`. Tool descriptions are written for LLMs: one-line purpose, when to use,
 key params, and what comes back.
+
+Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
+- `shell(command, cwd="~", timeout_s=[scripting] shell_timeout_s)`: `zsh -lc` (the configured shell); a timeout above
+  the configured limit is `INVALID_ARGUMENT`; a non-zero exit or a timeout is a normal result (`exit_code`,
+  `timed_out`); output cut at `[scripting] output_max_chars`.
+- `applescript(script, language=applescript|javascript, timeout_s=30)`: osascript with the script on stdin. Apps the
+  script names literally (`application "X"`, `application id "…"`, `Application('X')`) are resolved against running
+  and installed apps and checked with `kind="input"` (deny/allow lists, the Terminal rule); a System Events script
+  is also checked against the frontmost app. Best effort, documented as such.
+- `shortcuts(action=list|run, name, input, query, limit, timeout_s)` and `defaults(domain, action=read|write, key,
+  value, type)`; the domain's app is checked (`observe` to read, `manage` to write).
+- `browser_tabs(action=list|activate|open|close, browser, window, tab, url, new_window)`,
+  `browser_read(browser, include_links, offset, max_chars)` and `browser_eval_js(js, browser, window, tab)`. The
+  browser is the frontmost supported one, else the first running in `BROWSERS` order. `browser_read` reads the
+  largest AXWebArea of the front window from the raw tree (headings `# …`, inline runs joined, fields, buttons;
+  secure fields skipped), pages by characters (`next_offset`), and falls back to `document.body.innerText` only when
+  the tree has no page text and `browser_eval_js` is enabled. Tabs whose title matches `deny_windows` are hidden
+  from listings and cannot be activated, closed or scripted.
+- `computer(action, coordinate, start_coordinate, text, scroll_direction, scroll_amount, duration,
+  return_screenshot)`: actions `screenshot`, `left_click`, `right_click`, `middle_click`, `double_click`,
+  `triple_click`, `mouse_move`, `left_click_drag`, `left_mouse_down`, `left_mouse_up`, `type`, `key`, `scroll`,
+  `wait`, `cursor_position`. Coordinates are pixels of the last screenshot this server's `computer` took (state per
+  `build_server`); input actions take the limiter and the input turn themselves (screenshots and the cursor do
+  not), clicks/drags/scrolls hit-test the policy, `mouse_move` does not. `left_mouse_down` + `left_mouse_up` are
+  performed together on release (click, or drag if the pointer moved). One scroll notch = 3 lines.
 
 ---------------------------------------------------------------------------------------------------
 

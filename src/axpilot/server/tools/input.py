@@ -512,7 +512,7 @@ def _not_actionable(
 
 
 # --------------------------------------------------------------------------- activation & mouse
-async def _activate(ctx: ServerContext, app: AppInfo | None) -> None:
+async def activate_app(ctx: ServerContext, app: AppInfo | None) -> None:
     """Bring ``app`` to the front before synthesized input (events go to the frontmost app)."""
     if app is None:
         return
@@ -529,7 +529,7 @@ async def _ensure_uncovered(ctx: ServerContext, target: Target) -> None:
         return
     under = await ctx.run_engine(ctx.engine.app_at_point, target.point)
     if under is not None and under.pid != target.app.pid:
-        await _activate(ctx, target.app)
+        await activate_app(ctx, target.app)
         under = await ctx.run_engine(ctx.engine.app_at_point, target.point)
         if under is not None and under.pid != target.app.pid:
             raise AXPilotError(
@@ -605,7 +605,7 @@ async def _click(
         raise _not_actionable(target, "press", attempts, errors)
     attempts.append("mouse")
     await _ensure_uncovered(ctx, target)
-    await _activate(ctx, target.app)
+    await activate_app(ctx, target.app)
     await ctx.run_engine(
         functools.partial(
             ctx.engine.mouse_click, target.point, button=button, count=count, modifiers=frozenset(modifiers)
@@ -682,7 +682,7 @@ ELEMENT_NOT_ACTIONABLE, USER_ACTIVE, PAUSED_BY_USER."""
 TypeStrategy = Literal["auto", "ax_value", "keystrokes", "paste"]
 
 
-async def _keystroke_target(ctx: ServerContext) -> tuple[AppInfo | None, WindowInfo | None]:
+async def keystroke_target(ctx: ServerContext) -> tuple[AppInfo | None, WindowInfo | None]:
     """The app (and its front window) that receives keystrokes: the frontmost one."""
     app = await ctx.run_engine(ctx.engine.frontmost_app)
     window = None
@@ -693,7 +693,7 @@ async def _keystroke_target(ctx: ServerContext) -> tuple[AppInfo | None, WindowI
     return app, window
 
 
-async def _require_keyboard(ctx: ServerContext) -> None:
+async def require_keyboard(ctx: ServerContext) -> None:
     if await ctx.run_engine(ctx.engine.secure_input_active):
         raise AXPilotError(
             ErrorCode.SECURE_INPUT_ACTIVE,
@@ -702,8 +702,8 @@ async def _require_keyboard(ctx: ServerContext) -> None:
         )
 
 
-async def _type_keystrokes(ctx: ServerContext, text: str) -> None:
-    await _require_keyboard(ctx)
+async def type_keystrokes(ctx: ServerContext, text: str) -> None:
+    await require_keyboard(ctx)
     for start in range(0, len(text), TYPE_CHUNK):
         ctx.control.ensure_running()
         await ctx.run_engine(ctx.engine.type_text, text[start : start + TYPE_CHUNK])
@@ -715,7 +715,7 @@ async def _press(ctx: ServerContext, combo: KeyCombo) -> None:
 
 async def _paste(ctx: ServerContext, text: str) -> None:
     """Paste ``text`` with ⌘V, restoring the previous clipboard afterwards (even on failure)."""
-    await _require_keyboard(ctx)
+    await require_keyboard(ctx)
     saved: ClipboardContent = await ctx.run_engine(ctx.engine.clipboard_get)
     try:
         await ctx.run_engine(functools.partial(ctx.engine.clipboard_set, text=text))
@@ -752,7 +752,7 @@ async def _focus(ctx: ServerContext, target: Target) -> str:
             if err.code is not ErrorCode.ELEMENT_NOT_ACTIONABLE:
                 raise
     await _ensure_uncovered(ctx, target)
-    await _activate(ctx, target.app)
+    await activate_app(ctx, target.app)
     await ctx.run_engine(ctx.engine.mouse_click, target.point)
     return "click_focus"
 
@@ -790,9 +790,9 @@ async def _type(
     if target is not None:
         attempts.append(await _focus(ctx, target))
     elif app is not None:
-        await _activate(ctx, app)
+        await activate_app(ctx, app)
     if clear:
-        await _require_keyboard(ctx)
+        await require_keyboard(ctx)
         await _press(ctx, KeyCombo("a", frozenset({"cmd"})))
         await _press(ctx, KeyCombo("delete"))
     if not text:
@@ -802,7 +802,7 @@ async def _type(
         await _paste(ctx, text)
         return "paste", attempts
     attempts.append("keystrokes")
-    await _type_keystrokes(ctx, text)
+    await type_keystrokes(ctx, text)
     return "keystrokes", attempts
 
 
@@ -844,7 +844,7 @@ def type_text_tool(ctx: ServerContext) -> ToolFn:
                 )
             app = target.app
         else:
-            app, _ = await _keystroke_target(ctx)
+            app, _ = await keystroke_target(ctx)
         before = await snapshot_before(ctx, target, report) if target is not None else None
         if before is None and report == "diff" and app is not None:
             with contextlib.suppress(AXPilotError):
@@ -856,7 +856,7 @@ def type_text_tool(ctx: ServerContext) -> ToolFn:
             )
         used, attempts = await _type(ctx, target, text, clear=clear, strategy=strategy, app=app)
         if submit:
-            await _require_keyboard(ctx)
+            await require_keyboard(ctx)
             await _press(ctx, KeyCombo("return"))
             attempts.append("return")
         observation = await observe_after(ctx, app=app, before=before, report=report)
@@ -916,10 +916,10 @@ def press_keys_tool(ctx: ServerContext) -> ToolFn:
         if app is not None:
             target_app = await ctx.resolve_app(app)
             ctx.policy.check_app(target_app, kind="input")
-            await _activate(ctx, target_app)
+            await activate_app(ctx, target_app)
         else:
-            target_app, _ = await _keystroke_target(ctx)
-        await _require_keyboard(ctx)
+            target_app, _ = await keystroke_target(ctx)
+        await require_keyboard(ctx)
         before = None
         if report == "diff" and target_app is not None:
             with contextlib.suppress(AXPilotError):
@@ -977,7 +977,7 @@ def drag_tool(ctx: ServerContext) -> ToolFn:
         )  # fmt: skip
         before = await snapshot_before(ctx, start, report)
         await _ensure_uncovered(ctx, start)
-        await _activate(ctx, start.app)
+        await activate_app(ctx, start.app)
         await ctx.run_engine(
             functools.partial(
                 ctx.engine.mouse_drag, start.point, end.point,
