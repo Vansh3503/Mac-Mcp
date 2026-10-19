@@ -18,6 +18,7 @@ I/O errors are reported once on stderr and the log keeps the most recent events 
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import json
 import math
 import os
@@ -36,7 +37,21 @@ from axpilot.errors import AXPilotError, ErrorCode
 __all__ = ["LOG_ARG_MODES", "REDACTED_KEYS", "AuditEvent", "AuditLog", "redact_args"]
 
 REDACTED_KEYS: frozenset[str] = frozenset(
-    {"text", "value", "source", "script", "command", "input", "values", "js"}
+    {
+        "text",
+        "value",
+        "source",
+        "script",
+        "command",
+        "input",
+        "values",
+        "js",
+        "keys",
+        "shortcut",
+        "labels",
+        "locs",
+        "image_png_base64",
+    }
 )
 """Argument names whose string values are redacted in ``redacted`` mode (at any depth)."""
 
@@ -64,10 +79,22 @@ class AuditEvent:
 # ----------------------------------------------------------------------------- redaction
 
 
+def _plain(value: Any) -> Any:
+    """Pydantic models and dataclasses (tool arguments such as ``fill_form`` fields) as dicts, so
+    redaction sees their keys instead of a ``str()`` that holds every value."""
+    dump = getattr(value, "model_dump", None)
+    if callable(dump):
+        return dump(mode="python")
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return dataclasses.asdict(value)
+    return value
+
+
 def _json_safe(value: Any, depth: int = 0) -> Any:
     """Convert ``value`` to plain JSON types (bytes are never logged, only their size)."""
     if depth > _MAX_DEPTH:
         return "<…>"
+    value = _plain(value)
     if value is None or isinstance(value, bool | int | str):
         return value
     if isinstance(value, float):
@@ -88,6 +115,7 @@ def _json_safe(value: Any, depth: int = 0) -> Any:
 def _redact(value: Any, sensitive: bool, depth: int) -> Any:
     if depth > _MAX_DEPTH:
         return "<…>"
+    value = _plain(value)
     if isinstance(value, str):
         return f"<redacted {len(value)} chars>" if sensitive else value
     if isinstance(value, Mapping):

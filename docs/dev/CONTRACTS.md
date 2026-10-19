@@ -339,7 +339,8 @@ class AuditLog:
 def redact_args(args: Mapping[str, Any], mode: str) -> dict
 ```
 Redaction (`redacted`): string values of keys `text`, `value`, `source`, `script`, `command`, `input`,
-`values`, `js` become `"<redacted N chars>"`; nested lists/dicts handled; everything else kept. Never
+`values`, `js`, `keys`, `shortcut`, `labels`, `locs`, `image_png_base64` become `"<redacted N chars>"`;
+nested lists/dicts, pydantic models and dataclasses handled; everything else kept. Never
 raises on I/O errors (log to stderr once). File created with mode 0600.
 
 ### `axpilot/policy/confirm.py`

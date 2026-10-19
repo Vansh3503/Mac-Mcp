@@ -4,6 +4,7 @@ that changes something."""
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import anyio
@@ -95,3 +96,23 @@ async def test_the_kill_switch_stops_every_tool_that_changes_something() -> None
         assert error_code_of(await client.call_tool("snapshot", {"app": "Notes"})) is None
         ctx.control.resume()
         assert error_code_of(await client.call_tool("app", {"action": "activate", "name": "Notes"})) is None
+
+
+async def test_the_audit_log_keeps_typed_text_out_in_both_namings() -> None:
+    ctx = make_ctx(confirm=True)
+    async with connected_client(ctx) as client:
+        await client.call_tool("app", {"action": "activate", "name": "Notes"})
+        snap = structured(await client.call_tool("snapshot", {"app": "Notes"}))
+        field = next(el["ref"] for el in snap["elements"] if el["role"] in ("field", "textarea"))
+        await client.call_tool("fill_form", {"fields": [{"ref": field, "value": "SECRET-1"}]})
+        await client.call_tool("press_keys", {"keys": "S E C R E T"})
+    async with connected_client(ctx, naming="windows-mcp") as client:
+        await client.call_tool("MultiEdit", {"labels": [[field, "SECRET-2"]]})
+        await client.call_tool("Shortcut", {"shortcut": "S"})
+    records = ctx.audit.tail(20)
+    assert "SECRET" not in json.dumps(records)
+    filled = [record["args"] for record in records if record["tool"] == "fill_form"]
+    assert filled == [
+        {"fields": [{"ref": field, "value": "<redacted 8 chars>"}], "snapshot_id": None, "report": "diff"},
+        {"labels": [["<redacted 3 chars>", "<redacted 8 chars>"]], "locs": None},  # MultiEdit
+    ]

@@ -106,7 +106,8 @@ AXPilot until you resume it. While paused, every tool that changes something ret
 Every tool call is appended as one JSON line to `~/Library/Logs/AXPilot/audit.jsonl` (mode `0600`):
 timestamp (UTC), tool, client, arguments, outcome, error code and duration. With the default
 `log_args = "redacted"`, the values of `text`, `value`, `values`, `source`, `script`, `command`,
-`input` and `js` are replaced by `<redacted N chars>`. Use `none` to log no arguments, or `full`
+`input`, `js` and `keys` (and Windows-MCP's `shortcut`, `labels` and `locs`, and clipboard images) are
+replaced by `<redacted N chars>`, wherever they appear in the arguments. Use `none` to log no arguments, or `full`
 only when debugging. A failure to write the audit log never fails a tool call.
 
 ## Recommendations

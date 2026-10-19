@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import stat
@@ -11,6 +12,7 @@ from pathlib import Path
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
+from pydantic import BaseModel
 
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.policy.audit import REDACTED_KEYS, AuditEvent, AuditLog, redact_args
@@ -63,7 +65,42 @@ def test_redacts_sensitive_string_values() -> None:
 
 
 def test_redacted_keys_match_the_contract() -> None:
-    assert {"text", "value", "source", "script", "command", "input", "values", "js"} == REDACTED_KEYS
+    assert {
+        "text",
+        "value",
+        "source",
+        "script",
+        "command",
+        "input",
+        "values",
+        "js",
+        "keys",
+        "shortcut",
+        "labels",
+        "locs",
+        "image_png_base64",
+    } == REDACTED_KEYS
+
+
+def test_models_and_dataclasses_are_redacted_by_their_fields() -> None:
+    @dataclasses.dataclass
+    class Entry:
+        ref: str
+        value: str
+
+    class FieldValue(BaseModel):
+        ref: str
+        value: str
+
+    args = {"fields": [FieldValue(ref="e5", value="hunter2"), Entry(ref="e6", value="secret")]}
+    logged = redact_args(args, "redacted")
+    assert logged == {
+        "fields": [
+            {"ref": "e5", "value": "<redacted 7 chars>"},
+            {"ref": "e6", "value": "<redacted 6 chars>"},
+        ]
+    }
+    assert redact_args(args, "full")["fields"][0] == {"ref": "e5", "value": "hunter2"}
 
 
 def test_non_string_sensitive_values_are_kept() -> None:
@@ -85,10 +122,10 @@ def test_nested_dicts_and_lists_are_redacted() -> None:
 
 
 def test_everything_under_a_sensitive_key_is_redacted() -> None:
-    args = {"values": {"e1": "alice", "e2": ["x", "yy"]}, "keys": ["cmd+a"]}
+    args = {"values": {"e1": "alice", "e2": ["x", "yy"]}, "modifiers": ["cmd"]}
     assert redact_args(args, "redacted") == {
         "values": {"e1": "<redacted 5 chars>", "e2": ["<redacted 1 chars>", "<redacted 2 chars>"]},
-        "keys": ["cmd+a"],
+        "modifiers": ["cmd"],
     }
 
 

@@ -190,7 +190,7 @@ Applies only when the `scripting` toolset is enabled.
 | Key | Default | Meaning |
 |---|---|---|
 | `enabled` | `true` | Append one JSON line per tool call to the audit log |
-| `log_args` | `"redacted"` | `none`, `redacted` (typed text, values, scripts and commands become `<redacted N chars>`) or `full` |
+| `log_args` | `"redacted"` | `none`, `redacted` (typed text and keys, values, scripts and commands become `<redacted N chars>`) or `full` |
 | `path` | `~/Library/Logs/AXPilot/audit.jsonl` | Where the audit log is written (created with mode 0600) |
 
 ## Environment variables for paths
