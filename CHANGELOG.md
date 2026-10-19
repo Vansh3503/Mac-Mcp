@@ -55,6 +55,10 @@ Pre-alpha. Nothing is published on PyPI yet.
 - The `computer` tool and profile: screenshot-pixel computer use (clicks, drags, typing, keys with
   xdotool-style names, scrolling, waiting, the cursor position) with the same policy hit-testing,
   rate limit, input lock and kill switch as the other input tools.
+- The `windows-mcp` tool naming (`[tools] naming` or `--naming windows-mcp`): Windows-MCP's tool
+  names and parameter shapes (`Click(loc=[x, y])`, `Type(text, label=12)`, `Shortcut`, `App`,
+  `MultiSelect`, `Shell` for PowerShell, `Defaults` for Registry, …) on top of AXPilot's tools, so
+  Windows-MCP prompts and agents carry over to macOS.
 - The AXPilot host and the stdio bridge: MCP clients run `axpilot stdio`, which starts
   `AXPilot.app` if needed and connects to the host's private Unix socket (`0600` in a `0700`
   folder, same-user only). The host asks once per client app whether it may connect, remembers

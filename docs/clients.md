@@ -151,7 +151,7 @@ block (see [Configuration](configuration.md)):
 | `--profile minimal` | About 9 tools, for small or local models with limited context |
 | `--profile full` | Adds the `system`, `scripting` and `browser` toolsets (each still policy-gated) |
 | `--profile computer` | A single `computer` tool for vision-first computer-use loops *(planned)* |
-| `--naming windows-mcp` | Windows-MCP's tool names and parameter shapes *(planned)* |
+| `--naming windows-mcp` | Windows-MCP's tool names and parameter shapes (`Click(loc=[x, y])`, `Type(text, label=12)`, …) |
 
 ## Streamable HTTP
 

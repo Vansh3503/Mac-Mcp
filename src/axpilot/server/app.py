@@ -15,8 +15,8 @@ from __future__ import annotations
 import importlib
 import logging
 import time
-from collections.abc import Callable, Mapping, Sequence
-from typing import Any, cast
+from collections.abc import Mapping
+from typing import Any
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
@@ -29,26 +29,16 @@ from axpilot.policy.profiles import ALL_TOOLS, enabled_tools
 from axpilot.server.context import ServerContext
 from axpilot.server.guard import guard_tool, internal_error, record_audit
 from axpilot.server.instructions import instructions
-from axpilot.server.registry import ToolFn, ToolSpec, specs_for
+from axpilot.server.naming import NAMINGS, apply_naming, canonical_for
+from axpilot.server.registry import ToolSpec, specs_for
 from axpilot.server.results import error_result
 
-__all__ = [
-    "NAMINGS",
-    "OPTIONAL_TOOL_MODULES",
-    "REQUIRED_TOOL_MODULES",
-    "AXPilotServer",
-    "build_server",
-    "load_tool_modules",
-]
+__all__ = ["NAMINGS", "TOOL_MODULES", "AXPilotServer", "build_server", "load_tool_modules"]
 
 _log = logging.getLogger(__name__)
 
-NAMINGS: tuple[str, ...] = ("default", "windows-mcp")
-
-REQUIRED_TOOL_MODULES: tuple[str, ...] = ("observe",)
-"""Tool modules that must import (a failure is a bug and raises)."""
-
-OPTIONAL_TOOL_MODULES: tuple[str, ...] = (
+TOOL_MODULES: tuple[str, ...] = (
+    "observe",
     "input",
     "apps",
     "system",
@@ -57,71 +47,17 @@ OPTIONAL_TOOL_MODULES: tuple[str, ...] = (
     "computer",
     "navigate",
 )
-"""Tool modules written in parallel with this one. INTEGRATION NOTE: once every module exists,
-move them all to :data:`REQUIRED_TOOL_MODULES` so a missing module fails loudly."""
+"""Every module of :mod:`axpilot.server.tools`; importing one registers its tools."""
 
 _TOOLS_PACKAGE = "axpilot.server.tools"
 _MAX_PROBLEMS = 5
 
-NamingEntry = tuple[str, ToolSpec, Callable[[ToolFn], ToolFn] | None]
-"""``(public name, spec, adapter)``; an adapter turns our tool function into one with the naming
-scheme's parameter shape."""
-
 
 # --------------------------------------------------------------------------- tool modules
-def load_tool_modules() -> list[str]:
-    """Import every tool module (registering its tools); return the optional ones that are
-    missing. Only a missing *module* is tolerated: an import error inside an existing module
-    propagates."""
-    for module in REQUIRED_TOOL_MODULES:
+def load_tool_modules() -> None:
+    """Import every tool module, registering its tools (an import error is a bug and raises)."""
+    for module in TOOL_MODULES:
         importlib.import_module(f"{_TOOLS_PACKAGE}.{module}")
-    missing: list[str] = []
-    for module in OPTIONAL_TOOL_MODULES:
-        qualified = f"{_TOOLS_PACKAGE}.{module}"
-        try:
-            importlib.import_module(qualified)
-        except ModuleNotFoundError as exc:
-            if exc.name != qualified:
-                raise
-            missing.append(module)
-    if missing:
-        _log.info("Tool modules not available yet: %s", ", ".join(missing))
-    return missing
-
-
-# --------------------------------------------------------------------------- naming
-def _default_naming(specs: Sequence[ToolSpec]) -> list[NamingEntry]:
-    return [(spec.name, spec, None) for spec in specs]
-
-
-def _naming_function() -> Callable[[Sequence[ToolSpec], str], Sequence[NamingEntry]] | None:
-    for module in ("axpilot.server.naming", "axpilot.server.naming.windows_mcp"):
-        try:
-            loaded = importlib.import_module(module)
-        except ModuleNotFoundError as exc:
-            if exc.name is None or not module.startswith(exc.name):
-                raise
-            continue
-        apply = getattr(loaded, "apply_naming", None)
-        if callable(apply):
-            return cast("Callable[[Sequence[ToolSpec], str], Sequence[NamingEntry]]", apply)
-    return None
-
-
-def _apply_naming(specs: Sequence[ToolSpec], naming: str) -> list[NamingEntry]:
-    if naming not in NAMINGS:
-        raise AXPilotError(
-            ErrorCode.INVALID_ARGUMENT,
-            f"Unknown tool naming {naming!r}.",
-            hint=f"Use one of: {', '.join(NAMINGS)}.",
-        )
-    if naming == "default":
-        return _default_naming(specs)
-    apply = _naming_function()
-    if apply is None:
-        _log.warning("The %r naming is not available in this build; using default tool names.", naming)
-        return _default_naming(specs)
-    return list(apply(specs, naming))
 
 
 # --------------------------------------------------------------------------- the server
@@ -182,16 +118,17 @@ class AXPilotServer(MCPServer):
             return _validation_error(name, exc.__cause__)
         if self._tool_manager.get_tool(name) is not None:
             return None
-        if name in ALL_TOOLS and name not in ctx.enabled:
+        canonical = canonical_for(name, ctx.naming)
+        if canonical in ALL_TOOLS and canonical not in ctx.enabled:
             try:
-                ctx.policy.check_tool(name)
+                ctx.policy.check_tool(canonical)
             except AXPilotError as err:
                 return err
-        if name in ALL_TOOLS:
+        if canonical in ALL_TOOLS:
             return AXPilotError(
                 ErrorCode.NOT_SUPPORTED,
-                f"The {name!r} tool is not available in this AXPilot build.",
-                hint="Use `status` to see the tools this server provides.",
+                f"This server does not expose {name!r} under its {ctx.naming!r} tool naming.",
+                hint="Call tools/list to see the tools this server provides.",
             )
         return AXPilotError(
             ErrorCode.INVALID_ARGUMENT,
@@ -222,18 +159,18 @@ def build_server(
         enabled = tuple(enabled_tools(profile, tools.enable, tools.disable))
     naming = naming or ctx.naming
     scoped = ctx.scoped(profile=profile, enabled=enabled, naming=naming, client_name=client_name)
-    entries = _apply_naming(specs_for(enabled), naming)
+    entries = apply_naming(specs_for(enabled), naming)
     server = AXPilotServer(
         scoped,
         name=SERVER_NAME,
-        instructions=instructions(),
+        instructions=instructions(naming),
         version=__version__,
         log_level="WARNING",
     )
     for public_name, spec, adapter in entries:
         fn = spec.factory(scoped)
         if adapter is not None:
-            fn = adapter(fn)
+            fn = adapter(fn, scoped)
         server.add_tool(
             guard_tool(spec, scoped, fn, public_name=public_name),
             name=public_name,
@@ -242,7 +179,4 @@ def build_server(
             annotations=spec.annotations(),
         )
         server.tool_specs[public_name] = spec
-    unimplemented = [name for name in enabled if name not in {s.name for _, s, _ in entries}]
-    if unimplemented:
-        _log.info("Enabled tools without an implementation yet: %s", ", ".join(unimplemented))
     return server

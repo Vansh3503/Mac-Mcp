@@ -111,7 +111,7 @@ is planned.
 | Key | Default | Meaning |
 |---|---|---|
 | `profile` | `"standard"` | Starting tool set: `minimal`, `standard`, `full` or `computer` (see [Tools](tools.md#profiles)) |
-| `naming` | `"default"` | `windows-mcp` exposes Windows-MCP's tool names *(planned)* |
+| `naming` | `"default"` | `windows-mcp` exposes Windows-MCP's tool names and parameter shapes (see [tools](tools.md)) |
 | `enable` | `[]` | Tool or toolset names added to the profile (`"scripting"`, `"browser"`, `"ocr"`, …) |
 | `disable` | `[]` | Tool or toolset names removed from the profile. A name in both lists ends up disabled |
 

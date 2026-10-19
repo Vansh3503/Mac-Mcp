@@ -450,6 +450,18 @@ return annotation `Annotated[CallToolResult, <PydanticOutputModel>]` so `outputS
 `tools/list` order = `TOOL_ORDER`. Tool descriptions are written for LLMs: one-line purpose, when to use,
 key params, and what comes back.
 
+Naming (`axpilot/server/naming/`): `apply_naming(specs, naming) -> [(public_name, spec, adapter | None)]`, with
+`adapter(fn, ctx) -> fn` giving a tool another parameter shape (it may call other tools' unguarded functions, which
+then run inside the calling tool's guard; a tool it needs must be enabled, else `TOOL_DISABLED`). `default` keeps the
+canonical names. `windows-mcp` (`naming/windows_mcp.py`, whose docstring has the full table) exposes Windows-MCP's
+names and parameters: Click, Type, Scroll, Move (+ drag), Shortcut, Wait, WaitFor, MultiSelect, MultiEdit,
+Screenshot, Snapshot, DisplayInventory, App, Process, Clipboard, Notification, ControlStatus, Shell (PowerShell),
+Defaults (Registry) and Scrape; the other tools keep their parameters under PascalCase names (`NAMES`). Adapted
+tools get their own description; the others get theirs with backticked tool names renamed, and so do the server
+instructions. `label=12` means ref `e12`; `loc` is in screen points. Results keep AXPilot's structured content
+(the windows-mcp `App` has its own output model covering app and window results). Audit records and the policy
+use canonical names.
+
 Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
 - `shell(command, cwd="~", timeout_s=[scripting] shell_timeout_s)`: `zsh -lc` (the configured shell); a timeout above
   the configured limit is `INVALID_ARGUMENT`; a non-zero exit or a timeout is a normal result (`exit_code`,
