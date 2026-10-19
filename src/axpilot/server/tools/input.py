@@ -701,6 +701,14 @@ async def keystroke_target(ctx: ServerContext) -> tuple[AppInfo | None, WindowIn
     return app, window
 
 
+async def front_window_title(ctx: ServerContext, app: AppInfo | None) -> str | None:
+    """The title of ``app``'s front window (for the ``deny_windows`` rule), if it has one."""
+    if app is None:
+        return None
+    windows = await ctx.run_engine(ctx.engine.list_windows, _app_key(app))
+    return windows[0].title if windows else None
+
+
 async def require_keyboard(ctx: ServerContext) -> None:
     if await ctx.run_engine(ctx.engine.secure_input_active):
         raise AXPilotError(
@@ -922,9 +930,16 @@ def press_keys_tool(ctx: ServerContext) -> ToolFn:
     ) -> Annotated[CallToolResult, ActionResult]:
         combos = parse_sequence(keys)
         if app is not None:
-            target_app = await ctx.resolve_app(app)
-            ctx.policy.check_app(target_app, kind="input")
-            await activate_app(ctx, target_app)
+            wanted = await ctx.resolve_app(app)
+            ctx.policy.check_app(wanted, kind="input")
+            await activate_app(ctx, wanted)
+            target_app, _ = await keystroke_target(ctx)  # keys go to whatever is in front now
+            if wanted is not None and (target_app is None or target_app.pid != wanted.pid):
+                raise AXPilotError(
+                    ErrorCode.ELEMENT_NOT_ACTIONABLE,
+                    f"Could not bring {wanted.name} to the front, so no keys were sent.",
+                    hint="Activate it with the app tool (or click its window), then try again.",
+                )
         else:
             target_app, _ = await keystroke_target(ctx)
         await require_keyboard(ctx)
@@ -1384,7 +1399,8 @@ def select_menu_tool(ctx: ServerContext) -> ToolFn:
             return ok_result(text, MenuResult(app=target_app.name if target_app else None, menus=menus))
         if any(not title.strip() for title in path):
             raise AXPilotError(ErrorCode.INVALID_ARGUMENT, "Menu titles in path must not be empty.")
-        ctx.policy.check_app(target_app, kind="input")
+        # a menu command acts on the app's front window
+        ctx.policy.check_app(target_app, kind="input", window_title=await front_window_title(ctx, target_app))
         before = None
         if report == "diff" and target_app is not None:
             with contextlib.suppress(AXPilotError):

@@ -167,6 +167,27 @@ async def test_coordinate_clicks_cannot_reach_a_deny_listed_window(
     assert "Privacy & Security" in text_of(result)
 
 
+async def test_keys_and_menus_cannot_reach_a_deny_listed_window(ctx: ServerContext, client: Client) -> None:
+    for tool, args in (
+        ("press_keys", {"keys": "tab space", "app": "System Settings"}),
+        ("select_menu", {"path": ["Edit", "Select All"], "app": "System Settings"}),
+    ):
+        result, error = await call(client, tool, args)
+        assert error == "BLOCKED_BY_POLICY", (tool, text_of(result))
+        assert "Privacy & Security" in text_of(result)
+    assert not events(ctx, "press_key")
+    assert not events(ctx, "menu_select")
+
+
+async def test_keys_are_not_sent_when_the_app_does_not_come_to_the_front(
+    ctx: ServerContext, client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(engine_of(ctx), "app_control", lambda *args, **kwargs: None)  # activation ignored
+    result, error = await call(client, "press_keys", {"keys": "cmd+a", "app": "TextEdit"})
+    assert error == "ELEMENT_NOT_ACTIONABLE", text_of(result)
+    assert not events(ctx, "press_key")
+
+
 async def test_screenshot_pixels_map_to_screen_points(ctx: ServerContext, client: Client) -> None:
     shot, _ = await call(client, "screenshot", {"max_edge": 720})
     shot_data = structured(shot)
