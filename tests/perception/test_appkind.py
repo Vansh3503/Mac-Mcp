@@ -94,7 +94,8 @@ APPL = {"CFBundlePackageType": "APPL", "CFBundleExecutable": "Thing"}
         ),
         (
             (
-                "Contents/Frameworks/Thorium Framework.framework/Versions/1.0/Helpers/Thorium Helper (Renderer).app/",
+                "Contents/Frameworks/Thorium Framework.framework/Versions/1.0/Helpers/"
+                "Thorium Helper (Renderer).app/",
             ),
             APPL,
             "chromium_browser",
@@ -278,7 +279,9 @@ def test_the_bundle_fs_protocol_is_runtime_checkable() -> None:
 # =========================================================================== file systems
 def test_memory_fs_paths_parents_and_copies() -> None:
     fs = MemoryBundleFS(["/A.app/Contents/MacOS/a", "B.app//x/"], {"/A.app/Contents/Info.plist": {"k": 1}})
-    assert fs.exists("/A.app") and fs.exists("/A.app/Contents/") and fs.exists("/B.app/x")
+    assert fs.exists("/A.app")
+    assert fs.exists("/A.app/Contents/")
+    assert fs.exists("/B.app/x")
     assert fs.exists("/A.app/Contents/../Contents/MacOS")
     assert not fs.exists("/A.app/Contents/Frameworks")
     assert fs.listdir("/A.app/Contents") == ["Info.plist", "MacOS"]
@@ -329,7 +332,8 @@ def test_local_fs_reads_xml_and_binary_plists(tmp_path: Path) -> None:
     assert fs.listdir(str(root / "Contents")) == ["Info.plist", "MacOS"]
     assert fs.listdir(str(root / "Contents" / "Info.plist")) == []
     assert fs.listdir(str(tmp_path / "missing")) == []
-    assert fs.exists(str(root)) and not fs.exists(str(tmp_path / "missing"))
+    assert fs.exists(str(root))
+    assert not fs.exists(str(tmp_path / "missing"))
 
 
 @pytest.mark.parametrize("content", [b"<?xml garbage", b"\x00\x01binary junk", b"", "not a dict"])
