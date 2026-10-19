@@ -14,6 +14,7 @@ import anyio
 import pytest
 
 import axpilot
+import axpilot.sdk.desktop as desktop_module
 from axpilot import AsyncDesktop, Desktop
 from axpilot.engine.fake import DEMO_FIXTURE, FakeEngine
 from axpilot.errors import AXPilotError, ErrorCode
@@ -321,6 +322,18 @@ def test_direct_needs_a_mac_unless_given_an_engine() -> None:
         assert mac.status()["engine"] == "fake"
 
 
+def test_sync_calls_turn_the_cocoa_run_loop_while_they_wait(monkeypatch: pytest.MonkeyPatch) -> None:
+    """M1: a sync call blocks the caller (usually the main thread), so it turns the run loop."""
+    turns: list[str] = []
+    monkeypatch.setattr(desktop_module, "main_thread_pump", lambda: lambda _s: turns.append("turn"))
+    with Desktop.fake() as mac:
+        assert mac.status()["engine"] == "fake"
+        assert turns, "the run loop was not turned while waiting"
+        with pytest.raises(AXPilotError) as caught:
+            mac.snapshot("NoSuchApp")
+    assert caught.value.code is ErrorCode.APP_NOT_FOUND
+
+
 # =========================================================================== async
 @pytest.mark.anyio
 async def test_async_desktop() -> None:
@@ -338,6 +351,19 @@ async def test_async_desktop() -> None:
         with pytest.raises(AXPilotError) as caught:
             await mac.snapshot("NoSuchApp")
         assert caught.value.code is ErrorCode.APP_NOT_FOUND
+
+
+@pytest.mark.anyio
+async def test_async_desktop_turns_the_cocoa_run_loop_while_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    turns: list[float] = []
+    monkeypatch.setattr(desktop_module, "main_thread_pump", lambda: turns.append)
+    async with AsyncDesktop.fake() as mac:
+        await mac.status()
+        await anyio.sleep(0.12)
+        assert len(turns) >= 2
+    stopped_at = len(turns)
+    await anyio.sleep(0.12)
+    assert len(turns) == stopped_at, "the run loop kept turning after the desktop closed"
 
 
 @pytest.mark.anyio

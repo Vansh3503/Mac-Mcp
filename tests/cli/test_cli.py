@@ -213,6 +213,23 @@ def test_call_tool_errors_print_the_error_object(run: Any) -> None:
     assert unknown.json()["error"]["code"] == "INVALID_ARGUMENT"
 
 
+def test_commands_turn_the_cocoa_run_loop_without_changing_results(
+    run: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """M1: on macOS every command keeps the main run loop turning (keyboard layout, app list);
+    errors and exit codes must come through exactly as without it."""
+    turns: list[float] = []
+    monkeypatch.setattr(cli, "main_thread_pump", lambda: turns.append)
+    ok = run("call", "status", "--engine", "fake")
+    assert ok.code == 0, ok.err
+    assert turns, "the run loop was not turned"
+    failed = run("call", "snapshot", "--engine", "fake", "--arg", "app=NoSuchApp")
+    assert failed.code == 1
+    assert failed.json()["error"]["code"] == "APP_NOT_FOUND"
+    unknown = run("call", "no_such_tool", "--engine", "fake")
+    assert unknown.code == 2
+
+
 def test_call_confirmations_need_yes_outside_a_mac(run: Any) -> None:
     denied = run("call", "app", "--engine", "fake", "--arg", "action=force_quit", "--arg", "name=Notes")
     assert denied.code == 1

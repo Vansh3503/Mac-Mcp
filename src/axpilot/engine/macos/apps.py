@@ -6,9 +6,10 @@ Accessibility (``AXFocusedApplication`` of the system-wide element, which is alw
 and falls back to ``NSWorkspace``. Activation falls back to ``AXFrontmost`` (Accessibility).
 
 Freshness: ``NSWorkspace.runningApplications`` and ``NSRunningApplication`` properties are
-only updated while the **main run loop** runs (AppKit documents this). The AXPilot host runs
-one; in a plain script the list can be stale, so terminated apps are filtered by pid
-liveness and apps owning on-screen windows are merged in from ``CGWindowList``.
+only updated while the **main run loop** runs (AppKit documents this). The CLI, the host and
+the SDK keep it turning (:mod:`axpilot.runloop`); where nothing does, the list can be stale, so
+terminated apps are filtered by pid liveness and apps owning on-screen windows are merged in
+from ``CGWindowList``.
 """
 
 from __future__ import annotations

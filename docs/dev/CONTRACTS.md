@@ -567,11 +567,19 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
   [--yes]`, `doctor`, `connect <client>|--list [--dry-run] [--scope] [--project-dir] [--force]`, `disconnect`,
   `config get|set|edit|path|show`, `skill install [--target claude|claude-project|codex] [--dest] [--force]`,
   `debug dump-tree`, `tools`, `call`, `version`; most take `--json`. `main()` is the console-script entry
-  point and `python -m axpilot` runs it. Exit codes per QUALITY.md A9: `0` ok, `1` operational error, `2` usage
+  point and `python -m axpilot` runs it; `python -m axpilot.host` (what `AXPilot.app` starts, `HOST_ARGS` in
+  `setup/runtime.py`) runs `axpilot host` with its arguments. Exit codes per QUALITY.md A9: `0` ok, `1` operational error, `2` usage
   error (including `INVALID_ARGUMENT`), `3` missing permission, `4` unsupported OS, `130` interrupted. Errors
   print `error: CODE: message` and `hint: ...` on stderr (`{"error": {...}}` on stdout with `--json` and for
   `call`); tracebacks only with `--debug`. Without `--yes`, confirmations use a macOS dialog, and are declined
   where no dialog can be shown (Linux, the fake engine).
+- `axpilot/runloop.py`: keeps the main thread's Cocoa run loop turning (keyboard layout, `NSWorkspace` app
+  list). `main_thread_pump() -> Pump | None` (`axpilot.engine.macos.runloop.pump` on macOS's main thread, else
+  `None`); `async run_with_pump(main, pump=None, interval=PUMP_INTERVAL_S)` awaits `main()` while a loop
+  callback calls `pump(0)` every 50 ms (exceptions pass through unchanged; used by every `cli._run`);
+  `start_ticking(pump, interval) -> stop` (a no-op without a pump or outside asyncio; `AsyncDesktop` while
+  open); `wait_pumping(future, pump=None, interval)` waits for a `concurrent.futures.Future` while pumping and
+  cancels it if the wait is interrupted (the sync `Desktop`). A failing pump is logged once and stops ticking.
 - `axpilot/clients/`: one writer per client: `ClientTarget(name, display_name, config_path(scope), format=json|toml|yaml,
   servers_key)`, `connect(target, *, command, args, dry_run, scope) -> ConnectResult(path, changed, backup, snippet)`.
 

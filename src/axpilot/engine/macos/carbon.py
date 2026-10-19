@@ -15,8 +15,9 @@ Permissions: none.
 Threading: on macOS 14+ the Text Input Sources (TIS/TSM) functions assert that they run on
 the main thread and **crash the process** otherwise. :class:`LayoutProvider` therefore only
 calls them on the main thread: directly when it is already there, otherwise by scheduling the
-work on the main run loop (``PyObjCTools.AppHelper.callAfter``) and waiting briefly. If the
-main thread does not run a Cocoa run loop (e.g. a plain script), the built-in US-ANSI map is
+work on the main run loop (``PyObjCTools.AppHelper.callAfter``) and waiting briefly. The CLI,
+the host and the SDK keep the main run loop turning (:mod:`axpilot.runloop`); if nothing turns it
+(e.g. a plain script that drives ``MacEngine`` from a worker thread), the built-in US-ANSI map is
 used and a warning is logged once. ``UCKeyTranslate`` itself is a pure function and is safe
 anywhere.
 """

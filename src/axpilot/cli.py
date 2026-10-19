@@ -42,6 +42,7 @@ import typer
 
 from axpilot import __version__, paths
 from axpilot.errors import AXPilotError, ErrorCode
+from axpilot.runloop import main_thread_pump, run_with_pump
 
 __all__ = ["app", "exit_code_for", "main"]
 
@@ -176,7 +177,8 @@ def _setup_logging(debug: bool) -> None:
 
 
 def _run(coroutine: Callable[[], Coroutine[Any, Any, Any]]) -> Any:
-    return anyio.run(coroutine)
+    # On macOS the main thread's Cocoa run loop must keep turning (keyboard layout, app list).
+    return anyio.run(run_with_pump, coroutine, main_thread_pump())
 
 
 @app.callback()

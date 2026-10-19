@@ -18,9 +18,12 @@ Run on a Mac::
 
 from __future__ import annotations
 
+import concurrent.futures
 import os
 import plistlib
 import sys
+import threading
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -791,3 +794,25 @@ class TestMacEngine:
             assert engine.clipboard_get().text == "AXPilot clipboard test ✓"
         finally:
             engine.clipboard_set(text=saved.text, image_png=saved.image_png, files=saved.files or None)
+
+
+@pytest.mark.macos
+@mac_only
+def test_the_run_loop_pump_lets_workers_read_the_keyboard_layout() -> None:
+    """M1: work scheduled on the main run loop only runs while something turns it."""
+    from PyObjCTools import AppHelper
+
+    from axpilot.engine.macos.carbon import LayoutProvider
+    from axpilot.engine.macos.runloop import pump
+    from axpilot.runloop import main_thread_pump, wait_pumping
+
+    assert main_thread_pump() is pump
+    ran = threading.Event()
+    AppHelper.callAfter(ran.set)
+    deadline = time.monotonic() + 2.0
+    while not ran.is_set() and time.monotonic() < deadline:
+        pump(0.05)
+    assert ran.is_set(), "callAfter work did not run while pumping"
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        layout = wait_pumping(pool.submit(LayoutProvider().current), pump)
+    assert not layout.fallback, "a worker thread fell back to US-ANSI although the main thread pumped"

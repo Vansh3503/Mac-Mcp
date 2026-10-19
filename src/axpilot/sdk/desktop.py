@@ -39,6 +39,7 @@ from mcp_types import CallToolResult, ImageContent, Implementation, TextContent
 
 from axpilot import __version__
 from axpilot.errors import AXPilotError, ErrorCode
+from axpilot.runloop import main_thread_pump, start_ticking, wait_pumping
 from axpilot.sdk.results import (
     ActionResult,
     AppHandle,
@@ -217,6 +218,8 @@ class AsyncDesktop:
             if self._client is not None:
                 return
             stack = AsyncExitStack()
+            # On macOS's main thread, keep its Cocoa run loop turning while this is open.
+            stack.callback(start_ticking(main_thread_pump()))
             try:
                 self._client = await self._opener(stack)
             except BaseException:
@@ -722,7 +725,9 @@ class Desktop:
         portal = self._portal
         if portal is None:  # pragma: no cover - closed by another thread meanwhile
             raise AXPilotError(ErrorCode.INVALID_ARGUMENT, "This Desktop is closed.")
-        return portal.call(functools.partial(method, self._async, *args, **kwargs))
+        future = portal.start_task_soon(functools.partial(method, self._async, *args, **kwargs))
+        # The caller (often the main thread) blocks here; on macOS its run loop keeps turning.
+        return wait_pumping(future, main_thread_pump())
 
     def app(self, name: str) -> AppHandle:
         """A handle on an app (nothing happens until you call one of its methods)."""
