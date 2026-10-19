@@ -1789,6 +1789,10 @@ class FakeEngine(Engine):
                 "AXParentRole": parent.role if parent is not None else None,
                 "AXWindowTitle": self._node_windows[node.handle].title,
             }
+            behaviour = self._behaviour.get(node.handle, {})
+            for key, attribute in (("min", "AXMinValue"), ("max", "AXMaxValue")):
+                if key in behaviour:  # sliders and steppers report their range, as on macOS
+                    attributes[attribute] = behaviour[key]
             return {key: value for key, value in attributes.items() if value is not None}
 
     # ------------------------------------------------------------------ AX actions

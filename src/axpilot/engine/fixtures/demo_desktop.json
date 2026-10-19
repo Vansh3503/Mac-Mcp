@@ -1111,7 +1111,7 @@
       }
     },
     {
-      "window_id": 601, "app": "com.apple.Terminal", "title": "vansh — -zsh — 80×24",
+      "window_id": 601, "app": "com.apple.Terminal", "title": "user — -zsh — 80×24",
       "frame": [2300, 200, 740, 480],
       "tree": {
         "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
@@ -1133,7 +1133,7 @@
             "children": [
               {
                 "id": "terminal.shell", "role": "AXTextArea", "description": "shell",
-                "value": "Last login: Mon Oct 19 09:12:44 on ttys000\nvansh@MacBook-Pro ~ % ",
+                "value": "Last login: Mon Oct 19 09:12:44 on ttys000\nuser@MacBook-Pro ~ % ",
                 "focused": true, "frame": [2300, 228, 725, 452]
               },
               {
@@ -1250,7 +1250,7 @@
                             "role": "AXCell", "frame": [1721, 616, 265, 52],
                             "children": [
                               {"role": "AXStaticText", "value": "GitHub", "frame": [1737, 624, 230, 18]},
-                              {"role": "AXStaticText", "value": "vansh3503", "frame": [1737, 644, 230, 16]}
+                              {"role": "AXStaticText", "value": "example-user", "frame": [1737, 644, 230, 16]}
                             ]
                           }
                         ]
@@ -1266,7 +1266,7 @@
                                 "frame": [1737, 676, 230, 18]
                               },
                               {
-                                "role": "AXStaticText", "value": "vansh@example.com",
+                                "role": "AXStaticText", "value": "alex@example.com",
                                 "frame": [1737, 696, 230, 16]
                               }
                             ]
@@ -1299,7 +1299,7 @@
                                 "frame": [1737, 780, 230, 18]
                               },
                               {
-                                "role": "AXStaticText", "value": "vansh@icloud.com",
+                                "role": "AXStaticText", "value": "alex@example.org",
                                 "frame": [1737, 800, 230, 16]
                               }
                             ]
@@ -1317,7 +1317,7 @@
                   {"role": "AXButton", "title": "Edit", "frame": [2330, 628, 50, 24], "actions": ["AXPress"]},
                   {"role": "AXStaticText", "value": "username", "frame": [2022, 676, 100, 16]},
                   {
-                    "role": "AXTextField", "description": "username", "value": "vansh3503",
+                    "role": "AXTextField", "description": "username", "value": "example-user",
                     "frame": [2022, 694, 300, 22], "settable": false
                   },
                   {"role": "AXStaticText", "value": "password", "frame": [2022, 730, 100, 16]},
@@ -1375,7 +1375,7 @@
                       {
                         "role": "AXCell", "frame": [3100, 196, 220, 28],
                         "children": [
-                          {"role": "AXStaticText", "value": "Vansh Agarwal", "frame": [3140, 202, 170, 16]},
+                          {"role": "AXStaticText", "value": "Alex Example", "frame": [3140, 202, 170, 16]},
                           {"role": "AXStaticText", "value": "Apple Account", "frame": [3140, 214, 170, 10]}
                         ]
                       }
@@ -2731,7 +2731,7 @@
             {"title": "Shut Down…"},
             {"separator": true},
             {"title": "Lock Screen", "shortcut": "⌃⌘Q"},
-            {"title": "Log Out Vansh Agarwal…", "shortcut": "⇧⌘Q"}
+            {"title": "Log Out Alex Example…", "shortcut": "⇧⌘Q"}
           ]
         },
         {
@@ -2874,7 +2874,7 @@
             {"title": "Shut Down…"},
             {"separator": true},
             {"title": "Lock Screen", "shortcut": "⌃⌘Q"},
-            {"title": "Log Out Vansh Agarwal…", "shortcut": "⇧⌘Q"}
+            {"title": "Log Out Alex Example…", "shortcut": "⇧⌘Q"}
           ]
         },
         {
@@ -3145,7 +3145,7 @@
             {"title": "Shut Down…"},
             {"separator": true},
             {"title": "Lock Screen", "shortcut": "⌃⌘Q"},
-            {"title": "Log Out Vansh Agarwal…", "shortcut": "⇧⌘Q"}
+            {"title": "Log Out Alex Example…", "shortcut": "⇧⌘Q"}
           ]
         },
         {
