@@ -221,7 +221,14 @@ def test_list_apps_and_frontmost(engine: FakeEngine) -> None:
     running = engine.list_apps()
     assert all(app.pid > 0 for app in running)
     assert len(running) == 7
-    assert len(engine.list_apps(include_installed=True)) == 9
+    everything = engine.list_apps(include_installed=True)
+    installed_only = [app for app in everything if app.pid == 0]
+    assert [app for app in everything if app.pid > 0] == running
+    assert {"Calculator", "Safari", "Slack", "Canvas Paint", "IntelliJ IDEA", "Mail"} <= {
+        app.name for app in installed_only
+    }
+    assert len(everything) == len(running) + len(installed_only)
+    assert not any(app.frontmost for app in installed_only)
     front = engine.frontmost_app()
     assert front is not None
     assert (front.name, front.bundle_id, front.frontmost) == (

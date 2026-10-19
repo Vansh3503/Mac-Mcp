@@ -515,7 +515,9 @@ def detect_app_kind(bundle_id: str | None, bundle_path: str | None, *, fs: Bundl
         structural = _structure_kind(root, probe)
         if structural is not None:
             return structural
-    if folded_id:
+    if folded_id and not present:
+        # Well-known ids only stand in for a bundle we cannot read; a readable bundle without
+        # framework markers is native even if its id usually belongs to an Electron app.
         guessed = _fallback_id_kind(folded_id)
         if guessed is not None:
             return guessed

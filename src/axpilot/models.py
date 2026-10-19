@@ -20,6 +20,8 @@ ImageFormat = Literal["png", "jpeg"]
 MODIFIERS: tuple[str, ...] = ("ctrl", "option", "shift", "cmd", "fn")
 """Canonical modifier names, in the order they are displayed (macOS convention ⌃⌥⇧⌘)."""
 
+_SEPARATOR_KEY_NAMES: dict[str, str] = {"+": "plus", "-": "minus"}
+
 
 @dataclass(frozen=True, slots=True)
 class Point:
@@ -231,7 +233,10 @@ class KeyCombo:
 
     def __str__(self) -> str:
         mods = [m for m in MODIFIERS if m in self.modifiers]
-        return "+".join([*mods, self.key])
+        # "+" and "-" separate keys in combo strings, so those keys are written by name
+        # ("cmd+plus", not "cmd++"); otherwise "a + b" would be ambiguous in key sequences.
+        key = _SEPARATOR_KEY_NAMES.get(self.key, self.key)
+        return "+".join([*mods, key])
 
 
 @dataclass(slots=True)

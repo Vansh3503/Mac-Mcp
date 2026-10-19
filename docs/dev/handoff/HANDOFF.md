@@ -93,11 +93,13 @@ real agent frameworks.
 
 ### Test status at handoff (Linux)
 
-`uv run pytest -q` → **1954 passed, 48 skipped (macOS-only), 3 failed**:
-- `tests/engine/test_fake.py::test_list_apps_and_frontmost`: fixture additions changed the app list. Fix the
-  fixture additions, not the test.
-- `tests/perception/test_appkind.py::test_the_bundle_wins_over_well_known_ids`: new, partial module.
-- `tests/input/test_keys.py::test_sequence_string_round_trips`: a real parser/formatter bug found by hypothesis.
+`uv run pytest -q` → **1957 passed, 48 skipped (macOS-only), 0 failed** (after commit `fix: …` following `99b08da`).
+The three failures that the `wip(server)` commit listed are fixed:
+- key sequences: `KeyCombo.__str__` now writes the `+`/`-` keys as `plus`/`minus`, so sequence strings are unambiguous
+- app kind: well-known bundle ids are only a fallback when the bundle can't be read (matches the docstring)
+- fake desktop: the app-list test checks installed-only apps structurally instead of a brittle count
+
+The server package itself still has **no tests**; writing them is part of Step 1.
 
 ### GitHub issues already created
 
