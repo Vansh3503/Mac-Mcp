@@ -24,6 +24,7 @@ Turns are not re-entrant: do not open a turn inside another one.
 from __future__ import annotations
 
 import contextlib
+import logging
 import math
 import threading
 from collections.abc import AsyncIterator
@@ -40,6 +41,8 @@ from axpilot.errors import AXPilotError, ErrorCode
 
 __all__ = ["ControlState"]
 
+_log = logging.getLogger(__name__)
+
 _current_token = getattr(anyio.lowlevel, "current_token", None)  # anyio >= 4.11
 
 
@@ -54,9 +57,10 @@ class _Turn:
 
 
 def _cancel_from_other_thread(turn: _Turn) -> None:
-    # If the event loop is gone, the turn is over and there is nothing to cancel.
-    with contextlib.suppress(Exception):
+    try:
         anyio.from_thread.run_sync(turn.scope.cancel, token=turn.token)
+    except Exception as exc:  # the event loop is gone: the turn is over, nothing to cancel
+        _log.debug("Pausing did not cancel %s: %r", turn.label or "an input turn", exc)
 
 
 class ControlState:

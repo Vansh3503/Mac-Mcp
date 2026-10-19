@@ -10,6 +10,7 @@ logs go to stderr), so the client sees a clean JSON-RPC stream.
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -21,6 +22,8 @@ from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.server.context import CONFIRM_TIMEOUT_MAX_S
 
 __all__ = ["CHUNK_BYTES", "REPLY_TIMEOUT_S", "fd_reader", "fd_writer", "run_bridge"]
+
+_log = logging.getLogger(__name__)
 
 CHUNK_BYTES = 65536
 REPLY_TIMEOUT_S = CONFIRM_TIMEOUT_MAX_S + 15
@@ -102,8 +105,8 @@ async def run_bridge(
                 while chunk := await read_input():
                     await conn.send(chunk)
                 await conn.send_eof()
-            except (anyio.BrokenResourceError, anyio.ClosedResourceError, OSError):
-                pass  # the host went away; downstream sees the end and finishes
+            except (anyio.BrokenResourceError, anyio.ClosedResourceError, OSError) as exc:
+                _log.debug("The host stopped reading: %r", exc)  # downstream sees the end and finishes
 
         async with anyio.create_task_group() as tg:
             tg.start_soon(upstream)

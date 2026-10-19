@@ -272,8 +272,8 @@ class Host:
         try:
             await conn.send(Reply.accept().to_line())
             await serve_session(server, reader, conn)
-        except (anyio.BrokenResourceError, anyio.ClosedResourceError, OSError):
-            pass
+        except (anyio.BrokenResourceError, anyio.ClosedResourceError, OSError) as exc:
+            _log.debug("Connection to %s lost: %r", hello.client.display, exc)
         finally:
             with self._state_lock:
                 self.sessions.pop(session_id, None)
