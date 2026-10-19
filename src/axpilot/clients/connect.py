@@ -189,9 +189,12 @@ def render_snippet(client: ClientTarget, entry: dict[str, Any], *, server_name: 
 
 
 def _load_json(snap: ConfigText) -> dict[str, Any]:
+    """The file's top-level object; a missing, empty or comments-only file counts as ``{}``."""
     if snap.text is None or not snap.text.strip():
         return {}
     try:
+        if not jsonc.strip_comments(snap.text).strip():
+            return {}
         data = jsonc.loads(snap.text)
     except jsonc.JSONCError as exc:
         raise _invalid(

@@ -838,3 +838,13 @@ def test_render_snippet_formats() -> None:
     assert tomllib.loads(render_snippet(codex, PLAIN)) == {"mcp_servers": {"axpilot": PLAIN}}
     goose = get_target("goose")
     assert render_snippet(goose, goose.entry(COMMAND, ARGS)).startswith("extensions:\n  axpilot:\n")
+
+
+def test_comments_only_file_counts_as_empty(home: Path) -> None:
+    path = write_vscode(home, "// add servers here\n")
+    blocked = add("vscode")
+    assert blocked.manual
+    assert path.read_text() == "// add servers here\n"
+    forced = add("vscode", force=True)
+    assert forced.changed
+    assert read_json(path) == JSON_SHAPES["vscode"]

@@ -358,14 +358,13 @@ def install_launcher(*, source: Path | None = None, dest: Path | None = None) ->
     """
     app = _require_source(source)
     target = dest or paths.launcher_app_path()
-    wanted = tree_manifest(app)
-    sha = file_sha256(executable_path(app))
-    version = _bundle_version(app)
-    if target.is_dir() and not target.is_symlink() and tree_manifest(target) == wanted:
-        return LauncherInstall(target, False, sha, version)
-
     staging: Path | None = None
     try:
+        wanted = tree_manifest(app)
+        sha = file_sha256(executable_path(app))
+        version = _bundle_version(app)
+        if target.is_dir() and not target.is_symlink() and _manifest_or_none(target) == wanted:
+            return LauncherInstall(target, False, sha, version)
         target.parent.mkdir(parents=True, exist_ok=True)
         staging = Path(tempfile.mkdtemp(prefix=f".{target.name}.", dir=target.parent))
         staged = staging / target.name
@@ -399,14 +398,33 @@ def install_launcher(*, source: Path | None = None, dest: Path | None = None) ->
     return LauncherInstall(target, True, sha, version)
 
 
+def _manifest_or_none(root: Path) -> dict[str, tuple[str, ...]] | None:
+    try:
+        return tree_manifest(root)
+    except OSError as exc:
+        logger.debug("Cannot read %s: %s", root, exc)
+        return None
+
+
+def _sha_or_none(path: Path) -> str | None:
+    try:
+        return file_sha256(path)
+    except OSError as exc:
+        logger.debug("Cannot hash %s: %s", path, exc)
+        return None
+
+
 def launcher_status(*, app: Path | None = None, source: Path | None = None) -> LauncherStatus:
-    """Inspect the installed launcher and compare it with the bundled copy (never raises for a
-    missing or damaged installation; that is what the status reports)."""
+    """Inspect the installed launcher and compare it with the bundled copy.
+
+    Never raises for a missing, unreadable or damaged installation (that is what the status
+    reports); only an unreadable ``CDHASH`` file in the package raises ``INVALID_ARGUMENT``.
+    """
     target = app or paths.launcher_app_path()
     bundled = source if source is not None else bundled_app()
     if bundled is not None and not is_installed(bundled):
         bundled = None
-    bundled_sha = file_sha256(executable_path(bundled)) if bundled is not None else None
+    bundled_sha = _sha_or_none(executable_path(bundled)) if bundled is not None else None
     bundled_version = _bundle_version(bundled) if bundled is not None else None
     expected = expected_cdhashes(bundled.parent if bundled is not None else None)
     if not is_installed(target):
@@ -418,12 +436,16 @@ def launcher_status(*, app: Path | None = None, source: Path | None = None) -> L
             bundled_sha256=bundled_sha,
             expected_cdhash=expected,
         )
-    identical = tree_manifest(target) == tree_manifest(bundled) if bundled is not None else None
+    identical: bool | None = None
+    if bundled is not None:
+        installed_tree, bundled_tree = _manifest_or_none(target), _manifest_or_none(bundled)
+        if installed_tree is not None and bundled_tree is not None:
+            identical = installed_tree == bundled_tree
     return LauncherStatus(
         target,
         True,
         version=_bundle_version(target),
-        sha256=file_sha256(executable_path(target)),
+        sha256=_sha_or_none(executable_path(target)),
         bundled_path=bundled,
         bundled_version=bundled_version,
         bundled_sha256=bundled_sha,
