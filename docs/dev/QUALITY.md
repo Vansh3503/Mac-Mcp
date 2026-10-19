@@ -91,7 +91,7 @@ document disagree, fix the code or update this document in the same PR.
 ### B2. Error paths are first-class tests
 - **Error matrix:** every tool has tests for its success path **and** each error code it can return
   (invalid args, not found, stale ref, policy block, permission, timeout, user denied, paused, busy…).
-- **Fault injection:** `tests/support/faulty_engine.py` wraps any engine and makes chosen methods raise a
+- **Fault injection:** `FaultyEngine` (`src/axpilot/testing/faulty_engine.py`) wraps any engine and makes chosen methods raise a
   given `AXPilotError`, a raw `RuntimeError`, or hang past the deadline. Tests prove each tool:
   1. returns `isError: true` with the right code (raw exceptions → `INTERNAL` with an incident id),
   2. never crashes the server (the next call succeeds),

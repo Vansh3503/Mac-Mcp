@@ -176,10 +176,13 @@ please open a feature request first to agree on the name and shape. Then:
       `src/axpilot/policy/profiles.py`. Position matters: it is the `tools/list` order.
 - [ ] **Schema:** a pydantic input model with constraints (`Field(ge=…, le=…, max_length=…)`,
       `Literal[...]` enums) and an output model, so malformed calls fail before any side effect.
-- [ ] **Registration:** a `ToolSpec` in `src/axpilot/server/registry.py` with accurate annotations
-      (`read_only`, `destructive`, `idempotent`, `open_world`), a `windows_mcp_name` when
-      Windows-MCP has an equivalent, and a description written for models: purpose, when to use it,
-      key parameters, what comes back.
+- [ ] **Registration:** a `@tool(...)` factory in a module under `src/axpilot/server/tools/` (listed in
+      `TOOL_MODULES` in `src/axpilot/server/app.py`) with accurate annotations (`read_only`,
+      `destructive`, `idempotent`, `open_world`, `input_action`; `confirm_when` when only some calls
+      are destructive) and a description written for models: purpose, when to use it, key
+      parameters, what comes back, common errors.
+- [ ] **Windows-MCP naming:** a public name in `NAMES` in `src/axpilot/server/naming/windows_mcp.py`,
+      plus an adapter in `MAPPINGS` when Windows-MCP's parameters differ.
 - [ ] **Engine:** if it needs new platform capability, add a method to `Engine`
       (`src/axpilot/engine/base.py`), implement it in `FakeEngine` and `MacEngine`, and update
       `CONTRACTS.md`.
@@ -190,8 +193,9 @@ please open a feature request first to agree on the name and shape. Then:
       next step ([QUALITY.md §A2–A3](docs/dev/QUALITY.md)).
 - [ ] **Tests:** the success path, every error code it can return, fault injection, policy-bypass
       attempts, and the regenerated `tools/list` golden files.
-- [ ] **Docs:** [docs/tools.md](docs/tools.md), the [Agent Skill](skills/axpilot/SKILL.md) if it
-      changes how agents should work, and [CHANGELOG.md](CHANGELOG.md).
+- [ ] **Docs:** regenerate [docs/tools.md](docs/tools.md) with `uv run python scripts/gen_tool_docs.py`,
+      update the [Agent Skill](skills/axpilot/SKILL.md) if it changes how agents should work, and
+      [CHANGELOG.md](CHANGELOG.md).
 
 ## Code style
 

@@ -38,9 +38,11 @@ def test_toolsets_match_the_contract() -> None:
         "drag",
         "move_mouse",
         "set_value",
+        "select_option",
         "perform_action",
         "select_menu",
         "fill_form",
+        "handle_dialog",
     )
     assert TOOLSETS["apps"] == ("app", "window", "open")
     assert TOOLSETS["system"] == (

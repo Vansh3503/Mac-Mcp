@@ -7,7 +7,7 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
-from axpilot.policy.profiles import TOOL_ORDER
+from axpilot.policy.profiles import TOOL_ORDER, TOOLSETS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -35,3 +35,12 @@ def test_every_tool_is_documented() -> None:
 
 def test_check_mode() -> None:
     assert generator().main(["--check"]) == 0
+
+
+def test_the_readme_lists_every_toolset() -> None:
+    rows = {}
+    for line in (ROOT / "README.md").read_text(encoding="utf-8").splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) == 3 and cells[0].startswith("`") and cells[0].strip("`") in TOOLSETS:
+            rows[cells[0].strip("`")] = tuple(name.strip(" `") for name in cells[1].split(","))
+    assert rows == TOOLSETS

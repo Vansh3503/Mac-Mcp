@@ -203,7 +203,7 @@ local models), `standard` (default), `full`, and `computer` (one vision-first `c
 | Toolset | Tools | Default |
 |---|---|---|
 | `observe` | `snapshot`, `screenshot`, `find`, `explore`, `read`, `inspect`, `ocr`, `list_apps`, `list_windows`, `list_displays`, `wait_for`, `status` | on (read-only) |
-| `input` | `click`, `type_text`, `press_keys`, `scroll`, `drag`, `move_mouse`, `set_value`, `perform_action`, `select_menu`, `fill_form` | on |
+| `input` | `click`, `type_text`, `press_keys`, `scroll`, `drag`, `move_mouse`, `set_value`, `select_option`, `perform_action`, `select_menu`, `fill_form`, `handle_dialog` | on |
 | `apps` | `app`, `window`, `open` | on |
 | `system` | `clipboard`, `notify`, `spotlight_search`, `system_info`, `system_control`, `processes` | `clipboard` on |
 | `scripting` | `shell`, `applescript`, `shortcuts`, `defaults` | **off** |

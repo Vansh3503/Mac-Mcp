@@ -12,12 +12,13 @@ import pytest
 from mcp import Client
 
 from axpilot.engine.fake import FakeEngine
-from axpilot.errors import AXPilotError
+from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.policy.confirm import ConfirmRequest
 from axpilot.server.context import ServerContext
 from axpilot.server.results import error_code_of, text_of
 from axpilot.server.tools.controls import DESTRUCTIVE_BUTTON_RE, match_option
 from axpilot.testing import connected_client, make_test_context, structured
+from axpilot.testing.faulty_engine import Fault, FaultyEngine
 
 pytestmark = pytest.mark.anyio
 
@@ -161,6 +162,32 @@ async def test_select_option_follows_the_policy() -> None:
     assert error == "BLOCKED_BY_POLICY"
 
 
+FAULTS = [
+    (Fault.crash("boom /Users/me"), "INTERNAL"),
+    (Fault.hang(10), "TIMEOUT"),
+    (Fault.error(ErrorCode.STALE_REF, "gone"), "STALE_REF"),
+]
+
+
+@pytest.mark.parametrize(("fault", "code"), FAULTS)
+async def test_engine_faults_during_select_option_release_the_input_lock(fault: Fault, code: str) -> None:
+    faulty = FaultyEngine(FakeEngine.demo())
+    ctx = make_ctx(engine=faulty)
+    ctx.engine_timeout_s = 0.1
+    try:
+        async with connected_client(ctx) as client:
+            group = (await elements(client, "TextEdit"))["radiogroup:Text Alignment"]["ref"]
+            faulty.set_fault("perform_action", fault)
+            result, error = await call(client, "select_option", {"ref": group, "option": "Center"})
+            assert error == code, text_of(result)
+            assert "/Users/me" not in text_of(result)
+            assert not ctx.control.busy
+            faulty.clear_faults()
+            await ok(client, "select_option", {"ref": group, "option": "Center"})
+    finally:
+        faulty.release()
+
+
 # =========================================================================== handle_dialog
 async def test_inspect_a_sheet(client: Client) -> None:
     data = await ok(client, "handle_dialog", {"app": "Login Demo"})
@@ -190,6 +217,36 @@ async def test_cancel_and_press(ctx: ServerContext, client: Client) -> None:
     data = await ok(client, "handle_dialog", {"app": "Login Demo", "action": "cancel"})
     assert data["pressed"] == "Cancel"
     assert (await ok(client, "handle_dialog", {"app": "Login Demo"}))["found"] is False
+
+
+@pytest.mark.parametrize(("method", "action"), [("perform_action", "accept"), ("capture_tree", "inspect")])
+@pytest.mark.parametrize(("fault", "code"), FAULTS)
+async def test_engine_faults_during_handle_dialog_release_the_input_lock(
+    method: str, action: str, fault: Fault, code: str
+) -> None:
+    faulty = FaultyEngine(FakeEngine.demo())
+    ctx = make_ctx(engine=faulty)
+    ctx.engine_timeout_s = 0.1
+    try:
+        async with connected_client(ctx) as client:
+            faulty.set_fault(method, fault)
+            result, error = await call(client, "handle_dialog", {"app": "Login Demo", "action": action})
+            assert error == code, text_of(result)
+            assert "/Users/me" not in text_of(result)
+            assert not ctx.control.busy
+            faulty.clear_faults()
+            assert (await ok(client, "handle_dialog", {"app": "Login Demo"}))["found"] is True
+    finally:
+        faulty.release()
+
+
+async def test_handle_dialog_follows_the_policy() -> None:
+    ctx = make_ctx(**{"safety.deny_apps": ["com.example.LoginDemo"]})
+    async with connected_client(ctx) as client:
+        for action in ("inspect", "accept", "cancel"):
+            _, error = await call(client, "handle_dialog", {"app": "Login Demo", "action": action})
+            assert error == "BLOCKED_BY_POLICY", action
+    assert not engine_of(ctx).events_of("press")
 
 
 async def test_press_by_title(client: Client) -> None:
