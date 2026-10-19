@@ -22,7 +22,6 @@ import concurrent.futures
 import os
 import plistlib
 import sys
-import threading
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -248,6 +247,91 @@ def test_decode_menu_modifiers() -> None:
 )
 def test_menu_shortcut(args: tuple[Any, ...], expected: str | None) -> None:
     assert h.menu_shortcut(*args) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ((" ", 0), "⌘Space"),  # M3: whitespace command characters are real shortcuts
+        (("\r", 0), "⌘↩"),
+        (("\t", 4), "⌃⌘⇥"),
+        (("\n", 1), "⇧⌘↩"),
+        (("S", 1), "⇧⌘S"),
+        (("Save", 0), "⌘S"),  # only the first character counts
+        ((" ", 0, None, 0x00), "⌘Space"),  # a stale virtual key never overrides the character
+        ((None, 0, None, 0x31), "⌘Space"),  # no character: the virtual key (49, space) is used
+        (("", 0, None, 0x24), "⌘↩"),  # an empty character is no character
+        ((None, None), None),
+        ((42, 0), None),  # not a string
+        (("S", "1"), "⌘S"),  # non-integer modifiers count as none
+        (("S", True), "⌘S"),  # a bool is not a modifier mask
+        ((None, 0, 0x0B), "⌘↩"),
+        ((None, 0, "0x0B"), None),
+    ],
+)
+def test_menu_item_shortcut_from_raw_attributes(raw: tuple[Any, ...], expected: str | None) -> None:
+    assert h.menu_item_shortcut(*raw) == expected
+
+
+class Activation:
+    """Records the activation ladder; the app comes to the front after ``front_after`` checks."""
+
+    def __init__(self, *, front_after: int | None, raises: bool = False) -> None:
+        self.front_after = front_after
+        self.raises = raises
+        self.steps: list[str] = []
+        self.checks = 0
+
+    def request(self) -> None:
+        self.steps.append("request")
+
+    def ax_raise(self) -> None:
+        self.steps.append("ax_raise")
+
+    def is_front(self) -> bool:
+        self.checks += 1
+        return self.front_after is not None and self.checks > self.front_after
+
+    def wait(self, predicate: Any, timeout_s: float) -> bool:
+        self.steps.append(f"wait {timeout_s:g}")
+        return any(predicate() for _ in range(3))
+
+
+def test_activation_sets_ax_frontmost_in_the_first_attempt() -> None:
+    """M2: on macOS 14+ activateWithOptions from the background is usually ignored; waiting a
+    full timeout before trying AXFrontmost made every activation take over 1.5 s."""
+    ladder = Activation(front_after=1)
+    front = h.bring_to_front(
+        request=ladder.request,
+        ax_raise=ladder.ax_raise,
+        is_front=ladder.is_front,
+        wait=ladder.wait,
+        timeout_s=1.5,
+    )
+    assert front
+    assert ladder.steps == ["request", "ax_raise", "wait 1.5"]  # one wait, after both requests
+
+
+def test_activation_that_is_immediate_skips_accessibility() -> None:
+    ladder = Activation(front_after=0)
+    front = h.bring_to_front(
+        request=ladder.request,
+        ax_raise=ladder.ax_raise,
+        is_front=ladder.is_front,
+        wait=ladder.wait,
+        timeout_s=1.5,
+    )
+    assert front
+    assert ladder.steps == ["request"]
+
+
+def test_activation_without_accessibility_and_an_app_that_never_comes_forward() -> None:
+    ladder = Activation(front_after=None)
+    front = h.bring_to_front(
+        request=ladder.request, ax_raise=None, is_front=ladder.is_front, wait=ladder.wait, timeout_s=1.5
+    )
+    assert not front
+    assert ladder.steps == ["request", "wait 1.5"]
 
 
 def test_menu_shortcuts_parse_back_like_the_fake_engine() -> None:
@@ -799,20 +883,16 @@ class TestMacEngine:
 @pytest.mark.macos
 @mac_only
 def test_the_run_loop_pump_lets_workers_read_the_keyboard_layout() -> None:
-    """M1: work scheduled on the main run loop only runs while something turns it."""
-    from PyObjCTools import AppHelper
-
+    """M1: a worker asks the main thread (AppHelper.callAfter) for the layout; that only works
+    while something turns the main run loop."""
     from axpilot.engine.macos.carbon import LayoutProvider
     from axpilot.engine.macos.runloop import pump
     from axpilot.runloop import main_thread_pump, wait_pumping
 
     assert main_thread_pump() is pump
-    ran = threading.Event()
-    AppHelper.callAfter(ran.set)
-    deadline = time.monotonic() + 2.0
-    while not ran.is_set() and time.monotonic() < deadline:
-        pump(0.05)
-    assert ran.is_set(), "callAfter work did not run while pumping"
+    pump(0.0)  # never blocks
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        started = time.monotonic()
         layout = wait_pumping(pool.submit(LayoutProvider().current), pump)
     assert not layout.fallback, "a worker thread fell back to US-ANSI although the main thread pumped"
+    assert time.monotonic() - started < 0.5, "the worker waited for the main thread's timeout"

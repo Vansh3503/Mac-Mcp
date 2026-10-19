@@ -459,6 +459,51 @@ def menu_shortcut(
     return to_glyphs(KeyCombo(key, decode_menu_modifiers(modifiers)))
 
 
+def menu_item_shortcut(
+    cmd_char: Any, modifiers: Any, glyph: Any = None, virtual_key: Any = None
+) -> str | None:
+    """:func:`menu_shortcut` from a menu item's raw ``AXMenuItemCmd*`` attribute values.
+
+    The command character is used exactly as read: shortcuts such as ⌘Space, ⌘↩ and ⌃⇥ *are*
+    a whitespace character, so it must not be stripped like a title. Non-integer modifiers,
+    glyphs and key codes count as absent; the virtual key is only consulted when the item has
+    no command character (apps often leave a stale ``0`` there)."""
+    char = str(cmd_char)[:1] if isinstance(cmd_char, str) and cmd_char else None
+    return menu_shortcut(
+        char,
+        _int_or_none(modifiers),
+        _int_or_none(glyph),
+        _int_or_none(virtual_key) if char is None else None,
+    )
+
+
+def _int_or_none(value: Any) -> int | None:
+    return int(value) if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def bring_to_front(
+    *,
+    request: Callable[[], None],
+    ax_raise: Callable[[], None] | None,
+    is_front: Callable[[], bool],
+    wait: Callable[[Callable[[], bool], float], bool],
+    timeout_s: float,
+) -> bool:
+    """Bring an app to the front; True once it is.
+
+    macOS 14+ activation is cooperative: ``activateWithOptions:`` from a process that is not
+    active itself (the AXPilot host never is) is usually ignored. So the LaunchServices
+    ``request`` and, with Accessibility, ``ax_raise`` (setting ``AXFrontmost``, which is
+    honoured) go out in the same attempt, followed by one wait of ``timeout_s``, instead of
+    trying Accessibility only after a full timeout. ``ax_raise`` must handle its own errors."""
+    request()
+    if is_front():
+        return True
+    if ax_raise is not None:
+        ax_raise()
+    return wait(is_front, timeout_s)
+
+
 # =============================================================================== windows
 
 

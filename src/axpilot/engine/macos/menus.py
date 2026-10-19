@@ -136,16 +136,11 @@ class MenuService:
 
     @staticmethod
     def _shortcut(attrs: dict[str, Any]) -> str | None:
-        modifiers = attrs.get(A.MENU_ITEM_CMD_MODIFIERS)
-        glyph = attrs.get(A.MENU_ITEM_CMD_GLYPH)
-        virtual_key = attrs.get(A.MENU_ITEM_CMD_VIRTUAL_KEY)
-        return h.menu_shortcut(
-            A.text(attrs.get(A.MENU_ITEM_CMD_CHAR), 4),
-            int(modifiers) if isinstance(modifiers, int) else None,
-            int(glyph) if isinstance(glyph, int) else None,
-            int(virtual_key)
-            if isinstance(virtual_key, int) and attrs.get(A.MENU_ITEM_CMD_CHAR) is None
-            else None,
+        return h.menu_item_shortcut(
+            attrs.get(A.MENU_ITEM_CMD_CHAR),
+            attrs.get(A.MENU_ITEM_CMD_MODIFIERS),
+            attrs.get(A.MENU_ITEM_CMD_GLYPH),
+            attrs.get(A.MENU_ITEM_CMD_VIRTUAL_KEY),
         )
 
     def read(self, app_element: AXElement, app_name: str, depth: int = 2) -> MenuNode:

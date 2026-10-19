@@ -3,7 +3,8 @@ Chromium/Electron accessibility switch.
 
 Permissions: listing and launching need none. Detecting the frontmost app prefers
 Accessibility (``AXFocusedApplication`` of the system-wide element, which is always current)
-and falls back to ``NSWorkspace``. Activation falls back to ``AXFrontmost`` (Accessibility).
+and falls back to ``NSWorkspace``. Activation also sets ``AXFrontmost`` (Accessibility), which
+macOS 14+ honours even from a background process.
 
 Freshness: ``NSWorkspace.runningApplications`` and ``NSRunningApplication`` properties are
 only updated while the **main run loop** runs (AppKit documents this). The CLI, the host and
@@ -403,21 +404,30 @@ class AppService:
         return found[0].pid
 
     def activate(self, pid: int) -> AppInfo:
-        """Bring an app to the front (``activateWithOptions:``, then ``AXFrontmost``)."""
+        """Bring an app to the front: ``activateWithOptions:`` and ``AXFrontmost`` together
+        (see :func:`~axpilot.engine.macos.helpers.bring_to_front` for why both at once)."""
         app = _running_app(pid)
         if app is None:
             raise AXPilotError(ErrorCode.APP_NOT_FOUND, f"No running app has pid {pid}.")
         if app.isHidden():
             app.unhide()
         options = AppKit.NSApplicationActivateAllWindows | AppKit.NSApplicationActivateIgnoringOtherApps
-        app.activateWithOptions_(options)
-        if not _wait(lambda: self.frontmost_pid() == pid, ACTIVATE_TIMEOUT_S) and self._ax.is_trusted():
+
+        def ax_raise() -> None:
             try:
                 self._ax.set(self._ax.application(pid), A.FRONTMOST, True)
             except AXCallError as exc:
                 _log.debug("AXFrontmost failed: %s", exc)
-            if not _wait(lambda: self.frontmost_pid() == pid, ACTIVATE_TIMEOUT_S):
-                _log.warning("%s did not come to the front", app.localizedName())
+
+        front = h.bring_to_front(
+            request=lambda: app.activateWithOptions_(options),
+            ax_raise=ax_raise if self._ax.is_trusted() else None,
+            is_front=lambda: self.frontmost_pid() == pid,
+            wait=_wait,
+            timeout_s=ACTIVATE_TIMEOUT_S,
+        )
+        if not front:
+            _log.warning("%s did not come to the front", app.localizedName())
         info = self.info_for_pid(pid)
         if info is None:
             raise AXPilotError(ErrorCode.APP_NOT_FOUND, f"The app with pid {pid} quit.")
