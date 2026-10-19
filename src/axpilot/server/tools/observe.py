@@ -6,7 +6,8 @@
 ``observe`` (accessibility) or ``capture`` (pixels) policy and never takes the input lock.
 
 Helpers other tool modules may reuse: :func:`capture_screen` (policy-aware screenshot),
-:func:`fit_capture` (downscale/re-encode) and :func:`annotate_capture` (draw refs on an image).
+:func:`fit_capture` (downscale/re-encode), :func:`annotate_capture` (draw refs on an image) and
+:func:`app_profile_of` (the app's compatibility profile, degrading to a warning).
 """
 
 # No ``from __future__ import annotations`` here: the MCP SDK evaluates tool annotations.
@@ -74,6 +75,7 @@ from axpilot.server.schemas import (
 __all__ = [
     "OCR_MAX_EDGE",
     "annotate_capture",
+    "app_profile_of",
     "capture_screen",
     "fit_capture",
 ]
@@ -321,7 +323,7 @@ class _Shot:
     annotated: bool
 
 
-async def _app_profile(ctx: ServerContext, tree: RawTree, warnings: list[str], *, needed: bool) -> Any:
+async def app_profile_of(ctx: ServerContext, tree: RawTree, warnings: list[str], *, needed: bool) -> Any:
     """The app's compatibility profile, or ``None`` (with a warning when it was needed)."""
     try:
         from axpilot.perception.appkind import app_profile  # noqa: PLC0415 - optional, written in parallel
@@ -480,7 +482,7 @@ async def _snapshot(ctx: ServerContext, req: _SnapshotRequest) -> CallToolResult
     snap = ctx.build_snapshot(
         tree, mode=base_mode, max_elements=req.max_elements, offset=req.offset, store=False
     )
-    profile = await _app_profile(ctx, tree, warnings, needed=req.mode in ("auto", "vision"))
+    profile = await app_profile_of(ctx, tree, warnings, needed=req.mode in ("auto", "vision"))
     capture: Capture | None = None
     poor = profile is not None and profile.ax_quality == "poor"
     if req.mode == "vision" or (req.mode == "auto" and poor):

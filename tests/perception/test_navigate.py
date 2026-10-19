@@ -15,6 +15,7 @@ from axpilot.perception.model import Snapshot
 from axpilot.perception.navigate import (
     CELL_SEPARATOR,
     ancestors,
+    collect_items,
     collect_rows,
     descendants,
     element_text,
@@ -219,3 +220,24 @@ def test_rows_of_a_scroll_area_come_from_its_table_one_line_each(mail: FakeEngin
     rows = collect_rows(snap, messages)
     assert rows == mail_rows()[: len(rows)]
     assert all(row.count(CELL_SEPARATOR) == 2 for row in rows)
+
+
+def test_collect_items_pairs_each_line_with_its_element(mail: FakeEngine) -> None:
+    snap = snap_of(mail)
+    container = scroll_container_for(snap, None)
+    items = collect_items(snap, container)
+    assert [text for _, text in items] == collect_rows(snap, container)
+    for ref, text in items:
+        assert ref is not None
+        row = snap.element(ref)
+        assert row is not None
+        assert row.role == "row"
+        assert text.startswith(row.name.split(" — ")[0] if row.name else "")
+
+
+def test_collect_items_of_a_text_area_have_no_refs() -> None:
+    engine = FakeEngine.demo()
+    engine.set_value(engine.resolve_ref("textedit.body"), "one\ntwo")
+    snap = build_snapshot(engine.capture_tree(app="TextEdit"), snapshot_id="s_text", mode="full")
+    area = next(el for el in snap.all_elements if el.role == "textarea")
+    assert collect_items(snap, area) == [(None, "one"), (None, "two")]

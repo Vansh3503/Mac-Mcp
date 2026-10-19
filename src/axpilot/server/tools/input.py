@@ -70,6 +70,7 @@ from axpilot.server.schemas import (
 __all__ = [
     "KEYSTROKE_FIRST_KINDS",
     "Target",
+    "element_brief",
     "observe_after",
     "resolve_point",
     "resolve_target",
@@ -384,7 +385,8 @@ async def _scroll_into_view(ctx: ServerContext, target: Target) -> None:
 
 
 # --------------------------------------------------------------------------- observing results
-def _brief(el: Element | None) -> ElementBriefModel | None:
+def element_brief(el: Element | None) -> ElementBriefModel | None:
+    """The short form of an element in tool results (``None`` for ``None``)."""
     if el is None:
         return None
     center = el.center
@@ -484,7 +486,7 @@ def action_result(
         action=action,
         strategy=strategy,
         attempts=list(attempts),
-        target=_brief(target.el) if target is not None else None,
+        target=element_brief(target.el) if target is not None else None,
         point=target.point.to_list() if target is not None else None,
         message=message,
         diff=observation.diff,

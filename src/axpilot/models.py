@@ -65,6 +65,12 @@ class Rect:
             return None
         return Rect(x1, y1, x2 - x1, y2 - y1)
 
+    def union(self, other: Rect) -> Rect:
+        """The smallest rectangle containing both."""
+        x1, y1 = min(self.x, other.x), min(self.y, other.y)
+        x2, y2 = max(self.x + self.w, other.x + other.w), max(self.y + self.h, other.y + other.h)
+        return Rect(x1, y1, x2 - x1, y2 - y1)
+
     def to_list(self) -> list[float]:
         return [round(self.x, 1), round(self.y, 1), round(self.w, 1), round(self.h, 1)]
 

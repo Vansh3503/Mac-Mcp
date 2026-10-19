@@ -29,6 +29,13 @@ Pre-alpha. Nothing is published on PyPI yet.
   by its element across snapshots of a window, so refs held from earlier snapshots keep working
   after actions re-snapshot the UI. A ref whose element is gone, or a list row that scrolled
   away, gives `STALE_REF` instead of hitting another element. Diffs pair equal refs first.
+- Navigation tools: `explore` (a map of an app: windows, menus with item counts, toolbar, tabs,
+  sidebar, scroll areas, dialogs, focus and its compatibility profile), `find` (fuzzy search that
+  can scroll a list or page until the element appears), `scroll` (by lines or pages, to the top or
+  bottom, or an element into view; reports `moved` and `at_end`) and `read` (the whole content of a
+  long list, table, text view or web page, joined page by page without repeats, with `complete`).
+  Scrolling measures the app's line height, applies the input policy and lock, and every loop is
+  bounded, returning partial results with a warning instead of failing.
 - Input helpers: key-combo parsing (`cmd+shift+t`, `⌘⇧T`, `Command-Shift-T`) and screenshot-to-screen
   coordinate mapping.
 - Policy layer: profiles and toolsets, app and window deny-lists, the Terminal rule, secure-field

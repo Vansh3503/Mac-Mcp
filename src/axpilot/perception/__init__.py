@@ -50,6 +50,7 @@ from axpilot.perception.format import (
 )
 from axpilot.perception.model import Element, Locator, Snapshot, SnapshotDiff, SnapshotMode
 from axpilot.perception.navigate import (
+    collect_items,
     collect_rows,
     merge_pages,
     overlap_length,
@@ -90,6 +91,7 @@ __all__ = [
     "assess_ax_quality",
     "build_snapshot",
     "carry_refs",
+    "collect_items",
     "collect_rows",
     "describe_refs",
     "detect_app_kind",

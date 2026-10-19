@@ -64,7 +64,11 @@ App compatibility fixtures (all optional):
   (clamped at the top and the end), keeps the nodes of rows that stay visible, registers new
   rows with fresh handles and drops rows that scrolled out (their refs go stale). The
   collection's ``child_count`` reports the total row count, and an ``AXScrollBar`` child of the
-  area gets ``value`` 0…1. :meth:`FakeEngine.content_scroll` reports the position.
+  area gets ``value`` 0…1. :meth:`FakeEngine.content_scroll` reports the position;
+* any other ``AXScrollArea`` whose content overflows it scrolls like a document view: a scroll
+  moves everything inside it by ``dy × 10`` points (never above its fixture layout, never past
+  the end of its content), and ``scroll_to_visible`` scrolls the nearest such area until the
+  element is inside it.
 
 Every state-changing call, and ``screenshot``, appends ``(kind, details)`` to
 :attr:`FakeEngine.events`; pressing an element (``AXPress`` or a click) also appends
@@ -547,6 +551,8 @@ class FakeEngine(Engine):
         self._windows: list[_Window] = []
         self._frontmost: _App | None = None
         self._scroll_states: dict[str, _ScrollContent] = {}
+        self._plain_offsets: dict[str, list[float]] = {}
+        """How far each ordinary scroll area is scrolled from its fixture layout (x, y points)."""
         self._bundle_files: list[str] = []
         self._bundle_plists: dict[str, Mapping[str, Any]] = {}
         self._load(desktop)
@@ -1017,6 +1023,68 @@ class FakeEngine(Engine):
         if moved:
             self._layout_rows(state)
         return {"moved": moved, "offset": state.offset, "at_end": state.offset >= state.max_offset}
+
+    @staticmethod
+    def _content_bounds(area: RawNode) -> Rect | None:
+        """Union of the frames of everything inside ``area`` except its scroll bars."""
+        bounds: Rect | None = None
+        stack = [child for child in area.children if child.role != "AXScrollBar"]
+        while stack:
+            node = stack.pop()
+            if node.frame is not None:
+                bounds = node.frame if bounds is None else bounds.union(node.frame)
+            stack.extend(node.children)
+        return bounds
+
+    @staticmethod
+    def _clamped_shift(want: float, before: float, after: float) -> float:
+        """How far content can move: ``before`` is how far it is scrolled from its start,
+        ``after`` how much of it lies beyond the end of the viewport."""
+        if want > 0:
+            return min(want, max(after, 0.0))
+        return -min(-want, max(before, 0.0))
+
+    def _scroll_plain(self, area: RawNode, dx_points: float, dy_points: float) -> dict[str, Any]:
+        """Scroll an ordinary scroll area whose content overflows it: everything inside moves,
+        never above its fixture layout nor past the end of the content. Details for the scroll
+        event."""
+        view, bounds = area.frame, self._content_bounds(area)
+        if view is None or bounds is None or area.handle is None:
+            return {}
+        offset = self._plain_offsets.setdefault(area.handle, [0.0, 0.0])
+        shift_x = self._clamped_shift(dx_points, offset[0], bounds.x + bounds.w - (view.x + view.w))
+        shift_y = self._clamped_shift(dy_points, offset[1], bounds.y + bounds.h - (view.y + view.h))
+        offset[0] += shift_x
+        offset[1] += shift_y
+        if shift_x or shift_y:
+            for child in area.children:
+                if child.role != "AXScrollBar":
+                    for item in child.walk():
+                        item.frame = _shift(item.frame, -shift_x, -shift_y)
+        at_end = bounds.y + bounds.h - shift_y <= view.y + view.h + 0.5
+        return {"moved": bool(shift_x or shift_y), "at_end": at_end}
+
+    def _reveal(self, node: RawNode) -> None:
+        """``AXScrollToVisible`` inside ordinary scroll areas: scroll the nearest one that
+        clips ``node`` until ``node`` is inside it (virtualized lists only show what is visible)."""
+        parent = self._parents.get(node.handle) if node.handle is not None else None
+        while parent is not None:
+            view = parent.frame
+            if (
+                parent.role == "AXScrollArea"
+                and parent.handle not in self._scroll_states
+                and view is not None
+                and node.frame is not None
+            ):
+                frame = node.frame
+                dy = frame.y + frame.h - (view.y + view.h) if frame.y + frame.h > view.y + view.h else 0.0
+                dy = frame.y - view.y if frame.y < view.y else dy
+                dx = frame.x + frame.w - (view.x + view.w) if frame.x + frame.w > view.x + view.w else 0.0
+                dx = frame.x - view.x if frame.x < view.x else dx
+                if dx or dy:
+                    self._scroll_plain(parent, dx, dy)
+                return
+            parent = self._parents.get(parent.handle) if parent.handle is not None else None
 
     def content_scroll(self, ref: str) -> dict[str, Any]:
         """Scroll position of a ``content_rows`` area, by fixture id, ``AXIdentifier`` or handle
@@ -1947,6 +2015,7 @@ class FakeEngine(Engine):
             if "AXScrollToVisible" not in node.actions:
                 return False
             self._record("scroll_to_visible", handle=node.handle)
+            self._reveal(node)
             return True
 
     # ------------------------------------------------------------------ synthetic input
@@ -2028,7 +2097,12 @@ class FakeEngine(Engine):
             window = self._window_at(at)
             area = self._scroll_area_at(window, at) if window is not None else None
             handle = area.handle if area is not None else None
-            content = self._scroll_content(handle, dy)
+            if area is not None and handle not in self._scroll_states:
+                content = self._scroll_plain(
+                    area, dx * _DEFAULT_POINTS_PER_LINE, dy * _DEFAULT_POINTS_PER_LINE
+                )
+            else:
+                content = self._scroll_content(handle, dy)
             self._record("scroll", point=at.to_list(), dx=dx, dy=dy, target=handle, **content)
             if point is not None:
                 self._cursor = point

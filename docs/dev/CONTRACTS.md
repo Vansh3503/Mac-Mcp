@@ -177,8 +177,9 @@ Coordinates shown are element **centers** in points, rounded to ints. States app
 or window differs. Otherwise, when both snapshots share a `ref_session`, elements with the same ref are
 paired first (refs are carried, so the same ref is the same element); the rest are matched by
 (identifier) → (locator path + name) → (ax_role, name, rounded frame) → (ax_role, name, unique) →
-(locator path, frames overlap) on `refs.ElementMatcher`. `match_snapshots(before, after) -> dict[int, int]`
-exposes the pairing.
+(locator path, frames overlap) on `refs.ElementMatcher`; with shared refs the last pass only pairs unnamed
+elements (a named element under another ref at the same place is another element, e.g. a list row showing
+other content). `match_snapshots(before, after) -> dict[int, int]` exposes the pairing.
 
 ### `axpilot/perception/find.py`
 `def find_elements(snap: Snapshot, *, text: str | None = None, role: str | None = None,
@@ -495,9 +496,29 @@ key params, and what comes back.
   container, used to detect "did not move" / end reached.
 - `def merge_pages(pages: list[list[str]]) -> list[str]` — joins text lines from successive pages, removing the
   overlap between page *n*'s tail and page *n+1*'s head (longest suffix/prefix match).
+- `def collect_rows(snap, container, *, visible_only=True) -> list[str]` and
+  `def collect_items(snap, container, *, visible_only=True) -> list[tuple[str | None, str]]` — the container's
+  content as lines (rows of lists/tables with cells joined by `" | "`, text lines otherwise); `collect_items` adds the
+  ref of the element each line comes from (`None` for the lines of a text area's value).
 - The tools `explore`, `find(scroll=True)`, `scroll`, `read` are implemented in `axpilot/server/tools/navigate.py`
   using these helpers plus engine calls; each loop is bounded (`max_scrolls` ≤ 50, overall deadline ≤ 60 s) and
-  reports `at_end`, `scrolls`, `complete`.
+  reports `at_end`, `scrolls`, `complete`. One scroll loop serves all of them: scroll, settle, re-snapshot the
+  window in `full` mode (refs carried from the previous step; intermediate snapshots are not stored, the final one
+  is), compare `page_signature` (unchanged = did not move). It measures how far the content moved (the container's
+  content frame, or the median movement of elements listed under the same ref) and calibrates the height of a
+  scroll "line" per app; the first page in an uncalibrated app starts with a 3-line probe, so a page (80% of the
+  viewport) never skips content. A scroll area's document (the list/table/web area inside it) is used as the
+  container. Scrolling is input: the `input` policy applies (Terminal rule, deny lists) and every scroll holds the
+  input lock (`scroll` through the guard; `find`/`read`, which are read-only tools, take one turn per scroll and
+  count once against the rate limit). When a loop runs out of time or scrolls, or the user takes over
+  (`USER_ACTIVE`/`BUSY`) or the app stops answering (`TIMEOUT`) after the first scroll, the results so far come
+  back with `complete=false` and a warning; `PAUSED_BY_USER`, policy and permission errors are raised. `read`
+  joins pages by ref (`merge_items`: exact even when lines repeat), falling back to the longest text overlap when
+  the app rebuilds its elements on scroll (a page without overlap is reported as a possible gap); text areas are
+  read whole from their live `AXValue`; output is capped at 60 000 characters (`truncated`). `find` counts a match
+  with score ≥ 0.48 (a substring of the name or better) as found; it scans down to the end, then from the top down
+  to where it started. `scroll(scroll_into_view=ref)` tries `AXScrollToVisible`, then scrolls the element's
+  container toward it.
 
 ## 10. Automation SDK (PLAN §6.11) — `axpilot/sdk/`
 - `class Desktop` (sync) and `class AsyncDesktop` with constructors `Desktop.direct(config=None, engine=None)`,

@@ -14,7 +14,9 @@ is authoritative for its exact parameters.
 
 1. **Observe.** Call `snapshot` (optionally with `app`) before acting. Read the header (app, window,
    focus) and find the element you need. If it isn't listed, use `find` with its text, or page with
-   `offset`. Call `status` first if you don't know whether permissions are in place.
+   `offset`. Call `status` first if you don't know whether permissions are in place. For an
+   unfamiliar app, call `explore` first: one call maps its windows, menus, toolbar, sidebar and
+   scroll areas.
 2. **Act** on one element at a time, by ref: `click`, `type_text`, `set_value`, `select_menu`,
    `press_keys`, `scroll`.
 3. **Verify.** Input tools return a diff of what changed (focus, new windows or dialogs, changed
@@ -42,6 +44,11 @@ is authoritative for its exact parameters.
   Only use coordinates you read off a `screenshot`, and pass them with
   `coordinate_space: "screenshot"` and that screenshot's `screenshot_id`. Never invent coordinates,
   and don't reuse coordinates after the window moved or the view scrolled.
+- **Long lists, documents and pages:** don't scroll and snapshot by hand. `find` with
+  `scroll: true` scrolls until the element appears; `read` collects the whole content of a list,
+  table, text view or web page, page by page and without repeats (check `complete`; a partial result
+  says why in its warnings). `scroll` moves one area by pages, to `top`/`bottom`, or brings an
+  element into view (`scroll_into_view`); `at_end` tells you when there is nothing more.
 - **Switch apps** with `app` (`activate`, `launch`), not by clicking the Dock.
 - Keep screenshots to when you need pixels: snapshots are cheaper and work without Screen Recording.
 

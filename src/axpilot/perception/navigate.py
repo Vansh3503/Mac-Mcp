@@ -7,7 +7,8 @@ snapshot" and need to answer three questions, which this module answers from sna
   web area or text area around an element (or the largest one in the window).
 * *Did it move?* :func:`page_signature` hashes what is visible inside the container. An
   unchanged signature after a scroll means the end was reached (or the area does not scroll).
-* *What is in it?* :func:`collect_rows` lists the rows (or text lines) inside the container,
+* *What is in it?* :func:`collect_rows` lists the rows (or text lines) inside the container
+  (:func:`collect_items` with the ref of each line),
   and :func:`merge_pages` stitches successive pages together without repeating the overlap.
 
 Elements belong to a container through their ``parent_ref`` chain. OCR pseudo-elements have
@@ -312,15 +313,20 @@ def _row_text(index: _Index, row: Element) -> str:
     )
 
 
-def _reading_lines(elements: Sequence[Element]) -> list[str]:
-    lines: list[str] = []
+Item = tuple[str | None, str]
+"""One line of content: ``(ref of the element it comes from, text)``; the ref is ``None`` for
+lines of a text area's value."""
+
+
+def _reading_items(elements: Sequence[Element]) -> list[Item]:
+    items: list[Item] = []
     for el in elements:
         if el.role in CONTAINER_ROLES or el.role == "group":
             continue
         text = element_text(el)
-        if text and (not lines or lines[-1] != text):
-            lines.append(text)
-    return lines
+        if text and (not items or items[-1][1] != text):
+            items.append((el.ref, text))
+    return items
 
 
 def _top_collection(index: _Index, container: Element, inside: Sequence[Element]) -> Element | None:
@@ -355,18 +361,27 @@ def collect_rows(snap: Snapshot, container: Element | None, *, visible_only: boo
     * Anything else (scroll areas, web areas, ``None`` for the whole snapshot): the text of each
       element in document order, skipping containers and consecutive repeats.
     """
+    return [text for _, text in collect_items(snap, container, visible_only=visible_only)]
+
+
+def collect_items(snap: Snapshot, container: Element | None, *, visible_only: bool = True) -> list[Item]:
+    """:func:`collect_rows` with the ref of the element each line comes from (the row, the
+    child or the text element; ``None`` for the lines of a text area's value).
+
+    Refs stay with their element across snapshots, so pages of a scrolled container can be
+    joined by ref instead of by text (exact even when lines repeat)."""
     if container is None:
-        return _reading_lines(snap.all_elements)
+        return _reading_items(snap.all_elements)
     if container.role == "textarea":
         value = None if container.secure else container.value
-        return value.splitlines() if value else []
+        return [(None, line) for line in value.splitlines()] if value else []
     index = _Index(snap)
     inside = index.descendants(container)
     if container.role not in COLLECTION_ROLES:
         inner = _top_collection(index, container, inside)
         if inner is not None:  # a scroll area around a list/table: its rows are the content
-            return collect_rows(snap, inner, visible_only=visible_only)
-        return _reading_lines(inside)
+            return collect_items(snap, inner, visible_only=visible_only)
+        return _reading_items(inside)
     viewport = _viewport(index, container) if visible_only else None
     rows = [
         el
@@ -376,8 +391,10 @@ def collect_rows(snap: Snapshot, container: Element | None, *, visible_only: boo
         and _visible_share(el, viewport) >= ROW_VISIBLE_MIN
     ]
     if rows:
-        return [text for row in rows if (text := _row_text(index, row)).strip(" |—")]
-    children = [text for el in index.children.get(container.ref, []) if (text := element_text(el))]
+        return [(row.ref, text) for row in rows if (text := _row_text(index, row)).strip(" |—")]
+    children: list[Item] = [
+        (el.ref, text) for el in index.children.get(container.ref, []) if (text := element_text(el))
+    ]
     if children:
         return children
-    return _reading_lines([el for el in inside if el.role == "ocrtext"])
+    return _reading_items([el for el in inside if el.role == "ocrtext"])

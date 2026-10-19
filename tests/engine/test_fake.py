@@ -494,6 +494,56 @@ def test_scroll_to_visible() -> None:
     assert engine.events[-1] == ("scroll_to_visible", {"handle": "item"})
 
 
+def overflowing_desktop() -> dict[str, Any]:
+    """The mini desktop with a second item below the bottom of its 150-point scroll area."""
+    desktop = mini_desktop()
+    pane = desktop["windows"][0]["tree"]["children"][2]
+    pane["children"].append(
+        {"id": "low", "role": "AXButton", "title": "Low", "frame": [120, 400, 60, 20],
+         "actions": ["AXPress", "AXScrollToVisible"]}
+    )  # fmt: skip
+    return desktop
+
+
+def test_ordinary_scroll_areas_move_their_overflowing_content() -> None:
+    engine = FakeEngine(overflowing_desktop())
+    engine.scroll(Point(200, 250), 0, 3)  # 30 points down
+    assert engine.refresh_element(engine.resolve_ref("low")).frame == Rect(120, 370, 60, 20)
+    assert engine.refresh_element(engine.resolve_ref("item")).frame == Rect(120, 180, 60, 20)
+    assert engine.events[-1][1]["moved"] is True
+    engine.scroll(Point(200, 250), 0, 50)  # clamped: the content ends 70 points below the area
+    assert engine.refresh_element(engine.resolve_ref("low")).frame == Rect(120, 330, 60, 20)
+    assert engine.events[-1][1]["at_end"] is True
+    engine.scroll(Point(200, 250), 0, 1)
+    assert engine.events[-1][1]["moved"] is False
+    engine.scroll(Point(200, 250), 0, -100)  # back to the top, and no further
+    assert engine.refresh_element(engine.resolve_ref("item")).frame == Rect(120, 210, 60, 20)
+
+
+def test_content_that_fits_does_not_scroll() -> None:
+    engine = FakeEngine(mini_desktop())
+    engine.scroll(Point(200, 250), 0, 5)
+    assert engine.refresh_element(engine.resolve_ref("item")).frame == Rect(120, 210, 60, 20)
+    assert engine.events[-1][1]["moved"] is False
+
+
+def test_scroll_to_visible_scrolls_an_ordinary_area() -> None:
+    engine = FakeEngine(overflowing_desktop())
+    assert engine.scroll_to_visible(engine.resolve_ref("low")) is True
+    low = engine.refresh_element(engine.resolve_ref("low")).frame
+    assert low is not None
+    assert low.y + low.h == 350  # the bottom of the scroll area
+    assert engine.scroll_to_visible(engine.resolve_ref("item")) is True  # back up
+    assert engine.refresh_element(engine.resolve_ref("item")).frame == Rect(120, 200, 60, 20)
+
+
+def test_move_element_is_a_test_helper() -> None:
+    engine = FakeEngine(mini_desktop())
+    engine.move_element("item", Rect(130, 220, 60, 20))
+    assert engine.refresh_element(engine.resolve_ref("item")).frame == Rect(130, 220, 60, 20)
+    expect(ErrorCode.STALE_REF, engine.move_element, "nope", Rect(0, 0, 1, 1))
+
+
 # =========================================================================== synthetic input
 def test_mouse_move_and_cursor_position(engine: FakeEngine) -> None:
     assert engine.cursor_position() == Point(720, 450)

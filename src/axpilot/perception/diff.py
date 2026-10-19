@@ -11,7 +11,10 @@ elements are matched in passes, strongest evidence first; each element is matche
 4. same AX role and name, when that pair is unique among the unmatched elements on both sides
    (handles elements that moved because something was inserted above them);
 5. same locator path alone, when the frames overlap (a label whose text changed, or a
-   Play button that became Pause).
+   Play button that became Pause). With shared refs this pass only pairs *unnamed*
+   elements: ref carrying already kept the ref of a named element that is still there (a
+   renamed button keeps its engine handle), so a named element with another ref at the same
+   place is another element (a list row that now shows other content), never a rename.
 
 Unmatched elements of ``after`` are *added*, unmatched elements of ``before`` are *removed*,
 and matched pairs whose name, value or state differ are *changed*. When the app or window
@@ -80,6 +83,17 @@ DIFF_PASSES: tuple[MatchPass, ...] = (
 """Passes 1-5 of the module docstring."""
 
 
+def _unnamed_overlap(before: Element, after: Element) -> bool:
+    return before.name is None and after.name is None and _frames_overlap(before, after)
+
+
+SHARED_REF_PASSES: tuple[MatchPass, ...] = (
+    *DIFF_PASSES[:4],
+    MatchPass("path (unnamed)", key=_by_path, accept=_unnamed_overlap),
+)
+"""The passes after pairing equal refs: pass 5 only for unnamed elements."""
+
+
 def shares_refs(before: Snapshot, after: Snapshot) -> bool:
     """True if both snapshots were numbered by the same ref counter (equal ref, same element)."""
     return before.ref_session is not None and before.ref_session == after.ref_session
@@ -88,13 +102,14 @@ def shares_refs(before: Snapshot, after: Snapshot) -> bool:
 def match_snapshots(before: Snapshot, after: Snapshot) -> dict[int, int]:
     """Indices of ``after.all_elements`` → matched indices of ``before.all_elements``."""
     matcher = ElementMatcher(before.all_elements, after.all_elements)
-    if shares_refs(before, after):
-        index_of = {el.ref: j for j, el in enumerate(before.all_elements)}
-        for i, el in enumerate(after.all_elements):
-            j = index_of.get(el.ref)
-            if j is not None:
-                matcher.pair(i, j)
-    return matcher.run(DIFF_PASSES)
+    if not shares_refs(before, after):
+        return matcher.run(DIFF_PASSES)
+    index_of = {el.ref: j for j, el in enumerate(before.all_elements)}
+    for i, el in enumerate(after.all_elements):
+        j = index_of.get(el.ref)
+        if j is not None:
+            matcher.pair(i, j)
+    return matcher.run(SHARED_REF_PASSES)
 
 
 def _focus_label(el: Element | None) -> str | None:
