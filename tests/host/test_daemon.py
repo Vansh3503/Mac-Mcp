@@ -191,6 +191,23 @@ async def test_an_unanswered_pairing_is_not_remembered(sock_dir: Path) -> None:
     assert host.pairing.decision("com.anthropic.claudefordesktop") is None
 
 
+async def test_no_tool_acts_while_a_pairing_question_is_open(sock_dir: Path) -> None:
+    """Another, already paired client must not answer the pairing dialog for the user."""
+    path = sock_dir / "axpilot.sock"
+    ctx = make_ctx()
+    seen: list[bool] = []
+
+    class Watching:
+        async def confirm(self, request: ConfirmRequest) -> bool:
+            seen.append(ctx.control.waiting_for_user)
+            return True
+
+    async with running_host(ctx, path, pairing_confirmer=Watching()), host_transport(path, CLAUDE):
+        pass
+    assert seen == [True]
+    assert not ctx.control.waiting_for_user
+
+
 async def test_pairing_can_be_turned_off(sock_dir: Path) -> None:
     path = sock_dir / "axpilot.sock"
     recorder = Recorder(False)

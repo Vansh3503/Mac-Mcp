@@ -80,6 +80,9 @@ build names at run time, so this guards against mistakes, not against a determin
 - In direct mode, AXPilot uses the client's MCP elicitation support when available *(planned)*.
 - With no way to ask, the answer is **no** (`USER_DENIED`). Unanswered confirmations time out after
   120 seconds, also as `USER_DENIED`.
+- While a question is on screen, every tool that acts (clicks, typing, scrolling, app and window
+  changes, scripts…) waits with `NEEDS_USER`, for every connected client, so an agent can't answer
+  the dialog itself with a parallel tool call. Reading tools keep working.
 
 `confirm = "always"` asks before every call except the read-only `observe` tools; `"never"`
 disables confirmations and is only appropriate in a disposable environment such as a VM.
@@ -92,7 +95,8 @@ you used them within the last second (`safety.user_idle_threshold_s`), the actio
 "virtual hand" at a time.
 
 The kill switch *(v0.2)*, **⌃⌥⌘.** or *Stop* in the menu bar, cancels in-flight work and pauses
-AXPilot until you resume it. While paused, input tools return `PAUSED_BY_USER`.
+AXPilot until you resume it. While paused, every tool that changes something returns
+`PAUSED_BY_USER`; reading tools keep working.
 
 ## Audit log
 

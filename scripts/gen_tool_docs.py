@@ -110,7 +110,7 @@ in `_meta["axpilot/error"]` (`code`, `message`, `hint`, `details`). Codes are st
 | `PAUSED_BY_USER` | The user hit the kill switch | Stop and ask the user before continuing |
 | `RATE_LIMITED` | Too many input actions per minute | Slow down and verify results |
 | `SECURE_INPUT_ACTIVE` | Secure keyboard entry blocks synthetic keystrokes | Ask the user to do this step |
-| `NEEDS_USER` | A system dialog (e.g. a password prompt) needs the user | Ask the user to handle it |
+| `NEEDS_USER` | A system dialog (e.g. a password prompt) needs the user, or AXPilot is waiting for the user to answer one of its questions | Ask the user to handle it, or wait for their answer |
 | `CLIENT_NOT_PAIRED` | Reserved (pairing refusals are `USER_DENIED` today) | Ask the user to approve the client |
 | `INVALID_ARGUMENT` | Bad, missing or conflicting arguments | Fix the call |
 | `TIMEOUT` | The operation exceeded its deadline | Check the state with `snapshot`, then decide |

@@ -450,3 +450,30 @@ async def test_failed_turns_release_the_lock_for_waiters() -> None:
     stub.idle = 10.0
     async with control.input_turn(timeout_s=0):
         pass
+
+
+# --------------------------------------------------------------------------- user questions
+
+
+async def test_an_open_question_refuses_input_until_it_closes() -> None:
+    control, _ = make()
+    assert not control.waiting_for_user
+    with control.asking_user():
+        with control.asking_user():  # questions may overlap
+            assert control.waiting_for_user
+        error = await expect(ErrorCode.NEEDS_USER, control)
+        assert "answer" in error.message
+        with pytest.raises(AXPilotError):
+            control.ensure_running()
+    assert not control.waiting_for_user
+    async with control.input_turn():
+        pass
+
+
+async def test_a_question_opened_during_a_turn_stops_its_next_step() -> None:
+    control, _ = make()
+    async with control.input_turn():
+        with control.asking_user(), pytest.raises(AXPilotError) as info:
+            control.ensure_running()  # what long actions call between steps
+    assert info.value.code is ErrorCode.NEEDS_USER
+    assert not control.busy

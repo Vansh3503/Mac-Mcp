@@ -174,6 +174,8 @@ class _Call:
     async def run(self, state: CallState, args: dict[str, Any]) -> CallToolResult:
         spec, ctx = self.spec, self.ctx
         ctx.policy.check_tool(spec.name)
+        if not spec.read_only:  # the kill switch stops every tool that changes something
+            ctx.control.ensure_running()
         if spec.input_action:
             ctx.limiter.check()
         await self._confirm(state, args)

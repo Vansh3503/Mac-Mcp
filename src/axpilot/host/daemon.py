@@ -307,7 +307,8 @@ class Host:
                 client=client.display,
             )
             approved: bool | None = None
-            with anyio.move_on_after(min(self.ctx.confirm_timeout_s, CONFIRM_TIMEOUT_MAX_S)):
+            timeout = min(self.ctx.confirm_timeout_s, CONFIRM_TIMEOUT_MAX_S)
+            with self.ctx.control.asking_user(), anyio.move_on_after(timeout):
                 approved = await confirmer.confirm(request)
             if approved is None:
                 raise AXPilotError(

@@ -8,7 +8,9 @@ Every input tool runs inside :meth:`ControlState.input_turn`::
 
 A turn
 
-1. fails fast with ``PAUSED_BY_USER`` while AXPilot is paused (kill switch);
+1. fails fast with ``PAUSED_BY_USER`` while AXPilot is paused (kill switch), and with
+   ``NEEDS_USER`` while one of AXPilot's questions waits for the person
+   (:meth:`ControlState.asking_user`): an agent must never answer its own confirmation;
 2. waits for the one input lock (input actions never interleave; observations do not take
    the lock) and fails with ``BUSY`` after ``timeout_s``;
 3. with yield-to-user on, fails with ``USER_ACTIVE`` if the user touched the mouse or
@@ -27,8 +29,8 @@ import contextlib
 import logging
 import math
 import threading
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -82,6 +84,7 @@ class ControlState:
         self._holder: str | None = None
         self._owner: int | None = None
         self._held = False
+        self._questions = 0
 
     # -------------------------------------------------------------- pause / resume
     def pause(self, reason: str = "kill switch") -> None:
@@ -100,9 +103,38 @@ class ControlState:
             self.pause_reason = None
 
     def ensure_running(self) -> None:
-        """Raise ``PAUSED_BY_USER`` if paused. Long actions call this between steps."""
+        """Raise ``PAUSED_BY_USER`` if paused, or ``NEEDS_USER`` while a question to the user is
+        open. Long actions call this between steps."""
         if self.paused:
             raise self._paused_error()
+        if self._questions:
+            raise AXPilotError(
+                ErrorCode.NEEDS_USER,
+                "AXPilot is waiting for the person to answer one of its questions; other actions "
+                "wait until they do.",
+                hint="Wait for their answer (or ask them in the chat), then try again.",
+            )
+
+    # -------------------------------------------------------------- user questions
+    @contextmanager
+    def asking_user(self) -> Iterator[None]:
+        """Mark a question to the user (a confirmation, a pairing request) as open.
+
+        Until it closes, :meth:`ensure_running` refuses new actions and the next step of running
+        ones, so no tool call can click, type into or otherwise answer the dialog for the user.
+        Thread-safe; questions may overlap."""
+        with self._state:
+            self._questions += 1
+        try:
+            yield
+        finally:
+            with self._state:
+                self._questions -= 1
+
+    @property
+    def waiting_for_user(self) -> bool:
+        """True while a question to the user is open."""
+        return self._questions > 0
 
     # ------------------------------------------------------------------- status
     @property
@@ -164,7 +196,8 @@ class ControlState:
     def _paused_error(self) -> AXPilotError:
         return AXPilotError(
             ErrorCode.PAUSED_BY_USER,
-            f"AXPilot is paused ({self.pause_reason or 'kill switch'}); input actions are blocked.",
+            f"AXPilot is paused ({self.pause_reason or 'kill switch'}); actions are blocked until the "
+            "user resumes it.",
         )
 
     def _refuse_nesting(self) -> None:
@@ -197,8 +230,7 @@ class ControlState:
         token = _current_token() if _current_token is not None else None
         turn = _Turn(anyio.CancelScope(), token, threading.get_ident(), label)
         with self._state:
-            if self.paused:  # paused while we waited for the lock
-                raise self._paused_error()
+            self.ensure_running()  # paused, or a question opened, while we waited for the lock
             self._turns.add(turn)
         return turn
 

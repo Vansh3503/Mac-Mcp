@@ -307,7 +307,7 @@ class ServerContext:
         :attr:`confirm_timeout_s` (at most 120 s)."""
         timeout = min(self.confirm_timeout_s, CONFIRM_TIMEOUT_MAX_S)
         approved = False
-        with anyio.move_on_after(timeout) as scope:
+        with self.control.asking_user(), anyio.move_on_after(timeout) as scope:
             approved = await self.confirmer.confirm(request)
         if scope.cancelled_caught:
             raise AXPilotError(
