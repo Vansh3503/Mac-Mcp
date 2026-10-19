@@ -50,6 +50,9 @@ Before every tool call that touches an app, the policy layer checks, in order (t
    pane of System Settings, so an agent can't grant itself or others permissions.
 6. **Terminal rule:** typing into Terminal, iTerm2, Ghostty, Warp, kitty, Alacritty, WezTerm, Hyper
    or Tabby is blocked unless the `shell` tool is enabled, because it is equivalent to shell access.
+   For the same reason `open` won't run code without it: files the Mac would execute (`.command`,
+   `.tool`, `.terminal`, `.jar`, executables) and anything opened with a terminal app are blocked,
+   and URL files (`.webloc`…) follow the same rule as app URL schemes.
 
 Coordinate clicks are **hit-tested** first: AXPilot finds the app and window under the point and
 applies the same rules, so a click can't land on a deny-listed app by coordinates.

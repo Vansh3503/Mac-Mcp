@@ -1506,7 +1506,7 @@
    "readOnlyHint": false,
    "title": "Open a URL or file"
   },
-  "description": "Open a URL, file or folder with its default app (or with_app), or reveal a file in the Finder.\nParams: target (https://…, mailto:…, x-apple.systempreferences:…, an absolute path or ~/path, or a\nfile:// URL), with_app (app name or bundle id), reveal (select it in a Finder window).\nOnly http, https, mailto, file and x-apple.systempreferences URLs are opened; other schemes are app\ncommands and need the scripting toolset. Returns what was opened.\nErrors: INVALID_ARGUMENT (empty target, missing file, relative path), BLOCKED_BY_POLICY (URL scheme,\nprotected app), APP_NOT_FOUND (with_app).",
+  "description": "Open a URL, file or folder with its default app (or with_app), or reveal a file in the Finder.\nParams: target (https://…, mailto:…, x-apple.systempreferences:…, an absolute path or ~/path, or a\nfile:// URL), with_app (app name or bundle id), reveal (select it in a Finder window).\nOnly http, https, mailto, file and x-apple.systempreferences URLs are opened; other schemes are app\ncommands and need the scripting toolset. Without the shell tool, files that would run (.command,\nexecutables) and anything opened with a terminal app are blocked. Returns what was opened.\nErrors: INVALID_ARGUMENT (empty target, missing file, relative path), BLOCKED_BY_POLICY (URL scheme,\nprotected app), APP_NOT_FOUND (with_app).",
   "input_schema": {
    "additionalProperties": false,
    "properties": {

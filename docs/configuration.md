@@ -148,7 +148,8 @@ Some rules are not configurable:
 
 - Typing into terminal apps (Terminal, iTerm2, Ghostty, Warp, kitty, Alacritty, WezTerm, Hyper,
   Tabby) is blocked unless the `shell` tool is enabled (`enable = ["scripting"]` or `["shell"]`),
-  because it amounts to shell access.
+  because it amounts to shell access. Likewise `open` won't run files (`.command`, executables…)
+  or open anything with a terminal app.
 - macOS authentication dialogs are never operated; tools return `NEEDS_USER`.
 - AXPilot's own windows (confirmations, settings) can be read but never controlled, so an agent
   can't approve its own requests. Reading AXPilot's `status` is never blocked.

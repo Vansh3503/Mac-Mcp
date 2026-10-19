@@ -9,7 +9,10 @@ user once the target app is known and allowed.
 ``open`` only follows URL schemes that open content (:data:`OPEN_SCHEMES`). Other schemes are
 app-defined commands (``shortcuts://run-shortcut``, ``zoommtg://``, an app's own automation
 URLs) that can act inside apps without any UI an agent or the user would see, so they need the
-``scripting`` toolset, like other ways of running app commands.
+``scripting`` toolset, like other ways of running app commands. For the same reason it does not
+open URL files (``.webloc``…) without it, and without the ``shell`` tool it does not run code:
+files the Mac would execute (``.command``, executables, :data:`RUNNABLE_SUFFIXES`) and anything
+opened with a terminal app are blocked, like typing into a terminal.
 """
 
 # No ``from __future__ import annotations`` here: the MCP SDK evaluates tool annotations.
@@ -35,9 +38,14 @@ from axpilot.server.results import ok_result
 from axpilot.server.schemas import AppModel, OutputModel, SnapshotIdArg, WindowModel
 from axpilot.system.bundles import bundle_id_of
 
-__all__ = ["OPEN_SCHEMES", "app_from_query"]
+__all__ = ["OPEN_SCHEMES", "RUNNABLE_SUFFIXES", "URL_FILE_SUFFIXES", "app_from_query"]
 
 OPEN_SCHEMES: frozenset[str] = frozenset({"http", "https", "mailto", "file", "x-apple.systempreferences"})
+RUNNABLE_SUFFIXES: frozenset[str] = frozenset({".command", ".tool", ".terminal", ".jar"})
+"""Files whose default app runs them (Terminal runs ``.command``/``.tool`` files and the command
+saved in a ``.terminal`` file; Jar Launcher runs ``.jar``)."""
+URL_FILE_SUFFIXES: frozenset[str] = frozenset({".webloc", ".inetloc", ".fileloc", ".url"})
+"""Files that open the URL they contain, whatever its scheme."""
 """URL schemes ``open`` follows without the scripting toolset."""
 WINDOW_MAX_SIZE = 20_000.0
 _SCHEME = re.compile(r"^([A-Za-z][A-Za-z0-9+.\-]*):")
@@ -328,7 +336,8 @@ Open a URL, file or folder with its default app (or with_app), or reveal a file 
 Params: target (https://…, mailto:…, x-apple.systempreferences:…, an absolute path or ~/path, or a
 file:// URL), with_app (app name or bundle id), reveal (select it in a Finder window).
 Only http, https, mailto, file and x-apple.systempreferences URLs are opened; other schemes are app
-commands and need the scripting toolset. Returns what was opened.
+commands and need the scripting toolset. Without the shell tool, files that would run (.command,
+executables) and anything opened with a terminal app are blocked. Returns what was opened.
 Errors: INVALID_ARGUMENT (empty target, missing file, relative path), BLOCKED_BY_POLICY (URL scheme,
 protected app), APP_NOT_FOUND (with_app)."""
 
@@ -394,6 +403,36 @@ def _classify(ctx: ServerContext, target: str) -> tuple[str, Path | None, list[s
     )
 
 
+def _runs_code(what: str) -> AXPilotError:
+    return AXPilotError(
+        ErrorCode.BLOCKED_BY_POLICY,
+        f"{what}, which amounts to running shell commands, and the `shell` tool is disabled.",
+        hint="To look at the file, open it with_app a viewer or editor (TextEdit, Xcode…). The user "
+        'can allow running code with [tools] enable = ["shell"].',
+        details={"rule": "terminal"},
+    )
+
+
+def _check_file_runs_nothing(ctx: ServerContext, path: Path, *, default_app: bool) -> None:
+    """Refuse URL files, and files the default app would run (an explicit ``with_app`` that is not a
+    terminal only shows them)."""
+    suffix = path.suffix.casefold()
+    if suffix in URL_FILE_SUFFIXES and not _scripting_enabled(ctx):
+        raise AXPilotError(
+            ErrorCode.BLOCKED_BY_POLICY,
+            f"Opening the URL file {quote(path.name, 80)} is blocked: it can hold any URL scheme, "
+            "including app commands.",
+            hint="Open the URL itself (http, https, mailto…) instead.",
+            details={"rule": "open_schemes"},
+        )
+    if ctx.policy.shell_enabled or not default_app:
+        return
+    if suffix in RUNNABLE_SUFFIXES:
+        raise _runs_code(f"Opening {quote(path.name, 80)} runs it")
+    if os.access(path, os.X_OK):
+        raise _runs_code(f"{quote(path.name, 80)} is executable, so opening it runs it in Terminal")
+
+
 @tool(
     "open",
     title="Open a URL or file",
@@ -428,10 +467,14 @@ def open_tool(ctx: ServerContext) -> ToolFn:
             raise AXPilotError(ErrorCode.INVALID_ARGUMENT, "reveal always uses the Finder; omit with_app.")
         if kind == "app" and path is not None and not reveal:
             ctx.policy.check_app(await _installed(ctx, str(path)), kind="manage")
+        if kind == "file" and path is not None and not reveal:
+            _check_file_runs_nothing(ctx, path, default_app=with_app is None)
         app_name: str | None = None
         if with_app is not None:
             app_info = await _installed(ctx, with_app)
             ctx.policy.check_app(app_info, kind="manage")
+            if ctx.policy.is_terminal(app_info) and not ctx.policy.shell_enabled:
+                raise _runs_code(f"Opening {quote(text, 80)} with {app_info.name} runs it in a terminal")
             app_name = app_info.name
         opened = str(path) if path is not None else text
         await ctx.run_engine(ctx.engine.open_target, opened, with_app, reveal)

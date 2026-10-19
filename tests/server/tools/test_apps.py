@@ -355,6 +355,45 @@ async def test_open_files_folders_and_file_urls(ctx: ServerContext, client: Clie
     assert with_app["with_app"] == "TextEdit"
 
 
+async def test_open_runs_no_code_without_the_shell_tool(tmp_path: Path) -> None:
+    command = tmp_path / "setup.command"
+    command.write_text("echo hi\n")
+    binary = tmp_path / "tool"
+    binary.write_text("#!/bin/sh\necho hi\n")
+    binary.chmod(0o755)
+    weblink = tmp_path / "Wipe.webloc"
+    weblink.write_text("<plist/>")
+    notes = tmp_path / "notes.txt"
+    notes.write_text("hello")
+    ctx = make_ctx("standard")
+    async with connected_client(ctx) as client:
+        for args in (
+            {"target": str(command)},
+            {"target": "file://" + str(command)},
+            {"target": str(binary)},
+            {"target": str(weblink)},
+            {"target": str(weblink), "with_app": "Safari"},
+            {"target": str(notes), "with_app": "Terminal"},
+            {"target": "https://example.com", "with_app": "com.apple.Terminal"},
+        ):
+            result, error = await call(client, "open", args)
+            assert error == "BLOCKED_BY_POLICY", (args, text_of(result))
+        assert not engine_of(ctx).events_of("open")
+        await ok(client, "open", {"target": str(command), "with_app": "TextEdit"})  # shown, not run
+        await ok(client, "open", {"target": str(binary), "reveal": True})
+        await ok(client, "open", {"target": str(notes)})
+    assert len(engine_of(ctx).events_of("open")) == 3
+    shell_ctx = make_ctx("standard", **{"tools.enable": ["shell"]})
+    async with connected_client(shell_ctx) as client:
+        await ok(client, "open", {"target": str(command)})
+        await ok(client, "open", {"target": str(notes), "with_app": "Terminal"})
+    browser_ctx = make_ctx("standard", **{"tools.enable": ["applescript"]})
+    async with connected_client(browser_ctx) as client:
+        await ok(client, "open", {"target": str(weblink)})  # any scripting tool allows app URLs
+        _, error = await call(client, "open", {"target": str(command)})
+        assert error == "BLOCKED_BY_POLICY"  # running code needs the shell tool itself
+
+
 def fake_bundle(folder: Path, bundle_id: str) -> Path:
     """An .app folder whose Info.plist names ``bundle_id``."""
     contents = folder / "Contents"

@@ -664,7 +664,8 @@ Open a URL, file or folder with its default app (or with_app), or reveal a file 
 Params: target (https://…, mailto:…, x-apple.systempreferences:…, an absolute path or ~/path, or a
 file:// URL), with_app (app name or bundle id), reveal (select it in a Finder window).
 Only http, https, mailto, file and x-apple.systempreferences URLs are opened; other schemes are app
-commands and need the scripting toolset. Returns what was opened.
+commands and need the scripting toolset. Without the shell tool, files that would run (.command,
+executables) and anything opened with a terminal app are blocked. Returns what was opened.
 Errors: INVALID_ARGUMENT (empty target, missing file, relative path), BLOCKED_BY_POLICY (URL scheme,
 protected app), APP_NOT_FOUND (with_app).
 
