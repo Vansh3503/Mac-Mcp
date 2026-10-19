@@ -76,7 +76,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anyio", specifier = ">=4.9" },
+    { name = "anyio", specifier = ">=4.11" },
     { name = "mcp", specifier = ">=2.3,<3" },
     { name = "pillow", specifier = ">=10.4" },
     { name = "pydantic", specifier = ">=2.12" },

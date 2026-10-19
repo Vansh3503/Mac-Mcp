@@ -225,5 +225,5 @@ __marimo__/
 xcuserdata/
 DerivedData/
 launcher/build/
-spikes/**/results/*.json
+spikes/**/results/*
 !spikes/**/results/.gitkeep

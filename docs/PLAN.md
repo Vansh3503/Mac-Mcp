@@ -28,8 +28,8 @@ Status: **Draft v2. Decisions from review applied (see [§0.1](#01-decisions-log
 ### 0.1 Decisions log
 | # | Question | Decision |
 |---|---|---|
-| 1 | Language | **Python** ([ADR-1](#adr-1-language-python--pyobjc-with-a-frozen-native-launcher)) |
-| 2 | Apple Developer Program ($99/yr) | **Not for v1.** Free alternative: a frozen ad-hoc-signed launcher, distributed only through package managers (no quarantine, so no Gatekeeper prompt). Upgrade to Developer ID later if sponsors fund it ([ADR-5](#adr-5-signing--distribution-without-a-paid-apple-account)) |
+| 1 | Language | **Python** (ADR-1 (§4)) |
+| 2 | Apple Developer Program ($99/yr) | **Not for v1.** Free alternative: a frozen ad-hoc-signed launcher, distributed only through package managers (no quarantine, so no Gatekeeper prompt). Upgrade to Developer ID later if sponsors fund it (ADR-5 (§4)) |
 | 3 | Name | Proposed **AXPilot** (`axpilot` is free on PyPI and npm) ([ADR-7](#adr-7-name-axpilot)) |
 | 4 | Minimum macOS | **macOS 14 Sonoma** ([ADR-3](#adr-3-minimum-macos-14-sonoma)) |
 | 5 | `browser` + `computer` toolsets in 1.0 | **Yes**. Both ship in 1.0. `browser` is off by default and `computer` is an opt-in profile. |
@@ -94,7 +94,7 @@ Developers using Claude Code, Cursor, Codex, or Gemini CLI who want GUI control;
 | Reality | Consequence |
 |---|---|
 | **TCC "responsible process".** Accessibility, Screen Recording, and Automation are checked against the *responsible app*. Spawned by Claude Desktop, that is Claude.app; from a terminal, it is Terminal or iTerm. Grants to `python` often don't apply, and missing usage strings cause **silent denials**. | Run the host as a **child of our own app bundle** launched by LaunchServices. The bundle is the responsible process, so permissions attach to it. |
-| **How TCC pins identity.** An ad-hoc-signed app is pinned to its exact **cdhash**, so any binary change resets the grant. A certificate-signed app is pinned to a designated requirement that survives rebuilds signed with the same certificate. | Keep the launcher **tiny and frozen**: it rarely changes, so the grant persists. All logic lives in Python, which can change freely (see [ADR-5](#adr-5-signing--distribution-without-a-paid-apple-account)). |
+| **How TCC pins identity.** An ad-hoc-signed app is pinned to its exact **cdhash**, so any binary change resets the grant. A certificate-signed app is pinned to a designated requirement that survives rebuilds signed with the same certificate. | Keep the launcher **tiny and frozen**: it rarely changes, so the grant persists. All logic lives in Python, which can change freely (see ADR-5 in §4). |
 | **Gatekeeper only assesses quarantined files.** Browsers set `com.apple.quarantine`, while command-line downloaders (curl, and very likely pip and uv; to verify) don't. | Distribute through **package managers**, not browser downloads, so the un-notarized launcher never triggers "unidentified developer". |
 | **Accessibility (AX) API**: cross-process calls. They are slow on big trees, and hung apps block calls for seconds. | Batch reads (`AXUIElementCopyMultipleAttributeValues`), `AXUIElementSetMessagingTimeout`, depth/count budgets, a thread pool, and caching invalidated by `AXObserver`. Python bridge overhead is measured in spike S2. |
 | **Chrome and Electron** expose a thin tree by default. | Set `AXManualAccessibility` / `AXEnhancedUserInterface` on the app element (with an opt-out). |
@@ -403,7 +403,7 @@ with Desktop.connect() as mac:            # via AXPilot.app (its permissions), o
 | Yield to user | On |
 | Indicator | Edge glow + click ripples + "Agent is controlling" pill, excluded from our own screenshots |
 | App deny-list | Keychain Access, password managers, the Privacy & Security pane in System Settings |
-| Terminal rule | Typing into Terminal, iTerm2, Ghostty, Warp, and similar apps is **blocked unless `scripting` is enabled**, because it is equivalent to shell access |
+| Terminal rule | Typing into Terminal, iTerm2, Ghostty, Warp, and similar apps is **blocked unless the `shell` tool (in the `scripting` toolset) is enabled**, because it is equivalent to shell access |
 | Secure fields | Values never returned; typing refused unless `allow_secure_fields` |
 | Rate limit | 120 input actions/min |
 | Audit log | `~/Library/Logs/AXPilot/audit.jsonl` (redacted args) |
