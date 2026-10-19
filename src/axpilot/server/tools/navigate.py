@@ -594,9 +594,9 @@ class _Scroller:
         same content in the same place, or (when the area reports its content frame) within
         one line of the old position (scrolls move whole lines)."""
         for axis in ("y", "x"):
-            lines = -self.moved[axis] / self.line_points
-            while abs(lines) >= 0.5:
-                step = max(-MAX_STEP_LINES, min(MAX_STEP_LINES, round(lines)))
+            lines = round(-self.moved[axis] / self.line_points)  # whole lines, so the loop ends
+            while lines:
+                step = max(-MAX_STEP_LINES, min(MAX_STEP_LINES, lines))
                 await self.step(*_vector(axis, step))  # type: ignore[arg-type]
                 lines -= step
         if self.signature() == page_signature(original, container):

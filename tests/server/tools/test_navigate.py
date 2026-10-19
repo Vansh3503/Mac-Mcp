@@ -18,9 +18,10 @@ from mcp import Client
 from axpilot.engine.fake import DEMO_FIXTURE, FakeEngine
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.models import Point
+from axpilot.perception.navigate import scroll_container_for
 from axpilot.server.context import ServerContext
 from axpilot.server.results import error_code_of, text_of
-from axpilot.server.tools.navigate import MAX_SCROLLS, merge_items
+from axpilot.server.tools.navigate import MAX_SCROLLS, _Scroller, merge_items
 from axpilot.testing import connected_client, make_test_context, structured
 from axpilot.testing.faulty_engine import Fault, FaultyEngine
 
@@ -329,6 +330,20 @@ async def test_read_restore_puts_the_list_back(ctx: ServerContext, client: Clien
     assert data["complete"] is True
     assert data["restored"] is True
     assert abs(position(ctx)["offset"] - before) <= 10  # within one line
+
+
+async def test_restoring_ends_when_half_a_line_is_left() -> None:
+    """``round()`` rounds 0.5 to 0: restoring 1.5 lines (2, then -0.5 left) must not spin."""
+    engine = mail_engine()
+    ctx = demo_ctx(engine)
+    snap = await ctx.take_snapshot(app="Mail", mode="full")
+    container = scroll_container_for(snap, None)
+    scroller = _Scroller(ctx=ctx, snap=snap, container=container, label="read", deadline=ctx.clock() + 3)
+    scroller.line_points = 10.0
+    scroller.moved["y"] = -15.0
+    with anyio.fail_after(2):
+        await scroller.restore(snap, container)
+    assert engine.scroll_calls == 1
 
 
 async def test_read_measures_the_line_height_before_paging() -> None:
