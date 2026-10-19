@@ -327,7 +327,7 @@ SHORTCUTS_DESCRIPTION = """\
 List or run the user's Apple Shortcuts (the shortcuts command, macOS 12+).
 Use it to reuse automations the user already built. Params: action list | run; list: query
 (case-insensitive filter), limit; run: name (exact, from list), input (text passed to the
-shortcut), timeout_s (default 60, at most 600). Running asks the user first.
+shortcut), timeout_s (default 30, at most 600). Running asks the user first.
 Returns the names, or the shortcut's output as text (cut at [scripting] output_max_chars).
 Errors: INVALID_ARGUMENT (no shortcut with that name), TIMEOUT (it may wait for the user),
 COMMAND_FAILED, NOT_SUPPORTED (no shortcuts command), USER_DENIED."""
@@ -373,7 +373,7 @@ def shortcuts_tool(ctx: ServerContext) -> ToolFn:
         ] = 100,
         timeout_s: Annotated[
             float, Field(description="run: seconds before it is stopped.", gt=0, le=SHORTCUT_MAX_TIMEOUT_S)
-        ] = 60.0,
+        ] = 30.0,
     ) -> Annotated[CallToolResult, ShortcutsModel]:
         if action == "list":
             if name is not None or input is not None:

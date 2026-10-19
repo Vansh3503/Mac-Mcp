@@ -36,6 +36,10 @@ is authoritative for its exact parameters.
 - **Use `select_menu` for menu commands.** It is often the most reliable way to drive a Mac app:
   `select_menu` with a path such as `["File", "Export…"]`. It can also list a menu's items when
   you are unsure of the exact names.
+- **Pop-ups, radio groups, tabs and lists:** `select_option` with the control's ref and the
+  option's title (or index) picks it the way the control expects.
+- **Sheets, alerts and dialogs:** `handle_dialog` reads the dialog in front of an app (text,
+  fields, buttons) and can accept, cancel or press a button by title. Read it before answering.
 - **Keyboard shortcuts** with `press_keys` (`"cmd+n"`, `"cmd+shift+t"`, `["cmd+a", "delete"]`) are
   fast and dependable for well-known commands. Text goes through `type_text`, not `press_keys`.
 - **Prefer `type_text` with a ref** over clicking a field and typing. Use `clear` to replace

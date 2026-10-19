@@ -515,6 +515,33 @@ class AsyncDesktop:
             ActionResult, "perform_action", ref=_qualified(ref, snapshot_id), action=action
         )
 
+    async def select_option(
+        self,
+        ref: str,
+        option: str | None = None,
+        *,
+        index: int | None = None,
+        snapshot_id: str | None = None,
+    ) -> ActionResult:
+        """Choose an option of a pop-up, combo box, radio/tab group or list by title or 1-based index."""
+        return await self._typed(
+            ActionResult, "select_option", ref=ref, option=option, index=index, snapshot_id=snapshot_id
+        )
+
+    async def handle_dialog(
+        self,
+        action: str = "inspect",
+        *,
+        app: str | None = None,
+        button: str | None = None,
+        text: str | None = None,
+    ) -> ActionResult:
+        """Read (``inspect``) or answer (``accept``, ``cancel``, ``press`` + ``button``) the sheet
+        or dialog in front of ``app``; ``text`` fills its first text field."""
+        return await self._typed(
+            ActionResult, "handle_dialog", action=action, app=app, button=button, text=text
+        )
+
     async def menu(self, *path: str, app: str | None = None) -> ActionResult:
         """Choose a menu-bar item by its path: ``menu("File", "New Note")``."""
         if not path:
@@ -730,6 +757,8 @@ class Desktop:
     move_mouse = _sync(AsyncDesktop.move_mouse)
     set_value = _sync(AsyncDesktop.set_value)
     perform_action = _sync(AsyncDesktop.perform_action)
+    select_option = _sync(AsyncDesktop.select_option)
+    handle_dialog = _sync(AsyncDesktop.handle_dialog)
     menu = _sync(AsyncDesktop.menu)
     menus = _sync(AsyncDesktop.menus)
     fill_form = _sync(AsyncDesktop.fill_form)

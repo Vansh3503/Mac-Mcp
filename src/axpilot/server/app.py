@@ -21,6 +21,7 @@ from typing import Any
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 from mcp_types import CallToolResult, InputRequiredResult
+from mcp_types import Tool as MCPTool
 from pydantic import ValidationError
 
 from axpilot import SERVER_NAME, __version__
@@ -30,6 +31,7 @@ from axpilot.server.context import ServerContext
 from axpilot.server.guard import guard_tool, internal_error, record_audit
 from axpilot.server.instructions import instructions
 from axpilot.server.naming import NAMINGS, apply_naming, canonical_for
+from axpilot.server.portable import portable_schema
 from axpilot.server.registry import ToolSpec, specs_for
 from axpilot.server.results import error_result
 
@@ -40,6 +42,7 @@ _log = logging.getLogger(__name__)
 TOOL_MODULES: tuple[str, ...] = (
     "observe",
     "input",
+    "controls",
     "apps",
     "system",
     "scripting",
@@ -88,6 +91,13 @@ class AXPilotServer(MCPServer):
         self.tool_specs: dict[str, ToolSpec] = {}
         """Public tool name → spec, for every tool this server exposes."""
 
+    async def list_tools(self) -> list[MCPTool]:
+        """The tools, with input schemas in their portable form (:mod:`axpilot.server.portable`)."""
+        return [
+            tool.model_copy(update={"input_schema": portable_schema(tool.input_schema)})
+            for tool in await super().list_tools()
+        ]
+
     async def call_tool(
         self, name: str, arguments: dict[str, Any], context: Any = None
     ) -> CallToolResult | InputRequiredResult:
@@ -99,16 +109,25 @@ class AXPilotServer(MCPServer):
             err = self._sdk_error(name, exc)
             if err is None:
                 raise
-        spec = self.tool_specs.get(name)
         record_audit(
             self.axpilot_context,
-            spec.name if spec is not None else name,
+            self._audit_name(name),
             arguments if isinstance(arguments, Mapping) else {},
             ok=False,
             error_code=err.code.value,
             started=started,
         )
         return error_result(err)
+
+    def _audit_name(self, name: str) -> str:
+        """The canonical tool name for audit records (the public name if there is none)."""
+        spec = self.tool_specs.get(name)
+        if spec is not None:
+            return spec.name
+        ctx = self.axpilot_context
+        prefix = ctx.config.tools.prefix
+        canonical = canonical_for(name.removeprefix(prefix) if prefix else name, ctx.naming)
+        return canonical if canonical in ALL_TOOLS else name
 
     def _sdk_error(self, name: str, exc: ToolError) -> AXPilotError | None:
         ctx = self.axpilot_context
@@ -118,7 +137,14 @@ class AXPilotServer(MCPServer):
             return _validation_error(name, exc.__cause__)
         if self._tool_manager.get_tool(name) is not None:
             return None
-        canonical = canonical_for(name, ctx.naming)
+        prefix = ctx.config.tools.prefix
+        if prefix and not name.startswith(prefix) and self._tool_manager.get_tool(prefix + name) is not None:
+            return AXPilotError(
+                ErrorCode.INVALID_ARGUMENT,
+                f"There is no tool named {name!r}: this server's tool names start with {prefix!r}.",
+                hint=f"Call {prefix + name!r}.",
+            )
+        canonical = canonical_for(name.removeprefix(prefix) if prefix else name, ctx.naming)
         if canonical in ALL_TOOLS and canonical not in ctx.enabled:
             try:
                 ctx.policy.check_tool(canonical)
@@ -163,11 +189,13 @@ def build_server(
     server = AXPilotServer(
         scoped,
         name=SERVER_NAME,
-        instructions=instructions(naming),
+        instructions=instructions(naming, scoped.config.tools.prefix),
         version=__version__,
         log_level="WARNING",
     )
-    for public_name, spec, adapter in entries:
+    prefix = scoped.config.tools.prefix
+    for name, spec, adapter in entries:
+        public_name = prefix + name
         fn = spec.factory(scoped)
         if adapter is not None:
             fn = adapter(fn, scoped)

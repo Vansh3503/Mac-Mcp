@@ -21,7 +21,16 @@ from axpilot.testing import make_test_context
 GOLDEN = Path(__file__).parent / "golden"
 UPDATE = os.environ.get("AXPILOT_UPDATE_GOLDEN") == "1"
 
-DESTRUCTIVE = {"app", "processes", "shell", "applescript", "shortcuts", "defaults", "browser_eval_js"}
+DESTRUCTIVE = {
+    "app",
+    "processes",
+    "shell",
+    "applescript",
+    "shortcuts",
+    "defaults",
+    "browser_eval_js",
+    "handle_dialog",
+}
 """Tools that can destroy work or run code (PLAN §7.2); each asks the user (all or some calls)."""
 CONFIRMS_ITSELF = {"shell", "applescript", "shortcuts", "defaults", "browser_eval_js"}
 

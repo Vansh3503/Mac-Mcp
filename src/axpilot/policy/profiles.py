@@ -49,9 +49,11 @@ TOOLSETS: dict[str, tuple[str, ...]] = {
         "drag",
         "move_mouse",
         "set_value",
+        "select_option",
         "perform_action",
         "select_menu",
         "fill_form",
+        "handle_dialog",
     ),
     "apps": ("app", "window", "open"),
     "system": (

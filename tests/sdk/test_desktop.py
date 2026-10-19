@@ -163,6 +163,17 @@ def test_values_and_forms() -> None:
         assert caught.value.code is ErrorCode.BLOCKED_BY_POLICY
 
 
+def test_options_and_dialogs(mac: Desktop) -> None:
+    mac.app("TextEdit").activate()
+    group = mac.snapshot("TextEdit").find("Text Alignment", role="radiogroup")
+    assert group is not None
+    assert mac.select_option(group.ref, "Center").message.startswith("selected")
+    dialog = mac.handle_dialog(app="Login Demo")
+    assert dialog["found"] is True
+    assert [b["name"] for b in dialog["buttons"]] == ["Cancel", "Sign In"]
+    assert mac.handle_dialog("cancel", app="Login Demo")["pressed"] == "Cancel"
+
+
 # =========================================================================== apps and system
 def test_apps_and_system(mac: Desktop) -> None:
     calculator = mac.app("Calculator").launch()

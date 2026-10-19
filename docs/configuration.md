@@ -42,6 +42,7 @@ profile = "standard"      # minimal | standard | full | computer
 naming = "default"        # default | windows-mcp
 enable = []               # tool or toolset names, e.g. ["scripting", "browser"]
 disable = []              # tool or toolset names, e.g. ["clipboard"]
+prefix = ""               # e.g. "mac_" → mac_snapshot, mac_click, …
 
 [safety]
 confirm = "destructive"   # never | destructive | always
@@ -114,6 +115,7 @@ is planned.
 | `naming` | `"default"` | `windows-mcp` exposes Windows-MCP's tool names and parameter shapes (see [tools](tools.md)) |
 | `enable` | `[]` | Tool or toolset names added to the profile (`"scripting"`, `"browser"`, `"ocr"`, …) |
 | `disable` | `[]` | Tool or toolset names removed from the profile. A name in both lists ends up disabled |
+| `prefix` | `""` | Put before every tool name (`"mac_"` → `mac_snapshot`), for clients that mix several servers' tools without namespacing them. Letters, digits, `_` and `-`, at most 24 |
 
 Unknown tool or toolset names are an error (with a "did you mean" suggestion).
 

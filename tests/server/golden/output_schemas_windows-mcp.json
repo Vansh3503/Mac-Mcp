@@ -2763,6 +2763,919 @@
   "title": "FindModel",
   "type": "object"
  },
+ "HandleDialog": {
+  "$defs": {
+   "AppRefModel": {
+    "description": "Identity of an app.",
+    "properties": {
+     "bundle_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Bundle Id"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "pid": {
+      "title": "Pid",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "name",
+     "pid"
+    ],
+    "title": "AppRefModel",
+    "type": "object"
+   },
+   "CaptureModel": {
+    "additionalProperties": false,
+    "description": "A stored screenshot. Pass ``screenshot_id`` with ``coordinate_space=\"screenshot\"`` to act on\npixel coordinates of this image.",
+    "properties": {
+     "annotated": {
+      "default": false,
+      "description": "True if element refs are drawn on the image.",
+      "title": "Annotated",
+      "type": "boolean"
+     },
+     "format": {
+      "enum": [
+       "png",
+       "jpeg"
+      ],
+      "title": "Format",
+      "type": "string"
+     },
+     "height": {
+      "description": "Image height in pixels.",
+      "title": "Height",
+      "type": "integer"
+     },
+     "mime_type": {
+      "title": "Mime Type",
+      "type": "string"
+     },
+     "region": {
+      "description": "Screen region the image shows, in points.",
+      "items": {
+       "type": "number"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "title": "Region",
+      "type": "array"
+     },
+     "scale_x": {
+      "description": "Image pixels per screen point, horizontally.",
+      "title": "Scale X",
+      "type": "number"
+     },
+     "scale_y": {
+      "description": "Image pixels per screen point, vertically.",
+      "title": "Scale Y",
+      "type": "number"
+     },
+     "screenshot_id": {
+      "title": "Screenshot Id",
+      "type": "string"
+     },
+     "width": {
+      "description": "Image width in pixels.",
+      "title": "Width",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "screenshot_id",
+     "width",
+     "height",
+     "format",
+     "mime_type",
+     "region",
+     "scale_x",
+     "scale_y"
+    ],
+    "title": "CaptureModel",
+    "type": "object"
+   },
+   "ChangedElementModel": {
+    "description": "An element whose name, value or state changed: ``changes`` maps field → [old, new].",
+    "properties": {
+     "changes": {
+      "additionalProperties": {
+       "items": {},
+       "type": "array"
+      },
+      "title": "Changes",
+      "type": "object"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Name"
+     },
+     "ref": {
+      "title": "Ref",
+      "type": "string"
+     },
+     "role": {
+      "title": "Role",
+      "type": "string"
+     }
+    },
+    "required": [
+     "ref",
+     "role",
+     "changes"
+    ],
+    "title": "ChangedElementModel",
+    "type": "object"
+   },
+   "DiffCountsModel": {
+    "description": "Full sizes of the diff lists (the lists themselves may be capped).",
+    "properties": {
+     "added": {
+      "title": "Added",
+      "type": "integer"
+     },
+     "changed": {
+      "title": "Changed",
+      "type": "integer"
+     },
+     "removed": {
+      "title": "Removed",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "added",
+     "removed",
+     "changed"
+    ],
+    "title": "DiffCountsModel",
+    "type": "object"
+   },
+   "DiffModel": {
+    "description": "What changed between two snapshots. Refs of ``removed`` belong to ``before_id``.",
+    "properties": {
+     "added": {
+      "items": {
+       "$ref": "#/$defs/ElementBriefModel"
+      },
+      "title": "Added",
+      "type": "array"
+     },
+     "after_id": {
+      "title": "After Id",
+      "type": "string"
+     },
+     "app_after": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "App After"
+     },
+     "app_before": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "App Before"
+     },
+     "app_changed": {
+      "default": false,
+      "title": "App Changed",
+      "type": "boolean"
+     },
+     "before_id": {
+      "title": "Before Id",
+      "type": "string"
+     },
+     "changed": {
+      "items": {
+       "$ref": "#/$defs/ChangedElementModel"
+      },
+      "title": "Changed",
+      "type": "array"
+     },
+     "counts": {
+      "$ref": "#/$defs/DiffCountsModel"
+     },
+     "empty": {
+      "title": "Empty",
+      "type": "boolean"
+     },
+     "focus_after": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Focus After"
+     },
+     "focus_after_ref": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Focus After Ref"
+     },
+     "focus_before": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Focus Before"
+     },
+     "removed": {
+      "items": {
+       "$ref": "#/$defs/ElementBriefModel"
+      },
+      "title": "Removed",
+      "type": "array"
+     },
+     "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+     },
+     "window_after": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Window After"
+     },
+     "window_before": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Window Before"
+     },
+     "window_changed": {
+      "default": false,
+      "title": "Window Changed",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "before_id",
+     "after_id",
+     "empty",
+     "counts"
+    ],
+    "title": "DiffModel",
+    "type": "object"
+   },
+   "ElementBriefModel": {
+    "description": "A short reference to an element (used in diffs and lists).",
+    "properties": {
+     "center": {
+      "anyOf": [
+       {
+        "description": "[x, y] in screen points.",
+        "items": {
+         "type": "number"
+        },
+        "maxItems": 2,
+        "minItems": 2,
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Center"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Name"
+     },
+     "ref": {
+      "title": "Ref",
+      "type": "string"
+     },
+     "role": {
+      "title": "Role",
+      "type": "string"
+     },
+     "states": {
+      "items": {
+       "type": "string"
+      },
+      "title": "States",
+      "type": "array"
+     },
+     "value": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Value"
+     }
+    },
+    "required": [
+     "ref",
+     "role"
+    ],
+    "title": "ElementBriefModel",
+    "type": "object"
+   },
+   "ElementModel": {
+    "description": "One element of a snapshot. Act on it by passing ``ref`` to other tools.",
+    "properties": {
+     "actions": {
+      "description": "AX actions, e.g. AXPress, AXShowMenu.",
+      "items": {
+       "type": "string"
+      },
+      "title": "Actions",
+      "type": "array"
+     },
+     "center": {
+      "anyOf": [
+       {
+        "description": "[x, y] in screen points.",
+        "items": {
+         "type": "number"
+        },
+        "maxItems": 2,
+        "minItems": 2,
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Center"
+     },
+     "depth": {
+      "default": 0,
+      "title": "Depth",
+      "type": "integer"
+     },
+     "extra": {
+      "additionalProperties": true,
+      "description": "Role-specific facts, e.g. {\"rows\": 12, \"scrollable\": true}.",
+      "title": "Extra",
+      "type": "object"
+     },
+     "frame": {
+      "anyOf": [
+       {
+        "description": "[x, y, width, height] in screen points.",
+        "items": {
+         "type": "number"
+        },
+        "maxItems": 4,
+        "minItems": 4,
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Frame"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Name"
+     },
+     "parent_ref": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Parent Ref"
+     },
+     "ref": {
+      "description": "\"e12\" for accessibility elements, \"o3\" for OCR text.",
+      "title": "Ref",
+      "type": "string"
+     },
+     "role": {
+      "description": "Short role: button, field, textarea, row, menuitem, ocrtext…",
+      "title": "Role",
+      "type": "string"
+     },
+     "states": {
+      "description": "disabled, selected, focused, checked…",
+      "items": {
+       "type": "string"
+      },
+      "title": "States",
+      "type": "array"
+     },
+     "value": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Current value (never shown for secure fields).",
+      "title": "Value"
+     }
+    },
+    "required": [
+     "ref",
+     "role"
+    ],
+    "title": "ElementModel",
+    "type": "object"
+   },
+   "SnapshotModel": {
+    "description": "A page of a UI snapshot: the elements of one app/window with refs to act on.",
+    "properties": {
+     "app": {
+      "$ref": "#/$defs/AppRefModel"
+     },
+     "app_kind": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "native, electron, java, qt, catalyst, …",
+      "title": "App Kind"
+     },
+     "ax_quality": {
+      "anyOf": [
+       {
+        "enum": [
+         "good",
+         "partial",
+         "poor"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "How useful the accessibility tree is.",
+      "title": "Ax Quality"
+     },
+     "elements": {
+      "items": {
+       "$ref": "#/$defs/ElementModel"
+      },
+      "title": "Elements",
+      "type": "array"
+     },
+     "focused_ref": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Focused Ref"
+     },
+     "menus": {
+      "description": "Top-level menus (use select_menu).",
+      "items": {
+       "type": "string"
+      },
+      "title": "Menus",
+      "type": "array"
+     },
+     "mode": {
+      "description": "How elements were selected.",
+      "enum": [
+       "interactive",
+       "full",
+       "text"
+      ],
+      "title": "Mode",
+      "type": "string"
+     },
+     "next_offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Pass as offset to get the next page.",
+      "title": "Next Offset"
+     },
+     "notes": {
+      "description": "App-specific guidance.",
+      "items": {
+       "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+     },
+     "offset": {
+      "title": "Offset",
+      "type": "integer"
+     },
+     "requested_mode": {
+      "default": "interactive",
+      "enum": [
+       "auto",
+       "interactive",
+       "full",
+       "text",
+       "vision"
+      ],
+      "title": "Requested Mode",
+      "type": "string"
+     },
+     "screenshot": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/CaptureModel"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "shown": {
+      "title": "Shown",
+      "type": "integer"
+     },
+     "snapshot_id": {
+      "title": "Snapshot Id",
+      "type": "string"
+     },
+     "strategies": {
+      "description": "Interaction strategies, best first.",
+      "items": {
+       "type": "string"
+      },
+      "title": "Strategies",
+      "type": "array"
+     },
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     },
+     "truncated": {
+      "description": "True if the app's UI was too large to capture completely.",
+      "title": "Truncated",
+      "type": "boolean"
+     },
+     "vision_elements": {
+      "default": 0,
+      "description": "OCR pseudo-elements (refs o1…) added to the tree.",
+      "title": "Vision Elements",
+      "type": "integer"
+     },
+     "warnings": {
+      "description": "Degradations the caller should know about (e.g. a screenshot that was skipped).",
+      "items": {
+       "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "window": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/WindowRefModel"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "snapshot_id",
+     "app",
+     "mode",
+     "elements",
+     "shown",
+     "total",
+     "offset",
+     "truncated"
+    ],
+    "title": "SnapshotModel",
+    "type": "object"
+   },
+   "WindowRefModel": {
+    "description": "Identity and frame of a window.",
+    "properties": {
+     "frame": {
+      "description": "[x, y, width, height] in screen points.",
+      "items": {
+       "type": "number"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "title": "Frame",
+      "type": "array"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "window_id": {
+      "title": "Window Id",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "window_id",
+     "title",
+     "frame"
+    ],
+    "title": "WindowRefModel",
+    "type": "object"
+   }
+  },
+  "additionalProperties": false,
+  "description": "Output of ``handle_dialog``.",
+  "properties": {
+   "action": {
+    "description": "What was done, e.g. click, type_text, select_menu.",
+    "title": "Action",
+    "type": "string"
+   },
+   "attempts": {
+    "description": "Strategies tried, in order.",
+    "items": {
+     "type": "string"
+    },
+    "title": "Attempts",
+    "type": "array"
+   },
+   "buttons": {
+    "items": {
+     "$ref": "#/$defs/ElementBriefModel"
+    },
+    "title": "Buttons",
+    "type": "array"
+   },
+   "diff": {
+    "anyOf": [
+     {
+      "$ref": "#/$defs/DiffModel"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "Changes (when return=\"diff\")."
+   },
+   "fields": {
+    "items": {
+     "$ref": "#/$defs/ElementBriefModel"
+    },
+    "title": "Fields",
+    "type": "array"
+   },
+   "found": {
+    "description": "True if a sheet or dialog is open.",
+    "title": "Found",
+    "type": "boolean"
+   },
+   "kind": {
+    "default": "none",
+    "enum": [
+     "sheet",
+     "dialog",
+     "none"
+    ],
+    "title": "Kind",
+    "type": "string"
+   },
+   "message": {
+    "anyOf": [
+     {
+      "type": "string"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "title": "Message"
+   },
+   "ok": {
+    "default": true,
+    "title": "Ok",
+    "type": "boolean"
+   },
+   "point": {
+    "anyOf": [
+     {
+      "description": "[x, y] in screen points.",
+      "items": {
+       "type": "number"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "Screen point acted on, if any.",
+    "title": "Point"
+   },
+   "pressed": {
+    "anyOf": [
+     {
+      "type": "string"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "Title of the button pressed, if any.",
+    "title": "Pressed"
+   },
+   "snapshot": {
+    "anyOf": [
+     {
+      "$ref": "#/$defs/SnapshotModel"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "Fresh snapshot (return=\"snapshot\")."
+   },
+   "snapshot_id": {
+    "anyOf": [
+     {
+      "type": "string"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "Snapshot taken after the action.",
+    "title": "Snapshot Id"
+   },
+   "strategy": {
+    "anyOf": [
+     {
+      "type": "string"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "The strategy that worked (ax_press, click…).",
+    "title": "Strategy"
+   },
+   "target": {
+    "anyOf": [
+     {
+      "$ref": "#/$defs/ElementBriefModel"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "The element acted on, if any."
+   },
+   "texts": {
+    "description": "The dialog's text, in order.",
+    "items": {
+     "type": "string"
+    },
+    "title": "Texts",
+    "type": "array"
+   },
+   "title": {
+    "anyOf": [
+     {
+      "type": "string"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "title": "Title"
+   },
+   "warnings": {
+    "description": "Degradations the caller should know about (e.g. a screenshot that was skipped).",
+    "items": {
+     "type": "string"
+    },
+    "title": "Warnings",
+    "type": "array"
+   }
+  },
+  "required": [
+   "action",
+   "found"
+  ],
+  "title": "DialogResult",
+  "type": "object"
+ },
  "Inspect": {
   "$defs": {
    "ElementBriefModel": {
@@ -8648,6 +9561,856 @@
    }
   },
   "title": "MenuResult",
+  "type": "object"
+ },
+ "SelectOption": {
+  "$defs": {
+   "AppRefModel": {
+    "description": "Identity of an app.",
+    "properties": {
+     "bundle_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Bundle Id"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "pid": {
+      "title": "Pid",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "name",
+     "pid"
+    ],
+    "title": "AppRefModel",
+    "type": "object"
+   },
+   "CaptureModel": {
+    "additionalProperties": false,
+    "description": "A stored screenshot. Pass ``screenshot_id`` with ``coordinate_space=\"screenshot\"`` to act on\npixel coordinates of this image.",
+    "properties": {
+     "annotated": {
+      "default": false,
+      "description": "True if element refs are drawn on the image.",
+      "title": "Annotated",
+      "type": "boolean"
+     },
+     "format": {
+      "enum": [
+       "png",
+       "jpeg"
+      ],
+      "title": "Format",
+      "type": "string"
+     },
+     "height": {
+      "description": "Image height in pixels.",
+      "title": "Height",
+      "type": "integer"
+     },
+     "mime_type": {
+      "title": "Mime Type",
+      "type": "string"
+     },
+     "region": {
+      "description": "Screen region the image shows, in points.",
+      "items": {
+       "type": "number"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "title": "Region",
+      "type": "array"
+     },
+     "scale_x": {
+      "description": "Image pixels per screen point, horizontally.",
+      "title": "Scale X",
+      "type": "number"
+     },
+     "scale_y": {
+      "description": "Image pixels per screen point, vertically.",
+      "title": "Scale Y",
+      "type": "number"
+     },
+     "screenshot_id": {
+      "title": "Screenshot Id",
+      "type": "string"
+     },
+     "width": {
+      "description": "Image width in pixels.",
+      "title": "Width",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "screenshot_id",
+     "width",
+     "height",
+     "format",
+     "mime_type",
+     "region",
+     "scale_x",
+     "scale_y"
+    ],
+    "title": "CaptureModel",
+    "type": "object"
+   },
+   "ChangedElementModel": {
+    "description": "An element whose name, value or state changed: ``changes`` maps field → [old, new].",
+    "properties": {
+     "changes": {
+      "additionalProperties": {
+       "items": {},
+       "type": "array"
+      },
+      "title": "Changes",
+      "type": "object"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Name"
+     },
+     "ref": {
+      "title": "Ref",
+      "type": "string"
+     },
+     "role": {
+      "title": "Role",
+      "type": "string"
+     }
+    },
+    "required": [
+     "ref",
+     "role",
+     "changes"
+    ],
+    "title": "ChangedElementModel",
+    "type": "object"
+   },
+   "DiffCountsModel": {
+    "description": "Full sizes of the diff lists (the lists themselves may be capped).",
+    "properties": {
+     "added": {
+      "title": "Added",
+      "type": "integer"
+     },
+     "changed": {
+      "title": "Changed",
+      "type": "integer"
+     },
+     "removed": {
+      "title": "Removed",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "added",
+     "removed",
+     "changed"
+    ],
+    "title": "DiffCountsModel",
+    "type": "object"
+   },
+   "DiffModel": {
+    "description": "What changed between two snapshots. Refs of ``removed`` belong to ``before_id``.",
+    "properties": {
+     "added": {
+      "items": {
+       "$ref": "#/$defs/ElementBriefModel"
+      },
+      "title": "Added",
+      "type": "array"
+     },
+     "after_id": {
+      "title": "After Id",
+      "type": "string"
+     },
+     "app_after": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "App After"
+     },
+     "app_before": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "App Before"
+     },
+     "app_changed": {
+      "default": false,
+      "title": "App Changed",
+      "type": "boolean"
+     },
+     "before_id": {
+      "title": "Before Id",
+      "type": "string"
+     },
+     "changed": {
+      "items": {
+       "$ref": "#/$defs/ChangedElementModel"
+      },
+      "title": "Changed",
+      "type": "array"
+     },
+     "counts": {
+      "$ref": "#/$defs/DiffCountsModel"
+     },
+     "empty": {
+      "title": "Empty",
+      "type": "boolean"
+     },
+     "focus_after": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Focus After"
+     },
+     "focus_after_ref": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Focus After Ref"
+     },
+     "focus_before": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Focus Before"
+     },
+     "removed": {
+      "items": {
+       "$ref": "#/$defs/ElementBriefModel"
+      },
+      "title": "Removed",
+      "type": "array"
+     },
+     "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+     },
+     "window_after": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Window After"
+     },
+     "window_before": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Window Before"
+     },
+     "window_changed": {
+      "default": false,
+      "title": "Window Changed",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "before_id",
+     "after_id",
+     "empty",
+     "counts"
+    ],
+    "title": "DiffModel",
+    "type": "object"
+   },
+   "ElementBriefModel": {
+    "description": "A short reference to an element (used in diffs and lists).",
+    "properties": {
+     "center": {
+      "anyOf": [
+       {
+        "description": "[x, y] in screen points.",
+        "items": {
+         "type": "number"
+        },
+        "maxItems": 2,
+        "minItems": 2,
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Center"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Name"
+     },
+     "ref": {
+      "title": "Ref",
+      "type": "string"
+     },
+     "role": {
+      "title": "Role",
+      "type": "string"
+     },
+     "states": {
+      "items": {
+       "type": "string"
+      },
+      "title": "States",
+      "type": "array"
+     },
+     "value": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Value"
+     }
+    },
+    "required": [
+     "ref",
+     "role"
+    ],
+    "title": "ElementBriefModel",
+    "type": "object"
+   },
+   "ElementModel": {
+    "description": "One element of a snapshot. Act on it by passing ``ref`` to other tools.",
+    "properties": {
+     "actions": {
+      "description": "AX actions, e.g. AXPress, AXShowMenu.",
+      "items": {
+       "type": "string"
+      },
+      "title": "Actions",
+      "type": "array"
+     },
+     "center": {
+      "anyOf": [
+       {
+        "description": "[x, y] in screen points.",
+        "items": {
+         "type": "number"
+        },
+        "maxItems": 2,
+        "minItems": 2,
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Center"
+     },
+     "depth": {
+      "default": 0,
+      "title": "Depth",
+      "type": "integer"
+     },
+     "extra": {
+      "additionalProperties": true,
+      "description": "Role-specific facts, e.g. {\"rows\": 12, \"scrollable\": true}.",
+      "title": "Extra",
+      "type": "object"
+     },
+     "frame": {
+      "anyOf": [
+       {
+        "description": "[x, y, width, height] in screen points.",
+        "items": {
+         "type": "number"
+        },
+        "maxItems": 4,
+        "minItems": 4,
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Frame"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Name"
+     },
+     "parent_ref": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Parent Ref"
+     },
+     "ref": {
+      "description": "\"e12\" for accessibility elements, \"o3\" for OCR text.",
+      "title": "Ref",
+      "type": "string"
+     },
+     "role": {
+      "description": "Short role: button, field, textarea, row, menuitem, ocrtext…",
+      "title": "Role",
+      "type": "string"
+     },
+     "states": {
+      "description": "disabled, selected, focused, checked…",
+      "items": {
+       "type": "string"
+      },
+      "title": "States",
+      "type": "array"
+     },
+     "value": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Current value (never shown for secure fields).",
+      "title": "Value"
+     }
+    },
+    "required": [
+     "ref",
+     "role"
+    ],
+    "title": "ElementModel",
+    "type": "object"
+   },
+   "SnapshotModel": {
+    "description": "A page of a UI snapshot: the elements of one app/window with refs to act on.",
+    "properties": {
+     "app": {
+      "$ref": "#/$defs/AppRefModel"
+     },
+     "app_kind": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "native, electron, java, qt, catalyst, …",
+      "title": "App Kind"
+     },
+     "ax_quality": {
+      "anyOf": [
+       {
+        "enum": [
+         "good",
+         "partial",
+         "poor"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "How useful the accessibility tree is.",
+      "title": "Ax Quality"
+     },
+     "elements": {
+      "items": {
+       "$ref": "#/$defs/ElementModel"
+      },
+      "title": "Elements",
+      "type": "array"
+     },
+     "focused_ref": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Focused Ref"
+     },
+     "menus": {
+      "description": "Top-level menus (use select_menu).",
+      "items": {
+       "type": "string"
+      },
+      "title": "Menus",
+      "type": "array"
+     },
+     "mode": {
+      "description": "How elements were selected.",
+      "enum": [
+       "interactive",
+       "full",
+       "text"
+      ],
+      "title": "Mode",
+      "type": "string"
+     },
+     "next_offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Pass as offset to get the next page.",
+      "title": "Next Offset"
+     },
+     "notes": {
+      "description": "App-specific guidance.",
+      "items": {
+       "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+     },
+     "offset": {
+      "title": "Offset",
+      "type": "integer"
+     },
+     "requested_mode": {
+      "default": "interactive",
+      "enum": [
+       "auto",
+       "interactive",
+       "full",
+       "text",
+       "vision"
+      ],
+      "title": "Requested Mode",
+      "type": "string"
+     },
+     "screenshot": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/CaptureModel"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "shown": {
+      "title": "Shown",
+      "type": "integer"
+     },
+     "snapshot_id": {
+      "title": "Snapshot Id",
+      "type": "string"
+     },
+     "strategies": {
+      "description": "Interaction strategies, best first.",
+      "items": {
+       "type": "string"
+      },
+      "title": "Strategies",
+      "type": "array"
+     },
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     },
+     "truncated": {
+      "description": "True if the app's UI was too large to capture completely.",
+      "title": "Truncated",
+      "type": "boolean"
+     },
+     "vision_elements": {
+      "default": 0,
+      "description": "OCR pseudo-elements (refs o1…) added to the tree.",
+      "title": "Vision Elements",
+      "type": "integer"
+     },
+     "warnings": {
+      "description": "Degradations the caller should know about (e.g. a screenshot that was skipped).",
+      "items": {
+       "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "window": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/WindowRefModel"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "snapshot_id",
+     "app",
+     "mode",
+     "elements",
+     "shown",
+     "total",
+     "offset",
+     "truncated"
+    ],
+    "title": "SnapshotModel",
+    "type": "object"
+   },
+   "WindowRefModel": {
+    "description": "Identity and frame of a window.",
+    "properties": {
+     "frame": {
+      "description": "[x, y, width, height] in screen points.",
+      "items": {
+       "type": "number"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "title": "Frame",
+      "type": "array"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "window_id": {
+      "title": "Window Id",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "window_id",
+     "title",
+     "frame"
+    ],
+    "title": "WindowRefModel",
+    "type": "object"
+   }
+  },
+  "additionalProperties": false,
+  "description": "Outcome of an input action and what it changed.",
+  "properties": {
+   "action": {
+    "description": "What was done, e.g. click, type_text, select_menu.",
+    "title": "Action",
+    "type": "string"
+   },
+   "attempts": {
+    "description": "Strategies tried, in order.",
+    "items": {
+     "type": "string"
+    },
+    "title": "Attempts",
+    "type": "array"
+   },
+   "diff": {
+    "anyOf": [
+     {
+      "$ref": "#/$defs/DiffModel"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "Changes (when return=\"diff\")."
+   },
+   "message": {
+    "anyOf": [
+     {
+      "type": "string"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "title": "Message"
+   },
+   "ok": {
+    "default": true,
+    "title": "Ok",
+    "type": "boolean"
+   },
+   "point": {
+    "anyOf": [
+     {
+      "description": "[x, y] in screen points.",
+      "items": {
+       "type": "number"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "Screen point acted on, if any.",
+    "title": "Point"
+   },
+   "snapshot": {
+    "anyOf": [
+     {
+      "$ref": "#/$defs/SnapshotModel"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "Fresh snapshot (return=\"snapshot\")."
+   },
+   "snapshot_id": {
+    "anyOf": [
+     {
+      "type": "string"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "Snapshot taken after the action.",
+    "title": "Snapshot Id"
+   },
+   "strategy": {
+    "anyOf": [
+     {
+      "type": "string"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "The strategy that worked (ax_press, click…).",
+    "title": "Strategy"
+   },
+   "target": {
+    "anyOf": [
+     {
+      "$ref": "#/$defs/ElementBriefModel"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "The element acted on, if any."
+   },
+   "warnings": {
+    "description": "Degradations the caller should know about (e.g. a screenshot that was skipped).",
+    "items": {
+     "type": "string"
+    },
+    "title": "Warnings",
+    "type": "array"
+   }
+  },
+  "required": [
+   "action"
+  ],
+  "title": "ActionResult",
   "type": "object"
  },
  "SetValue": {

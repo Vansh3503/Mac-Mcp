@@ -63,6 +63,12 @@ Pre-alpha. Nothing is published on PyPI yet.
 - Examples: five automation scripts that run against the simulated desktop, and agent examples
   for eleven frameworks (OpenAI Agents SDK, LangGraph, CrewAI, Google ADK, Pydantic AI,
   LlamaIndex, smolagents, Microsoft Agent Framework, Claude Agent SDK, Vercel AI SDK, Mastra).
+- `select_option` (pop-ups, combo boxes, radio and tab groups, segmented controls, list rows by
+  title or index) and `handle_dialog` (read a sheet or dialog; accept, cancel or press a button;
+  buttons that delete or discard ask first).
+- Portable input schemas that OpenAI, Gemini and Anthropic function calling all accept (no `null`
+  unions or `$ref`s, `additionalProperties: false`, every parameter described), and an optional
+  tool-name prefix (`[tools] prefix = "mac_"`).
 - The tool reference ([docs/tools.md](docs/tools.md)) is generated from the tool registry
   (`scripts/gen_tool_docs.py`), and golden files pin `tools/list` for every profile and naming.
 - The `windows-mcp` tool naming (`[tools] naming` or `--naming windows-mcp`): Windows-MCP's tool

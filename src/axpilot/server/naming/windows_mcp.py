@@ -111,6 +111,8 @@ NAMES: dict[str, str] = {
     "drag": "Drag",
     "move_mouse": "Move",
     "set_value": "SetValue",
+    "select_option": "SelectOption",
+    "handle_dialog": "HandleDialog",
     "perform_action": "PerformAction",
     "select_menu": "SelectMenu",
     "fill_form": "MultiEdit",

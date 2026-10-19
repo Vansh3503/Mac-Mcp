@@ -183,10 +183,10 @@ def _default(schema: dict[str, Any], required: bool) -> str:
     if required:
         return "required"
     if "default" not in schema:
-        return ""
+        return "optional"
     value = schema["default"]
     if value is None:
-        return ""
+        return "optional"
     return f"`{json.dumps(value, ensure_ascii=False)}`"
 
 

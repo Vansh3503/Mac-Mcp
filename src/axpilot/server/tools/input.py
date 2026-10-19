@@ -570,7 +570,7 @@ def _ax_click_action(target: Target, button: str, count: int, modifiers: Sequenc
     return None
 
 
-async def _click(
+async def click_target(
     ctx: ServerContext,
     target: Target,
     *,
@@ -652,7 +652,7 @@ def click_tool(ctx: ServerContext) -> ToolFn:
             screenshot_id=screenshot_id,
         )
         before = await snapshot_before(ctx, target, report)
-        used, attempts = await _click(
+        used, attempts = await click_target(
             ctx, target, button=button, count=count, modifiers=modifiers, strategy=strategy
         )
         observation = await observe_after(ctx, app=target.app, before=before, report=report)

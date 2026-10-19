@@ -462,6 +462,27 @@ instructions. `label=12` means ref `e12`; `loc` is in screen points. Results kee
 (the windows-mcp `App` has its own output model covering app and window results). Audit records and the policy
 use canonical names.
 
+Advertised input schemas are portable (`axpilot/server/portable.py`, applied in `AXPilotServer.list_tools`):
+optional parameters show their type without a `null` branch, `$ref`/`$defs` are inlined, nested titles and
+`default: null` are dropped, and objects declare `additionalProperties: false`. Validation still uses the
+function's model (an explicit `null` is accepted). Real unions (a list or its JSON text) keep `anyOf`.
+`[tools] prefix` (`^[A-Za-z0-9_-]{0,24}$`) is put before every public name after the naming; audit records and
+the policy keep canonical names; calling a tool without the prefix gets `INVALID_ARGUMENT` naming the prefixed one.
+
+Controls (`axpilot/server/tools/controls.py`, input toolset):
+- `select_option(ref, option | index, snapshot_id, report)`: pop-up/combo box → `set_value` with the exact title;
+  radio group, tab group, segmented control, group → press the matching child (`radio`, `tab`, `button`,
+  `toggle`, `checkbox`); list/table/outline → click the matching row; an option element itself (radio, tab, row)
+  is pressed; menu buttons are `ELEMENT_NOT_ACTIONABLE` (their items appear only when open). Matching: exact,
+  then unique prefix, then unique substring (case-insensitive, trailing "…" ignored); ambiguity or no match is
+  `INVALID_ARGUMENT` listing the options. An already selected option is not pressed again.
+- `handle_dialog(app, action=inspect|accept|cancel|press, button, text, report)`: the first `sheet`/`dialog`
+  element of a full snapshot, else the window itself when its root subrole is `AXDialog`/`AXSystemDialog`.
+  accept = OK/Allow/Continue/Done/Open/Save/Yes/Sign In/… else the bottom-rightmost enabled non-cancel button;
+  cancel = Cancel/Not Now/Don't Allow/No/Close/… else Escape. `text` fills the first editable field (via
+  `set_value`, so secure fields are refused). Destructive with `confirm_when` never: a button matching
+  `DESTRUCTIVE_BUTTON_RE` (Delete, Replace, Don't Save, Trash…) asks the user first.
+
 Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
 - `shell(command, cwd="~", timeout_s=[scripting] shell_timeout_s)`: `zsh -lc` (the configured shell); a timeout above
   the configured limit is `INVALID_ARGUMENT`; a non-zero exit or a timeout is a normal result (`exit_code`,

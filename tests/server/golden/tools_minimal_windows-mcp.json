@@ -9,20 +9,12 @@
   },
   "description": "Capture the frontmost app's UI as a numbered list of elements: e12 is label 12 for Click, Type, Scroll and Move. Params: use_vision (add a screenshot), use_annotation (draw the labels on it), app (another app). Call it first and after the UI changes.",
   "input_schema": {
+   "additionalProperties": false,
    "properties": {
     "app": {
-     "anyOf": [
-      {
-       "maxLength": 256,
-       "type": "string"
-      },
-      {
-       "type": "null"
-      }
-     ],
-     "default": null,
      "description": "App name or bundle id (default: the frontmost app).",
-     "title": "App"
+     "maxLength": 256,
+     "type": "string"
     },
     "display": {
      "anyOf": [
@@ -34,27 +26,13 @@
       },
       {
        "type": "string"
-      },
-      {
-       "type": "null"
       }
      ],
-     "default": null,
-     "description": "Ignored: AXPilot snapshots one app.",
-     "title": "Display"
+     "description": "Ignored: AXPilot snapshots one app."
     },
     "height_reference_line": {
-     "anyOf": [
-      {
-       "type": "integer"
-      },
-      {
-       "type": "null"
-      }
-     ],
-     "default": null,
      "description": "Ignored.",
-     "title": "Height Reference Line"
+     "type": "integer"
     },
     "region": {
      "anyOf": [
@@ -66,51 +44,33 @@
       },
       {
        "type": "string"
-      },
-      {
-       "type": "null"
       }
      ],
-     "default": null,
-     "description": "Ignored: AXPilot snapshots one app.",
-     "title": "Region"
+     "description": "Ignored: AXPilot snapshots one app."
     },
     "use_annotation": {
      "default": true,
      "description": "With use_vision: draw the labels on the image.",
-     "title": "Use Annotation",
      "type": "boolean"
     },
     "use_dom": {
      "default": false,
      "description": "Ignored: web content is in the accessibility tree.",
-     "title": "Use Dom",
      "type": "boolean"
     },
     "use_ui_tree": {
      "default": true,
      "description": "Ignored: the element list is always returned.",
-     "title": "Use Ui Tree",
      "type": "boolean"
     },
     "use_vision": {
      "default": false,
      "description": "Include a screenshot of the window.",
-     "title": "Use Vision",
      "type": "boolean"
     },
     "width_reference_line": {
-     "anyOf": [
-      {
-       "type": "integer"
-      },
-      {
-       "type": "null"
-      }
-     ],
-     "default": null,
      "description": "Ignored.",
-     "title": "Width Reference Line"
+     "type": "integer"
     }
    },
    "title": "SnapshotArguments",
@@ -130,6 +90,7 @@
   },
   "description": "Capture a display (display=[index]) or a region ([left, top, right, bottom] in screen points) as an image. Coordinates on macOS are points; the result gives the scale.",
   "input_schema": {
+   "additionalProperties": false,
    "properties": {
     "display": {
      "anyOf": [
@@ -141,27 +102,13 @@
       },
       {
        "type": "string"
-      },
-      {
-       "type": "null"
       }
      ],
-     "default": null,
-     "description": "[index] of one display (from 0).",
-     "title": "Display"
+     "description": "[index] of one display (from 0)."
     },
     "height_reference_line": {
-     "anyOf": [
-      {
-       "type": "integer"
-      },
-      {
-       "type": "null"
-      }
-     ],
-     "default": null,
      "description": "Ignored.",
-     "title": "Height Reference Line"
+     "type": "integer"
     },
     "region": {
      "anyOf": [
@@ -173,33 +120,18 @@
       },
       {
        "type": "string"
-      },
-      {
-       "type": "null"
       }
      ],
-     "default": null,
-     "description": "[left, top, right, bottom] in points.",
-     "title": "Region"
+     "description": "[left, top, right, bottom] in points."
     },
     "use_annotation": {
      "default": false,
      "description": "Ignored (use Snapshot with use_vision for labels).",
-     "title": "Use Annotation",
      "type": "boolean"
     },
     "width_reference_line": {
-     "anyOf": [
-      {
-       "type": "integer"
-      },
-      {
-       "type": "null"
-      }
-     ],
-     "default": null,
      "description": "Ignored.",
-     "title": "Width Reference Line"
+     "type": "integer"
     }
    },
    "title": "ScreenshotArguments",
@@ -219,35 +151,18 @@
   },
   "description": "Map an app in one call: its windows, menu bar (top-level menus with item counts), toolbar buttons,\ntabs, sidebar sections, scroll areas, open dialogs and the focused element, plus how well AXPilot can\ndrive it (app kind, accessibility quality, strategies, tips).\nCall it first for an unfamiliar app, then snapshot for the full element list. Params: app / window_id.\nReturns a compact overview with refs (usable with click, read, scroll…) and the snapshot_id they belong\nto. Errors: APP_NOT_FOUND, WINDOW_NOT_FOUND, PERMISSION_ACCESSIBILITY, BLOCKED_BY_POLICY, TIMEOUT.",
   "input_schema": {
+   "additionalProperties": false,
    "properties": {
     "app": {
-     "anyOf": [
-      {
-       "maxLength": 256,
-       "minLength": 1,
-       "type": "string"
-      },
-      {
-       "type": "null"
-      }
-     ],
-     "default": null,
      "description": "Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app.",
-     "title": "App"
+     "maxLength": 256,
+     "minLength": 1,
+     "type": "string"
     },
     "window_id": {
-     "anyOf": [
-      {
-       "minimum": 0,
-       "type": "integer"
-      },
-      {
-       "type": "null"
-      }
-     ],
-     "default": null,
      "description": "Window id from list_windows; scopes the call to that window.",
-     "title": "Window Id"
+     "minimum": 0,
+     "type": "integer"
     }
    },
    "title": "ExploreArguments",
@@ -267,12 +182,12 @@
   },
   "description": "Pause for duration seconds (at most 60).",
   "input_schema": {
+   "additionalProperties": false,
    "properties": {
     "duration": {
      "description": "Seconds to wait.",
      "maximum": 60,
      "minimum": 0,
-     "title": "Duration",
      "type": "integer"
     }
    },
@@ -296,6 +211,7 @@
   },
   "description": "Wait (polling) until text_exists, active_window, element_exists, element_enabled or focused_element holds for text / window_name in the frontmost app, up to timeout seconds (at most 60).",
   "input_schema": {
+   "additionalProperties": false,
    "properties": {
     "condition": {
      "description": "What to wait for.",
@@ -306,57 +222,35 @@
       "element_enabled",
       "focused_element"
      ],
-     "title": "Condition",
      "type": "string"
     },
     "interval": {
      "default": 0.25,
      "description": "Ignored: AXPilot chooses the polling interval.",
      "minimum": 0,
-     "title": "Interval",
      "type": "number"
     },
     "text": {
-     "anyOf": [
-      {
-       "maxLength": 500,
-       "type": "string"
-      },
-      {
-       "type": "null"
-      }
-     ],
-     "default": null,
      "description": "Text, element name or window title.",
-     "title": "Text"
+     "maxLength": 500,
+     "type": "string"
     },
     "timeout": {
      "default": 10.0,
      "description": "Seconds before giving up.",
      "exclusiveMinimum": 0,
      "maximum": 60,
-     "title": "Timeout",
      "type": "number"
     },
     "use_dom": {
      "default": false,
      "description": "Ignored: web content is in the accessibility tree.",
-     "title": "Use Dom",
      "type": "boolean"
     },
     "window_name": {
-     "anyOf": [
-      {
-       "maxLength": 500,
-       "type": "string"
-      },
-      {
-       "type": "null"
-      }
-     ],
-     "default": null,
      "description": "Window title (active_window).",
-     "title": "Window Name"
+     "maxLength": 500,
+     "type": "string"
     }
    },
    "required": [
@@ -379,6 +273,7 @@
   },
   "description": "Report AXPilot's state: version, engine, macOS version, permissions (Accessibility, Screen\nRecording), whether the user paused it (kill switch), the input lock, the active profile and\nenabled tools, rate limit and confirmation mode.\nUse it first when tools fail with permission errors, or to check what this server can do.",
   "input_schema": {
+   "additionalProperties": false,
    "properties": {},
    "title": "ControlStatusArguments",
    "type": "object"
@@ -397,6 +292,7 @@
   },
   "description": "Click an element (label) or a point (loc). label is the number of a snapshot ref (12 for e12); loc is [x, y] in macOS screen points. button left|right|middle; clicks 1-3. Returns what changed.",
   "input_schema": {
+   "additionalProperties": false,
    "properties": {
     "button": {
      "default": "left",
@@ -406,7 +302,6 @@
       "right",
       "middle"
      ],
-     "title": "Button",
      "type": "string"
     },
     "clicks": {
@@ -414,7 +309,6 @@
      "description": "1 click, 2 double-click, 3 triple-click.",
      "maximum": 3,
      "minimum": 1,
-     "title": "Clicks",
      "type": "integer"
     },
     "label": {
@@ -424,14 +318,9 @@
       },
       {
        "type": "string"
-      },
-      {
-       "type": "null"
       }
      ],
-     "default": null,
-     "description": "Element label: the number of a snapshot ref (12 for e12).",
-     "title": "Label"
+     "description": "Element label: the number of a snapshot ref (12 for e12)."
     },
     "loc": {
      "anyOf": [
@@ -443,14 +332,9 @@
       },
       {
        "type": "string"
-      },
-      {
-       "type": "null"
       }
      ],
-     "default": null,
-     "description": "[x, y] in macOS screen points (from a snapshot).",
-     "title": "Loc"
+     "description": "[x, y] in macOS screen points (from a snapshot)."
     }
    },
    "title": "ClickArguments",
@@ -470,6 +354,7 @@
   },
   "description": "Select several items (files, rows, checkboxes): clicks each of locs ([[x, y], …]) or labels ([12, 13, …]) while holding cmd (press_ctrl=true), or plain clicks (press_ctrl=false).",
   "input_schema": {
+   "additionalProperties": false,
    "properties": {
     "labels": {
      "anyOf": [
@@ -488,14 +373,9 @@
       },
       {
        "type": "string"
-      },
-      {
-       "type": "null"
       }
      ],
-     "default": null,
-     "description": "[12, 13, …]: snapshot ref numbers.",
-     "title": "Labels"
+     "description": "[12, 13, …]: snapshot ref numbers."
     },
     "locs": {
      "anyOf": [
@@ -510,19 +390,13 @@
       },
       {
        "type": "string"
-      },
-      {
-       "type": "null"
       }
      ],
-     "default": null,
-     "description": "[[x, y], …] in screen points.",
-     "title": "Locs"
+     "description": "[[x, y], …] in screen points."
     },
     "press_ctrl": {
      "default": true,
      "description": "Hold cmd to add each item to the selection.",
-     "title": "Press Ctrl",
      "type": "boolean"
     }
    },
@@ -543,6 +417,7 @@
   },
   "description": "Type text into a field (label or loc; default: the focused field). label is the number of a snapshot ref (12 for e12); loc is [x, y] in macOS screen points. clear replaces the text; caret_position start|end moves the caret first; press_enter presses Return.",
   "input_schema": {
+   "additionalProperties": false,
    "properties": {
     "caret_position": {
      "default": "idle",
@@ -552,13 +427,11 @@
       "idle",
       "end"
      ],
-     "title": "Caret Position",
      "type": "string"
     },
     "clear": {
      "default": false,
      "description": "Replace the field's text.",
-     "title": "Clear",
      "type": "boolean"
     },
     "label": {
@@ -568,14 +441,9 @@
       },
       {
        "type": "string"
-      },
-      {
-       "type": "null"
       }
      ],
-     "default": null,
-     "description": "Element label: the number of a snapshot ref (12 for e12).",
-     "title": "Label"
+     "description": "Element label: the number of a snapshot ref (12 for e12)."
     },
     "loc": {
      "anyOf": [
@@ -587,25 +455,18 @@
       },
       {
        "type": "string"
-      },
-      {
-       "type": "null"
       }
      ],
-     "default": null,
-     "description": "[x, y] in macOS screen points (from a snapshot).",
-     "title": "Loc"
+     "description": "[x, y] in macOS screen points (from a snapshot)."
     },
     "press_enter": {
      "default": false,
      "description": "Press Return afterwards.",
-     "title": "Press Enter",
      "type": "boolean"
     },
     "text": {
      "description": "Text to type.",
      "maxLength": 20000,
-     "title": "Text",
      "type": "string"
     }
    },
@@ -629,12 +490,12 @@
   },
   "description": "Press keys: \"cmd+c\", \"cmd+shift+t\", \"return\", or several separated by spaces (\"cmd+a delete\"). macOS shortcuts use cmd where Windows uses ctrl; win means cmd.",
   "input_schema": {
+   "additionalProperties": false,
    "properties": {
     "shortcut": {
      "description": "Keys joined by +, e.g. \"cmd+c\" (cmd, not ctrl); several: separate by spaces.",
      "maxLength": 400,
      "minLength": 1,
-     "title": "Shortcut",
      "type": "string"
     }
    },
@@ -658,6 +519,7 @@
   },
   "description": "Scroll at a label, a loc or the pointer. label is the number of a snapshot ref (12 for e12); loc is [x, y] in macOS screen points. direction up|down|left|right (type horizontal turns up/down into left/right); wheel_times notches of 3 lines.",
   "input_schema": {
+   "additionalProperties": false,
    "properties": {
     "direction": {
      "default": "down",
@@ -668,7 +530,6 @@
       "left",
       "right"
      ],
-     "title": "Direction",
      "type": "string"
     },
     "label": {
@@ -678,14 +539,9 @@
       },
       {
        "type": "string"
-      },
-      {
-       "type": "null"
       }
      ],
-     "default": null,
-     "description": "Element label: the number of a snapshot ref (12 for e12).",
-     "title": "Label"
+     "description": "Element label: the number of a snapshot ref (12 for e12)."
     },
     "loc": {
      "anyOf": [
@@ -697,14 +553,9 @@
       },
       {
        "type": "string"
-      },
-      {
-       "type": "null"
       }
      ],
-     "default": null,
-     "description": "[x, y] in macOS screen points (from a snapshot).",
-     "title": "Loc"
+     "description": "[x, y] in macOS screen points (from a snapshot)."
     },
     "type": {
      "default": "vertical",
@@ -713,7 +564,6 @@
       "horizontal",
       "vertical"
      ],
-     "title": "Type",
      "type": "string"
     },
     "wheel_times": {
@@ -721,7 +571,6 @@
      "description": "Mouse wheel notches (3 lines each).",
      "maximum": 100,
      "minimum": 1,
-     "title": "Wheel Times",
      "type": "integer"
     }
    },
@@ -742,6 +591,7 @@
   },
   "description": "Launch (name: app name, bundle id or .app path), switch to (bring to front) or resize apps. resize moves/resizes the app's front window to window_loc [x, y] / window_size [w, h] (screen points); launch takes them too. launch_executable opens an .app path (no args or cwd on macOS).",
   "input_schema": {
+   "additionalProperties": false,
    "properties": {
     "args": {
      "anyOf": [
@@ -753,41 +603,18 @@
       },
       {
        "type": "string"
-      },
-      {
-       "type": "null"
       }
      ],
-     "default": null,
-     "description": "Not supported on macOS (use Shell).",
-     "title": "Args"
+     "description": "Not supported on macOS (use Shell)."
     },
     "cwd": {
-     "anyOf": [
-      {
-       "type": "string"
-      },
-      {
-       "type": "null"
-      }
-     ],
-     "default": null,
      "description": "Not supported on macOS (use Shell).",
-     "title": "Cwd"
+     "type": "string"
     },
     "executable": {
-     "anyOf": [
-      {
-       "maxLength": 1024,
-       "type": "string"
-      },
-      {
-       "type": "null"
-      }
-     ],
-     "default": null,
      "description": "launch_executable: an .app path.",
-     "title": "Executable"
+     "maxLength": 1024,
+     "type": "string"
     },
     "mode": {
      "default": "launch",
@@ -798,54 +625,26 @@
       "resize",
       "switch"
      ],
-     "title": "Mode",
      "type": "string"
     },
     "name": {
-     "anyOf": [
-      {
-       "maxLength": 1024,
-       "type": "string"
-      },
-      {
-       "type": "null"
-      }
-     ],
-     "default": null,
      "description": "App name, bundle id or .app path.",
-     "title": "Name"
+     "maxLength": 1024,
+     "type": "string"
     },
     "window_loc": {
-     "anyOf": [
-      {
-       "items": {
-        "type": "number"
-       },
-       "type": "array"
-      },
-      {
-       "type": "null"
-      }
-     ],
-     "default": null,
      "description": "[x, y] for the window's top-left corner.",
-     "title": "Window Loc"
+     "items": {
+      "type": "number"
+     },
+     "type": "array"
     },
     "window_size": {
-     "anyOf": [
-      {
-       "items": {
-        "type": "number"
-       },
-       "type": "array"
-      },
-      {
-       "type": "null"
-      }
-     ],
-     "default": null,
      "description": "[width, height] of the window.",
-     "title": "Window Size"
+     "items": {
+      "type": "number"
+     },
+     "type": "array"
     }
    },
    "title": "AppArguments",

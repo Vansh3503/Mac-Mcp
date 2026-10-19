@@ -5,6 +5,8 @@ Kept under 350 words: clients put it in the model's context on every turn.
 
 from __future__ import annotations
 
+import re
+
 __all__ = ["INSTRUCTIONS", "MAX_WORDS", "instructions"]
 
 MAX_WORDS = 350
@@ -19,7 +21,8 @@ unfamiliar app, call `explore` first for a map of its windows, menus, toolbars, 
 scroll areas.
 2. Act: pass a ref to `click`, `type_text`, `set_value`, `scroll`… Refs beat coordinates. A ref \
 keeps naming its element across snapshots while that element exists, and is never reused \
-for another one. Use `select_menu` for menu-bar commands (often the most reliable path). For \
+for another one. Use `select_menu` for menu-bar commands (often the most reliable path), `select_option` \
+for pop-ups, radio groups and lists, and `handle_dialog` for sheets and alerts. For \
 long lists, documents or settings panes, use `find(scroll=true)` or `read` instead of \
 scrolling by hand.
 3. Verify: actions return what changed (diff). If nothing changed, re-snapshot and try another \
@@ -56,10 +59,20 @@ is [x, y] in macOS screen points as snapshots report them. Shortcuts use cmd whe
 INSTRUCTIONS = TEMPLATE.format(coordinates=COORDINATES)
 
 
-def instructions(naming: str = "default") -> str:
-    """The instructions text, with the tool names and conventions of ``naming``."""
-    if naming != "windows-mcp":
-        return INSTRUCTIONS
-    from axpilot.server.naming.windows_mcp import rename_references  # noqa: PLC0415 - avoids a cycle
+def instructions(naming: str = "default", prefix: str = "") -> str:
+    """The instructions text, with the tool names and conventions of ``naming`` and the tool-name
+    ``prefix``."""
+    from axpilot.policy.profiles import TOOL_ORDER  # noqa: PLC0415 - avoids a cycle
+    from axpilot.server.naming.windows_mcp import EXTRA_NAMES, NAMES, rename_references  # noqa: PLC0415
 
-    return rename_references(TEMPLATE.format(coordinates=WINDOWS_MCP_COORDINATES))
+    if naming == "windows-mcp":
+        text = rename_references(TEMPLATE.format(coordinates=WINDOWS_MCP_COORDINATES))
+        names = {*NAMES.values(), *EXTRA_NAMES}
+    else:
+        text, names = INSTRUCTIONS, set(TOOL_ORDER)
+    if not prefix:
+        return text
+    return _NAME_RE.sub(lambda m: f"`{prefix}{m.group(1)}" if m.group(1) in names else m.group(0), text)
+
+
+_NAME_RE = re.compile(r"`([A-Za-z_]+)(?=[`(])")

@@ -68,6 +68,9 @@ class ToolsConfig(_Section):
     """Tool or toolset names to add on top of the profile (e.g. ``"scripting"``)."""
     disable: list[str] = Field(default_factory=list)
     """Tool or toolset names to remove from the profile."""
+    prefix: str = Field(default="", pattern=r"^[A-Za-z0-9_-]{0,24}$")
+    """Put before every tool name (``mac_`` → ``mac_snapshot``), for clients that mix the tools of
+    several servers without namespacing them."""
 
 
 class SafetyConfig(_Section):

@@ -58,8 +58,8 @@ exact command or script.
 | Profile | Tools | Use |
 |---|---|---|
 | `minimal` | `snapshot`, `screenshot`, `explore`, `wait_for`, `status`, `click`, `type_text`, `press_keys`, `scroll`, `app` | Small or local models |
-| `standard` | `snapshot`, `screenshot`, `find`, `explore`, `read`, `inspect`, `ocr`, `list_apps`, `list_windows`, `wait_for`, `status`, `click`, `type_text`, `press_keys`, `scroll`, `drag`, `move_mouse`, `set_value`, `perform_action`, `select_menu`, `fill_form`, `app`, `window`, `open`, `clipboard` | The default: most users |
-| `full` | `snapshot`, `screenshot`, `find`, `explore`, `read`, `inspect`, `ocr`, `list_apps`, `list_windows`, `list_displays`, `wait_for`, `status`, `click`, `type_text`, `press_keys`, `scroll`, `drag`, `move_mouse`, `set_value`, `perform_action`, `select_menu`, `fill_form`, `app`, `window`, `open`, `clipboard`, `notify`, `spotlight_search`, `system_info`, `system_control`, `processes`, `shell`, `applescript`, `shortcuts`, `defaults`, `browser_tabs`, `browser_read`, `browser_eval_js` | Power users (scripting and browser tools included, still policy-gated) |
+| `standard` | `snapshot`, `screenshot`, `find`, `explore`, `read`, `inspect`, `ocr`, `list_apps`, `list_windows`, `wait_for`, `status`, `click`, `type_text`, `press_keys`, `scroll`, `drag`, `move_mouse`, `set_value`, `select_option`, `perform_action`, `select_menu`, `fill_form`, `handle_dialog`, `app`, `window`, `open`, `clipboard` | The default: most users |
+| `full` | `snapshot`, `screenshot`, `find`, `explore`, `read`, `inspect`, `ocr`, `list_apps`, `list_windows`, `list_displays`, `wait_for`, `status`, `click`, `type_text`, `press_keys`, `scroll`, `drag`, `move_mouse`, `set_value`, `select_option`, `perform_action`, `select_menu`, `fill_form`, `handle_dialog`, `app`, `window`, `open`, `clipboard`, `notify`, `spotlight_search`, `system_info`, `system_control`, `processes`, `shell`, `applescript`, `shortcuts`, `defaults`, `browser_tabs`, `browser_read`, `browser_eval_js` | Power users (scripting and browser tools included, still policy-gated) |
 | `computer` | `status`, `computer` | Vision-first computer-use loops |
 
 Add or remove tools or whole toolsets with `[tools] enable` / `disable` (for example
@@ -88,12 +88,12 @@ BLOCKED_BY_POLICY, TIMEOUT.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `app` | string (optional) |  | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
-| `window_id` | integer (optional) |  | Window id from list_windows; scopes the call to that window. |
+| `app` | string | optional | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
+| `window_id` | integer | optional | Window id from list_windows; scopes the call to that window. |
 | `mode` | `auto` \| `interactive` \| `full` \| `text` \| `vision` | `"auto"` | auto \| interactive \| full \| text \| vision (see the tool description). |
-| `max_elements` | integer (optional) |  | Elements per page (default from config, 150). |
+| `max_elements` | integer | optional | Elements per page (default from config, 150). |
 | `offset` | integer | `0` | Index of the first element to return (paging). |
-| `snapshot_id` | string (optional) |  | Page through this existing snapshot instead of capturing again. |
+| `snapshot_id` | string | optional | Page through this existing snapshot instead of capturing again. |
 | `include_menus` | boolean | `true` | List the app's top-level menus. |
 | `include_screenshot` | boolean | `false` | Also return a screenshot of the window. |
 | `annotate` | boolean | `false` | Return a screenshot with element refs drawn on it (implies include_screenshot). |
@@ -115,12 +115,12 @@ APP_NOT_FOUND, BLOCKED_BY_POLICY, TIMEOUT.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `display_id` | integer (optional) |  | Display id from list_displays. Default: the main display. |
-| `window_id` | integer (optional) |  | Window id from list_windows; scopes the call to that window. |
-| `app` | string (optional) |  | Capture the front window of this app (name, bundle id or pid). |
-| `rect` | list of number (optional) |  | Region [x, y, width, height] in screen points (e.g. a frame from a snapshot). |
-| `max_edge` | integer (optional) |  | Longest image edge in pixels (default from config, 1280). |
-| `format` | `png` \| `jpeg` (optional) |  | Image format (default from config, jpeg). |
+| `display_id` | integer | optional | Display id from list_displays. Default: the main display. |
+| `window_id` | integer | optional | Window id from list_windows; scopes the call to that window. |
+| `app` | string | optional | Capture the front window of this app (name, bundle id or pid). |
+| `rect` | list of number | optional | Region [x, y, width, height] in screen points (e.g. a frame from a snapshot). |
+| `max_edge` | integer | optional | Longest image edge in pixels (default from config, 1280). |
+| `format` | `png` \| `jpeg` | optional | Image format (default from config, jpeg). |
 
 **Returns** (structured content): `screenshot_id`, `width`, `height`, `format`, `mime_type`, `region`, `scale_x`, `scale_y`, `annotated`, `target`, `display_id`, `window_id`, `app`, `excluded_apps`, and `warnings`.
 
@@ -140,13 +140,13 @@ Errors: INVALID_ARGUMENT, APP_NOT_FOUND, STALE_REF (container), BLOCKED_BY_POLIC
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `text` | string (optional) |  | Text to look for (fuzzy). |
-| `role` | string (optional) |  | Role filter: "button", "row", "field"… or "AXButton". |
-| `identifier` | string (optional) |  | Exact AXIdentifier. |
-| `app` | string (optional) |  | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
-| `window_id` | integer (optional) |  | Window id from list_windows; scopes the call to that window. |
-| `container` | string (optional) |  | Ref of a scroll area, list, table, web area or text area (or of an element inside one), e.g. "e13". |
-| `snapshot_id` | string (optional) |  | Snapshot the ref belongs to. Default: the latest snapshot. |
+| `text` | string | optional | Text to look for (fuzzy). |
+| `role` | string | optional | Role filter: "button", "row", "field"… or "AXButton". |
+| `identifier` | string | optional | Exact AXIdentifier. |
+| `app` | string | optional | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
+| `window_id` | integer | optional | Window id from list_windows; scopes the call to that window. |
+| `container` | string | optional | Ref of a scroll area, list, table, web area or text area (or of an element inside one), e.g. "e13". |
+| `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
 | `scroll` | boolean | `false` | Scroll the container until a match appears. |
 | `max_scrolls` | integer | `20` | Most scrolls to try (scroll=true). |
 | `limit` | integer | `10` | Most matches to return. |
@@ -167,8 +167,8 @@ to. Errors: APP_NOT_FOUND, WINDOW_NOT_FOUND, PERMISSION_ACCESSIBILITY, BLOCKED_B
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `app` | string (optional) |  | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
-| `window_id` | integer (optional) |  | Window id from list_windows; scopes the call to that window. |
+| `app` | string | optional | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
+| `window_id` | integer | optional | Window id from list_windows; scopes the call to that window. |
 
 **Returns** (structured content): `app`, `window`, `snapshot_id`, `app_kind`, `ax_quality`, `strategies`, `notes`, `windows`, `menus`, `toolbar`, `tabs`, `sections`, `scroll_areas`, `dialogs`, `focused`, `elements`, and `warnings`.
 
@@ -189,9 +189,9 @@ reached. Errors: STALE_REF, APP_NOT_FOUND, BLOCKED_BY_POLICY, USER_ACTIVE, PAUSE
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `target` | string | `"auto"` | "auto" (the main scrollable area) or the ref of a list, table, web area or text area. |
-| `app` | string (optional) |  | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
-| `window_id` | integer (optional) |  | Window id from list_windows; scopes the call to that window. |
-| `snapshot_id` | string (optional) |  | Snapshot the ref belongs to. Default: the latest snapshot. |
+| `app` | string | optional | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
+| `window_id` | integer | optional | Window id from list_windows; scopes the call to that window. |
+| `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
 | `mode` | `auto` \| `rows` \| `text` | `"auto"` | "rows" (one line per row), "text" (every text), or "auto". |
 | `from_top` | boolean | `true` | Scroll to the top first, so the whole content is read. |
 | `max_pages` | integer | `15` | Most screens to collect. |
@@ -214,7 +214,7 @@ SNAPSHOT_NOT_FOUND, INVALID_ARGUMENT (malformed ref), BLOCKED_BY_POLICY.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `ref` | string | required | Element ref from a snapshot, e.g. "e12" (or "s_ab12:e12" to pin the snapshot). |
-| `snapshot_id` | string (optional) |  | Snapshot the ref belongs to. Default: the latest snapshot. |
+| `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
 
 **Returns** (structured content): `snapshot_id`, `element`, `live`, `attributes`, `identifier`, `locator_path`, `ancestors`, `children`, and `warnings`.
 
@@ -233,11 +233,11 @@ DISPLAY_NOT_FOUND, BLOCKED_BY_POLICY, TIMEOUT.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `window_id` | integer (optional) |  | Window id from list_windows; scopes the call to that window. |
-| `app` | string (optional) |  | Capture the front window of this app (name, bundle id or pid). |
-| `rect` | list of number (optional) |  | Region [x, y, width, height] in screen points (e.g. a frame from a snapshot). |
-| `display_id` | integer (optional) |  | Display id from list_displays. Default: the main display. |
-| `languages` | list of string (optional) |  | Recognition languages, e.g. ["en-US", "de-DE"]. Default: automatic. |
+| `window_id` | integer | optional | Window id from list_windows; scopes the call to that window. |
+| `app` | string | optional | Capture the front window of this app (name, bundle id or pid). |
+| `rect` | list of number | optional | Region [x, y, width, height] in screen points (e.g. a frame from a snapshot). |
+| `display_id` | integer | optional | Display id from list_displays. Default: the main display. |
+| `languages` | list of string | optional | Recognition languages, e.g. ["en-US", "de-DE"]. Default: automatic. |
 
 **Returns** (structured content): `screenshot_id`, `region`, `lines`, `count`, `text`, and `warnings`.
 
@@ -266,7 +266,7 @@ are withheld. Errors: APP_NOT_FOUND.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `app` | string (optional) |  | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
+| `app` | string | optional | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
 
 **Returns** (structured content): `windows`, `count`, and `warnings`.
 
@@ -297,9 +297,9 @@ take a snapshot to see why), INVALID_ARGUMENT, BLOCKED_BY_POLICY, PERMISSION_ACC
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `condition` | `element` \| `element_gone` \| `window` \| `app_running` \| `text_visible` \| `idle` \| `duration` | required | What to wait for (see the tool description). |
-| `query` | string (optional) |  | Element text, window title, app name/bundle id or text (depends on condition). |
-| `role` | string (optional) |  | Element role filter (button, field, row…) for element conditions. |
-| `app` | string (optional) |  | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
+| `query` | string | optional | Element text, window title, app name/bundle id or text (depends on condition). |
+| `role` | string | optional | Element role filter (button, field, row…) for element conditions. |
+| `app` | string | optional | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
 | `timeout_ms` | integer | `10000` | Give up after this many ms (max 60000); for duration, how long to wait. |
 | `ocr` | boolean | `false` | text_visible only: also look for the text with OCR (slower). |
 
@@ -338,12 +338,12 @@ covered), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER, INVALID_ARGUMENT.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `ref` | string (optional) |  | Element ref from the latest snapshot, e.g. "e12" (or an OCR ref "o3"). Give either ref or x/y. |
-| `x` | number (optional) |  | X coordinate (with y). Screen points by default. |
-| `y` | number (optional) |  | Y coordinate (with x). Screen points by default. |
-| `snapshot_id` | string (optional) |  | Snapshot the ref belongs to. Default: the latest snapshot. |
+| `ref` | string | optional | Element ref from the latest snapshot, e.g. "e12" (or an OCR ref "o3"). Give either ref or x/y. |
+| `x` | number | optional | X coordinate (with y). Screen points by default. |
+| `y` | number | optional | Y coordinate (with x). Screen points by default. |
+| `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
 | `coordinate_space` | `points` \| `screenshot` | `"points"` | "points" (screen points) or "screenshot" (pixels of the screenshot given by screenshot_id, or the latest one). |
-| `screenshot_id` | string (optional) |  | Screenshot the pixel coordinates refer to ("c_ab12"). Default: the latest. |
+| `screenshot_id` | string | optional | Screenshot the pixel coordinates refer to ("c_ab12"). Default: the latest. |
 | `button` | `left` \| `right` \| `middle` | `"left"` | Mouse button. |
 | `count` | integer | `1` | Clicks: 2 = double-click, 3 = triple-click. |
 | `modifiers` | list of `cmd` \| `shift` \| `option` \| `ctrl` \| `fn` | `[]` | Modifier keys held during the action, e.g. ["cmd"] to add to a selection. |
@@ -369,8 +369,8 @@ ELEMENT_NOT_ACTIONABLE, USER_ACTIVE, PAUSED_BY_USER.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `text` | string | required | Text to type (may contain newlines). |
-| `ref` | string (optional) |  | Element ref from the latest snapshot, e.g. "e12" (or an OCR ref "o3"). Give either ref or x/y. |
-| `snapshot_id` | string (optional) |  | Snapshot the ref belongs to. Default: the latest snapshot. |
+| `ref` | string | optional | Element ref from the latest snapshot, e.g. "e12" (or an OCR ref "o3"). Give either ref or x/y. |
+| `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
 | `clear` | boolean | `false` | Replace the field's current content. |
 | `submit` | boolean | `false` | Press Return after typing. |
 | `strategy` | `auto` \| `ax_value` \| `keystrokes` \| `paste` | `"auto"` | How to enter the text (default auto). |
@@ -394,7 +394,7 @@ BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER.
 |---|---|---|---|
 | `keys` | string | required | A combo or a space-separated sequence, e.g. "cmd+shift+t" or "cmd+a delete". |
 | `repeat` | integer | `1` | Press the whole sequence this many times. |
-| `app` | string (optional) |  | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
+| `app` | string | optional | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
 | `report` | `diff` \| `snapshot` \| `none` | `"diff"` | What to return after acting: "diff" (what changed, default), "snapshot" (the whole new snapshot) or "none" (fastest). |
 
 **Returns** (structured content): `ok`, `action`, `strategy`, `attempts`, `target`, `point`, `message`, `diff`, `snapshot`, `snapshot_id`, and `warnings`.
@@ -416,18 +416,18 @@ BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER, INVALID_ARGUMENT.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `ref` | string (optional) |  | Ref of a scroll area, list, table, web area or text area (or of an element inside one), e.g. "e13". |
-| `x` | number (optional) |  | X coordinate (with y). Screen points by default. |
-| `y` | number (optional) |  | Y coordinate (with x). Screen points by default. |
-| `app` | string (optional) |  | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
-| `snapshot_id` | string (optional) |  | Snapshot the ref belongs to. Default: the latest snapshot. |
+| `ref` | string | optional | Ref of a scroll area, list, table, web area or text area (or of an element inside one), e.g. "e13". |
+| `x` | number | optional | X coordinate (with y). Screen points by default. |
+| `y` | number | optional | Y coordinate (with x). Screen points by default. |
+| `app` | string | optional | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
+| `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
 | `coordinate_space` | `points` \| `screenshot` | `"points"` | "points" (screen points) or "screenshot" (pixels of the screenshot given by screenshot_id, or the latest one). |
-| `screenshot_id` | string (optional) |  | Screenshot the pixel coordinates refer to ("c_ab12"). Default: the latest. |
+| `screenshot_id` | string | optional | Screenshot the pixel coordinates refer to ("c_ab12"). Default: the latest. |
 | `direction` | `up` \| `down` \| `left` \| `right` | `"down"` | up \| down \| left \| right. |
 | `amount` | number | `1` | How far, in units. |
 | `unit` | `lines` \| `pages` | `"pages"` | "pages" (~80% of the visible area) or "lines". |
-| `to` | `top` \| `bottom` (optional) |  | "top" or "bottom": scroll all the way (ignores direction/amount). |
-| `scroll_into_view` | string (optional) |  | Ref of an element to scroll into view (no other target needed). |
+| `to` | `top` \| `bottom` | optional | "top" or "bottom": scroll all the way (ignores direction/amount). |
+| `scroll_into_view` | string | optional | Ref of an element to scroll into view (no other target needed). |
 | `report` | `diff` \| `snapshot` \| `none` | `"diff"` | What to return after acting: "diff" (what changed, default), "snapshot" (the whole new snapshot) or "none" (fastest). |
 
 **Returns** (structured content): `ok`, `action`, `strategy`, `attempts`, `target`, `point`, `message`, `diff`, `snapshot`, `snapshot_id`, `moved`, `at_end`, `scrolls`, `container`, `visible`, and `warnings`.
@@ -444,15 +444,15 @@ BLOCKED_BY_POLICY, ELEMENT_NOT_ACTIONABLE, USER_ACTIVE, PAUSED_BY_USER.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `from_ref` | string (optional) |  | Element ref from the latest snapshot, e.g. "e12" (or an OCR ref "o3"). Give either ref or x/y. |
-| `from_x` | number (optional) |  | X coordinate (with y). Screen points by default. |
-| `from_y` | number (optional) |  | Y coordinate (with x). Screen points by default. |
-| `to_ref` | string (optional) |  | Element ref from the latest snapshot, e.g. "e12" (or an OCR ref "o3"). Give either ref or x/y. |
-| `to_x` | number (optional) |  | X coordinate (with y). Screen points by default. |
-| `to_y` | number (optional) |  | Y coordinate (with x). Screen points by default. |
-| `snapshot_id` | string (optional) |  | Snapshot the ref belongs to. Default: the latest snapshot. |
+| `from_ref` | string | optional | Element ref from the latest snapshot, e.g. "e12" (or an OCR ref "o3"). Give either ref or x/y. |
+| `from_x` | number | optional | X coordinate (with y). Screen points by default. |
+| `from_y` | number | optional | Y coordinate (with x). Screen points by default. |
+| `to_ref` | string | optional | Element ref from the latest snapshot, e.g. "e12" (or an OCR ref "o3"). Give either ref or x/y. |
+| `to_x` | number | optional | X coordinate (with y). Screen points by default. |
+| `to_y` | number | optional | Y coordinate (with x). Screen points by default. |
+| `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
 | `coordinate_space` | `points` \| `screenshot` | `"points"` | "points" (screen points) or "screenshot" (pixels of the screenshot given by screenshot_id, or the latest one). |
-| `screenshot_id` | string (optional) |  | Screenshot the pixel coordinates refer to ("c_ab12"). Default: the latest. |
+| `screenshot_id` | string | optional | Screenshot the pixel coordinates refer to ("c_ab12"). Default: the latest. |
 | `duration_ms` | integer | `300` | How long the drag takes. |
 | `modifiers` | list of `cmd` \| `shift` \| `option` \| `ctrl` \| `fn` | `[]` | Modifier keys held during the action, e.g. ["cmd"] to add to a selection. |
 | `report` | `diff` \| `snapshot` \| `none` | `"diff"` | What to return after acting: "diff" (what changed, default), "snapshot" (the whole new snapshot) or "none" (fastest). |
@@ -469,12 +469,12 @@ Errors: STALE_REF, INVALID_ARGUMENT, BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_U
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `ref` | string (optional) |  | Element ref from the latest snapshot, e.g. "e12" (or an OCR ref "o3"). Give either ref or x/y. |
-| `x` | number (optional) |  | X coordinate (with y). Screen points by default. |
-| `y` | number (optional) |  | Y coordinate (with x). Screen points by default. |
-| `snapshot_id` | string (optional) |  | Snapshot the ref belongs to. Default: the latest snapshot. |
+| `ref` | string | optional | Element ref from the latest snapshot, e.g. "e12" (or an OCR ref "o3"). Give either ref or x/y. |
+| `x` | number | optional | X coordinate (with y). Screen points by default. |
+| `y` | number | optional | Y coordinate (with x). Screen points by default. |
+| `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
 | `coordinate_space` | `points` \| `screenshot` | `"points"` | "points" (screen points) or "screenshot" (pixels of the screenshot given by screenshot_id, or the latest one). |
-| `screenshot_id` | string (optional) |  | Screenshot the pixel coordinates refer to ("c_ab12"). Default: the latest. |
+| `screenshot_id` | string | optional | Screenshot the pixel coordinates refer to ("c_ab12"). Default: the latest. |
 | `duration_ms` | integer | `0` | How long the movement takes. |
 | `report` | `diff` \| `snapshot` \| `none` | `"none"` | What to return after acting: "diff" (what changed, default), "snapshot" (the whole new snapshot) or "none" (fastest). |
 
@@ -499,7 +499,31 @@ number for a slider), BLOCKED_BY_POLICY (secure fields), STALE_REF.
 |---|---|---|---|
 | `ref` | string | required | Element ref from a snapshot, e.g. "e12" (or "s_ab12:e12" to pin the snapshot). |
 | `value` | string | required | The value as text: "true"/"false", a number, or text. |
-| `snapshot_id` | string (optional) |  | Snapshot the ref belongs to. Default: the latest snapshot. |
+| `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
+| `report` | `diff` \| `snapshot` \| `none` | `"diff"` | What to return after acting: "diff" (what changed, default), "snapshot" (the whole new snapshot) or "none" (fastest). |
+
+**Returns** (structured content): `ok`, `action`, `strategy`, `attempts`, `target`, `point`, `message`, `diff`, `snapshot`, `snapshot_id`, and `warnings`.
+
+### `select_option`: Choose an option
+
+idempotent · input · Profiles: `standard`, `full` · Windows-MCP: `SelectOption`
+
+Choose an option of a control by its title (or 1-based index): a pop-up button or combo box
+(AXPilot opens it and picks the item), a radio group, tab group or segmented control (presses the
+matching button), or a list, table or outline (selects the matching row).
+Params: ref (the control, from a snapshot), option (title: exact, then prefix, then substring; pop-ups
+and combo boxes need the exact title, since their items are listed only while open) or index (not
+for pop-ups); snapshot_id; report. Choosing the option that is already selected changes nothing.
+Errors: INVALID_ARGUMENT (no or several matching options: the message lists them), STALE_REF,
+ELEMENT_NOT_ACTIONABLE (disabled, or not a control with options; menu buttons: use
+perform_action AXShowMenu), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `ref` | string | required | The control: a pop-up, combo box, radio/tab group or list ("e7"). |
+| `option` | string | optional | The option's title. |
+| `index` | integer | optional | The option's position, from 1. |
+| `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
 | `report` | `diff` \| `snapshot` \| `none` | `"diff"` | What to return after acting: "diff" (what changed, default), "snapshot" (the whole new snapshot) or "none" (fastest). |
 
 **Returns** (structured content): `ok`, `action`, `strategy`, `attempts`, `target`, `point`, `message`, `diff`, `snapshot`, `snapshot_id`, and `warnings`.
@@ -518,7 +542,7 @@ disabled element), STALE_REF, BLOCKED_BY_POLICY, INVALID_ARGUMENT.
 |---|---|---|---|
 | `ref` | string | required | Element ref from a snapshot, e.g. "e12" (or "s_ab12:e12" to pin the snapshot). |
 | `action` | string | required | AX action name, e.g. "AXShowMenu". |
-| `snapshot_id` | string (optional) |  | Snapshot the ref belongs to. Default: the latest snapshot. |
+| `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
 | `report` | `diff` \| `snapshot` \| `none` | `"diff"` | What to return after acting: "diff" (what changed, default), "snapshot" (the whole new snapshot) or "none" (fastest). |
 
 **Returns** (structured content): `ok`, `action`, `strategy`, `attempts`, `target`, `point`, `message`, `diff`, `snapshot`, `snapshot_id`, and `warnings`.
@@ -537,7 +561,7 @@ item), APP_NOT_FOUND, BLOCKED_BY_POLICY.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | list of string | `[]` | Menu titles from the menu bar down, e.g. ["File", "Save As…"]. Empty = list. |
-| `app` | string (optional) |  | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
+| `app` | string | optional | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
 | `depth` | integer | `2` | Levels to list (1 = top-level menus only). |
 | `report` | `diff` \| `snapshot` \| `none` | `"diff"` | What to return after acting: "diff" (what changed, default), "snapshot" (the whole new snapshot) or "none" (fastest). |
 
@@ -556,11 +580,35 @@ fields done so far), USER_ACTIVE, PAUSED_BY_USER.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `fields` | list of object (FieldValue) | required | Fields to fill, in order. |
-| `snapshot_id` | string (optional) |  | Snapshot the ref belongs to. Default: the latest snapshot. |
+| `fields` | list of object | required | Fields to fill, in order. |
+| `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
 | `report` | `diff` \| `snapshot` \| `none` | `"diff"` | What to return after acting: "diff" (what changed, default), "snapshot" (the whole new snapshot) or "none" (fastest). |
 
 **Returns** (structured content): `ok`, `action`, `strategy`, `attempts`, `target`, `point`, `message`, `diff`, `snapshot`, `snapshot_id`, and `warnings`.
+
+### `handle_dialog`: Answer a dialog
+
+destructive · input · asks first (some actions) · Profiles: `standard`, `full` · Windows-MCP: `HandleDialog`
+
+Deal with the sheet, alert or dialog in front of an app: read it, or answer it.
+action: inspect (default: its title, text, fields and buttons), accept (press the default button:
+OK, Allow, Save…, else the rightmost one), cancel (press Cancel/Not Now/No, else press Escape), or
+press (the button titled button). text fills the dialog's first text field before pressing.
+Pressing a button that deletes, replaces or discards something asks the user first. Params: app
+(default: the frontmost app), action, button, text, report.
+Errors: ELEMENT_NOT_ACTIONABLE (no dialog is open), INVALID_ARGUMENT (no such button: the message
+lists them), USER_DENIED, BLOCKED_BY_POLICY (secure fields: the user types passwords), NEEDS_USER
+(system authentication dialogs), USER_ACTIVE, PAUSED_BY_USER.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `app` | string | optional | App name or bundle id (default: frontmost). |
+| `action` | `inspect` \| `accept` \| `cancel` \| `press` | `"inspect"` | inspect \| accept \| cancel \| press. |
+| `button` | string | optional | press: the button's title. |
+| `text` | string | optional | Text for the dialog's first text field. |
+| `report` | `diff` \| `snapshot` \| `none` | `"diff"` | What to return after acting: "diff" (what changed, default), "snapshot" (the whole new snapshot) or "none" (fastest). |
+
+**Returns** (structured content): `ok`, `action`, `strategy`, `attempts`, `target`, `point`, `message`, `diff`, `snapshot`, `snapshot_id`, `found`, `kind`, `title`, `texts`, `buttons`, `fields`, `pressed`, and `warnings`.
 
 ## `apps`
 
@@ -597,13 +645,13 @@ first). Errors: WINDOW_NOT_FOUND, STALE_REF, BLOCKED_BY_POLICY, INVALID_ARGUMENT
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `action` | `focus` \| `move` \| `resize` \| `minimize` \| `restore` \| `zoom` \| `fullscreen` \| `close` | required | focus \| move \| resize \| minimize \| restore \| zoom \| fullscreen \| close. |
-| `window_id` | integer (optional) |  | Window id from list_windows. |
-| `ref` | string (optional) |  | Any element ref of a snapshot of the window. |
-| `snapshot_id` | string (optional) |  | Snapshot the ref belongs to. Default: the latest snapshot. |
-| `x` | number (optional) |  | move: new left edge (screen points). |
-| `y` | number (optional) |  | move: new top edge (screen points). |
-| `width` | number (optional) |  | resize: new width in points. |
-| `height` | number (optional) |  | resize: new height in points. |
+| `window_id` | integer | optional | Window id from list_windows. |
+| `ref` | string | optional | Any element ref of a snapshot of the window. |
+| `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
+| `x` | number | optional | move: new left edge (screen points). |
+| `y` | number | optional | move: new top edge (screen points). |
+| `width` | number | optional | resize: new width in points. |
+| `height` | number | optional | resize: new height in points. |
 
 **Returns** (structured content): `action`, `window`, `closed`, `message`, and `warnings`.
 
@@ -622,7 +670,7 @@ protected app), APP_NOT_FOUND (with_app).
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `target` | string | required | URL, absolute path, ~/path or file:// URL. |
-| `with_app` | string (optional) |  | Open with this app (name or bundle id). |
+| `with_app` | string | optional | Open with this app (name or bundle id). |
 | `reveal` | boolean | `false` | Select the file in a Finder window instead of opening it. |
 
 **Returns** (structured content): `target`, `kind`, `with_app`, `revealed`, `message`, and `warnings`.
@@ -646,9 +694,9 @@ Errors: INVALID_ARGUMENT (nothing or several things to set, bad image, missing f
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `action` | `get` \| `set` | `"get"` | get \| set. |
-| `text` | string (optional) |  | set: text to put on the clipboard. |
-| `image_png_base64` | string (optional) |  | set: a PNG image, base64-encoded. |
-| `files` | list of string (optional) |  | set: absolute paths of files to put on the clipboard. |
+| `text` | string | optional | set: text to put on the clipboard. |
+| `image_png_base64` | string | optional | set: a PNG image, base64-encoded. |
+| `files` | list of string | optional | set: absolute paths of files to put on the clipboard. |
 | `include_image` | boolean | `false` | get: also return a copied image. |
 
 **Returns** (structured content): `action`, `text`, `text_length`, `truncated`, `has_image`, `image_size`, `files`, `types`, `message`, and `warnings`.
@@ -666,7 +714,7 @@ the app running AXPilot), TIMEOUT.
 |---|---|---|---|
 | `title` | string | required | Notification title. |
 | `message` | string | required | Notification body. |
-| `subtitle` | string (optional) |  | Optional subtitle. |
+| `subtitle` | string | optional | Optional subtitle. |
 
 **Returns** (structured content): `title`, `message`, `subtitle`, and `warnings`.
 
@@ -683,8 +731,8 @@ Errors: INVALID_ARGUMENT (bad kind, scope or query), TIMEOUT, NOT_SUPPORTED (Spo
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `query` | string | `""` | What to look for. |
-| `kind` | string (optional) |  | app, pdf, image, folder, document… |
-| `scope` | string (optional) |  | Folder to search in (~ allowed). |
+| `kind` | string | optional | app, pdf, image, folder, document… |
+| `scope` | string | optional | Folder to search in (~ allowed). |
 | `limit` | integer | `20` | Most paths to return. |
 
 **Returns** (structured content): `query`, `kind`, `scope`, `paths`, `count`, and `warnings`.
@@ -713,8 +761,8 @@ Returns the new state. Changing the appearance may trigger a one-time Automation
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `action` | `volume` \| `mute` \| `unmute` \| `appearance` | required | volume \| mute \| unmute \| appearance. |
-| `level` | integer (optional) |  | volume: output volume 0-100. |
-| `mode` | `light` \| `dark` (optional) |  | appearance: light or dark. |
+| `level` | integer | optional | volume: output volume 0-100. |
+| `mode` | `light` \| `dark` | optional | appearance: light or dark. |
 
 **Returns** (structured content): `action`, `volume`, `appearance`, `message`, and `warnings`.
 
@@ -732,9 +780,9 @@ Errors: INVALID_ARGUMENT (no such pid), BLOCKED_BY_POLICY, USER_DENIED, COMMAND_
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `action` | `list` \| `kill` | `"list"` | list \| kill. |
-| `name` | string (optional) |  | list: keep processes whose path contains this. |
+| `name` | string | optional | list: keep processes whose path contains this. |
 | `limit` | integer | `30` | list: most processes to return. |
-| `pid` | integer (optional) |  | kill: the process id. |
+| `pid` | integer | optional | kill: the process id. |
 | `force` | boolean | `false` | kill: SIGKILL instead of SIGTERM. |
 
 **Returns** (structured content): `action`, `processes`, `count`, `pid`, `signal`, `message`, and `warnings`.
@@ -761,8 +809,8 @@ above the limit).
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `command` | string | required | The command line, run with zsh -lc. |
-| `cwd` | string (optional) |  | Working directory (default: the home folder). |
-| `timeout_s` | number (optional) |  | Seconds before the command is stopped. |
+| `cwd` | string | optional | Working directory (default: the home folder). |
+| `timeout_s` | number | optional | Seconds before the command is stopped. |
 
 **Returns** (structured content): `exit_code`, `stdout`, `stderr`, `timed_out`, `truncated`, `cwd`, `duration_ms`, and `warnings`.
 
@@ -796,7 +844,7 @@ destructive · open world · asks first · Profiles: `full` · Windows-MCP: `Sho
 List or run the user's Apple Shortcuts (the shortcuts command, macOS 12+).
 Use it to reuse automations the user already built. Params: action list | run; list: query
 (case-insensitive filter), limit; run: name (exact, from list), input (text passed to the
-shortcut), timeout_s (default 60, at most 600). Running asks the user first.
+shortcut), timeout_s (default 30, at most 600). Running asks the user first.
 Returns the names, or the shortcut's output as text (cut at [scripting] output_max_chars).
 Errors: INVALID_ARGUMENT (no shortcut with that name), TIMEOUT (it may wait for the user),
 COMMAND_FAILED, NOT_SUPPORTED (no shortcuts command), USER_DENIED.
@@ -804,11 +852,11 @@ COMMAND_FAILED, NOT_SUPPORTED (no shortcuts command), USER_DENIED.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `action` | `list` \| `run` | `"list"` | list \| run. |
-| `name` | string (optional) |  | run: the shortcut's exact name. |
-| `input` | string (optional) |  | run: text given to the shortcut. |
-| `query` | string (optional) |  | list: keep names containing this. |
+| `name` | string | optional | run: the shortcut's exact name. |
+| `input` | string | optional | run: text given to the shortcut. |
+| `query` | string | optional | list: keep names containing this. |
 | `limit` | integer | `100` | list: most names to return. |
-| `timeout_s` | number | `60.0` | run: seconds before it is stopped. |
+| `timeout_s` | number | `30.0` | run: seconds before it is stopped. |
 
 **Returns** (structured content): `action`, `shortcuts`, `count`, `name`, `output`, `truncated`, and `warnings`.
 
@@ -829,9 +877,9 @@ BLOCKED_BY_POLICY, USER_DENIED.
 |---|---|---|---|
 | `domain` | string | required | Bundle id, NSGlobalDomain or a plist path. |
 | `action` | `read` \| `write` | `"read"` | read \| write. |
-| `key` | string (optional) |  | The preference key. |
-| `value` | string \| integer \| number \| boolean (optional) |  | write: the new value. |
-| `type` | `string` \| `int` \| `float` \| `bool` (optional) |  | write: force a type (default: from the value). |
+| `key` | string | optional | The preference key. |
+| `value` | string \| integer \| number \| boolean | optional | write: the new value. |
+| `type` | `string` \| `int` \| `float` \| `bool` | optional | write: force a type (default: from the value). |
 
 **Returns** (structured content): `action`, `domain`, `key`, `value`, `type`, `command`, `truncated`, and `warnings`.
 
@@ -856,10 +904,10 @@ window or tab, bad URL), BLOCKED_BY_POLICY (javascript:/data: URLs, protected ta
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `action` | `list` \| `activate` \| `open` \| `close` | `"list"` | list \| activate \| open \| close. |
-| `browser` | string (optional) |  | Safari, Chrome, Arc, Edge, Brave, Chromium or Vivaldi (name, key or bundle id). Default: the frontmost browser, else the first one running. |
-| `window` | integer (optional) |  | Window number, 1 = frontmost (from browser_tabs list). |
-| `tab` | integer (optional) |  | Tab number within the window, from 1. |
-| `url` | string (optional) |  | open: the URL. |
+| `browser` | string | optional | Safari, Chrome, Arc, Edge, Brave, Chromium or Vivaldi (name, key or bundle id). Default: the frontmost browser, else the first one running. |
+| `window` | integer | optional | Window number, 1 = frontmost (from browser_tabs list). |
+| `tab` | integer | optional | Tab number within the window, from 1. |
+| `url` | string | optional | open: the URL. |
 | `new_window` | boolean | `false` | open: in a new window instead of a new tab. |
 
 **Returns** (structured content): `action`, `browser`, `tabs`, `count`, `hidden`, `url`, `message`, and `warnings`.
@@ -880,7 +928,7 @@ page in the front window), BLOCKED_BY_POLICY.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `browser` | string (optional) |  | Safari, Chrome, Arc, Edge, Brave, Chromium or Vivaldi (name, key or bundle id). Default: the frontmost browser, else the first one running. |
+| `browser` | string | optional | Safari, Chrome, Arc, Edge, Brave, Chromium or Vivaldi (name, key or bundle id). Default: the frontmost browser, else the first one running. |
 | `include_links` | boolean | `false` | Write links as [text](url). |
 | `offset` | integer | `0` | Character to start at (from next_offset). |
 | `max_chars` | integer | `20000` | Most characters to return. |
@@ -905,9 +953,9 @@ USER_DENIED.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `js` | string | required | The JavaScript to run. |
-| `browser` | string (optional) |  | Safari, Chrome, Arc, Edge, Brave, Chromium or Vivaldi (name, key or bundle id). Default: the frontmost browser, else the first one running. |
-| `window` | integer (optional) |  | Window number, 1 = frontmost (from browser_tabs list). |
-| `tab` | integer (optional) |  | Tab number within the window, from 1. |
+| `browser` | string | optional | Safari, Chrome, Arc, Edge, Brave, Chromium or Vivaldi (name, key or bundle id). Default: the frontmost browser, else the first one running. |
+| `window` | integer | optional | Window number, 1 = frontmost (from browser_tabs list). |
+| `tab` | integer | optional | Tab number within the window, from 1. |
 
 **Returns** (structured content): `browser`, `window`, `tab`, `title`, `url`, `result`, `truncated`, and `warnings`.
 
@@ -938,12 +986,12 @@ SECURE_INPUT_ACTIVE, USER_ACTIVE, PAUSED_BY_USER, PERMISSION_SCREEN_RECORDING.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `action` | `screenshot` \| `left_click` \| `right_click` \| `middle_click` \| `double_click` \| `triple_click` \| `mouse_move` \| `left_click_drag` \| `left_mouse_down` \| `left_mouse_up` \| `type` \| `key` \| `scroll` \| `wait` \| `cursor_position` | required | What to do (see the tool description). |
-| `coordinate` | list of integer (optional) |  | [x, y] in pixels of the latest screenshot. |
-| `start_coordinate` | list of integer (optional) |  | left_click_drag: where the drag starts. |
-| `text` | string (optional) |  | type: the text; key: keys such as cmd+c; clicks: modifier keys to hold. |
-| `scroll_direction` | `up` \| `down` \| `left` \| `right` (optional) |  | scroll: up\|down\|left\|right. |
+| `coordinate` | list of integer | optional | [x, y] in pixels of the latest screenshot. |
+| `start_coordinate` | list of integer | optional | left_click_drag: where the drag starts. |
+| `text` | string | optional | type: the text; key: keys such as cmd+c; clicks: modifier keys to hold. |
+| `scroll_direction` | `up` \| `down` \| `left` \| `right` | optional | scroll: up\|down\|left\|right. |
 | `scroll_amount` | integer | `3` | scroll: wheel notches. |
-| `duration` | number (optional) |  | wait: seconds to wait. |
+| `duration` | number | optional | wait: seconds to wait. |
 | `return_screenshot` | boolean | `false` | Return a fresh screenshot after the action. |
 
 **Returns** (structured content): `action`, `message`, `coordinate`, `point`, `app`, `screenshot`, and `warnings`.
@@ -979,6 +1027,8 @@ Each server exposes one naming.
 | `Drag` | `drag` | only when `move_mouse` is disabled (`Move` drags) |
 | `Move` | `move_mouse` | `loc`, `label`, `drag`, `from_loc`, `duration` |
 | `SetValue` | `set_value` | `ref`, `value`, `snapshot_id`, `report` |
+| `SelectOption` | `select_option` | `ref`, `option`, `index`, `snapshot_id`, `report` |
+| `HandleDialog` | `handle_dialog` | `app`, `action`, `button`, `text`, `report` |
 | `PerformAction` | `perform_action` | `ref`, `action`, `snapshot_id`, `report` |
 | `SelectMenu` | `select_menu` | `path`, `app`, `depth`, `report` |
 | `MultiEdit` | `fill_form` | `locs`, `labels` |
