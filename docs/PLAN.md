@@ -335,6 +335,53 @@ Coordinates accept `coordinate_space: points | screenshot` (+ `screenshot_id`).
 - It is **a profile, not duplicates.** Each server exposes one naming scheme, because duplicate tools confuse models and waste context.
 - Parameter mapping is verified against Windows-MCP's current schemas in Phase 4, with a contract test per mapped tool.
 
+### 6.9 Navigation: getting around any app
+Agents need to *roam* through an app, not just click what's on screen. These tools are part of `observe` (and in the `standard` profile):
+
+| Tool | What it does |
+|---|---|
+| `explore` | A map of an app in one call: its windows, menu bar (top-level menus with item counts), toolbar buttons, tabs, sidebar/outline sections, focused element, scrollable areas, plus the app's **compatibility profile** (§6.10). This is the first call for an unfamiliar app. |
+| `find` with `scroll: true` | Search for an element; if it isn't visible, scroll the nearest (or a given) scroll area page by page until it appears, the end is reached, or `max_scrolls` runs out. Lazily loaded lists, long settings panes and feeds work. |
+| `scroll` | Scroll a specific scroll area `ref` by lines/pages, `to: top\|bottom`, or `scroll_into_view: ref`. Reports whether the area moved and whether it hit the end. |
+| `read` | Read the full content of a document, web page, text view, list or table by scrolling through it, de-duplicating overlap between pages, and returning text (or rows) with `complete: true/false`. Suitable for long chats, documents, logs and search results. |
+
+All of them return what changed, so the agent knows whether it is making progress (no infinite scrolling loops: the result says `at_end: true`).
+
+### 6.10 App compatibility: "works with almost any Mac app"
+Mac apps expose very different accessibility trees. AXPilot detects the **app kind** and adapts. Every `snapshot`/`explore` reports `app_kind`, `ax_quality` (`good | partial | poor`) and the strategy in use.
+
+| App kind (detected from the bundle) | Examples | Strategy |
+|---|---|---|
+| Native AppKit / SwiftUI | Finder, Notes, Mail, Xcode, System Settings | Full AX tree; AX actions first |
+| Mac Catalyst / iPad apps on Apple silicon | Podcasts-style Catalyst apps, iOS apps | AX tree (UIKit bridge); coordinate fallback for gestures |
+| Electron / Chromium Embedded Framework | Slack, VS Code, Discord, Notion, Spotify | Turn on `AXManualAccessibility` / `AXEnhancedUserInterface` to expose the DOM-backed tree; web-area traversal |
+| Chromium browsers / Safari / Firefox | Chrome, Arc, Edge, Brave, Safari, Firefox | AX web areas, plus the `browser` toolset (tabs, page text, JS when allowed) |
+| Java (Swing/JavaFX) / Qt | JetBrains IDEs, some enterprise apps, Qt tools | Their AX bridges (often partial); a quality check decides whether to add vision |
+| Microsoft Office / Adobe / custom-drawn UIs | Word, Excel, Photoshop | Larger budgets and menus first; OCR fallback for canvases |
+| Games / canvas / remote desktops | Games, VNC, Figma canvas | **Vision mode**: screenshot + OCR text boxes become clickable pseudo-elements (`o1…`); coordinates as the last resort |
+
+- `snapshot(mode="auto")` (the default) adds OCR-derived elements automatically when `ax_quality` is `poor` and Screen Recording is granted. `mode="vision"` forces it.
+- A community **app-compatibility table** (docs) records tested apps, the kind detected, what works, and known gaps. `app-compat` issues feed it.
+
+### 6.11 Automation scripts: SDK and CLI
+AXPilot is also an automation library, not only an MCP server. Scripts use **the same engine, policy, audit and error codes** as agents.
+
+```python
+from axpilot import Desktop
+
+with Desktop.connect() as mac:            # via AXPilot.app (its permissions), or Desktop.direct()
+    notes = mac.app("Notes").activate()
+    mac.menu("File", "New Note")
+    mac.type_text("Groceries\nMilk, eggs")
+    for row in mac.read(app="Notes", target="list").rows:
+        print(row)
+    mac.find("Share", scroll=True).click()
+```
+- `Desktop` (sync) and `AsyncDesktop` (async) return typed result objects and raise `AXPilotError` with the same codes.
+- `Desktop.fake()` uses the simulated desktop, so automation scripts can be unit-tested in CI without a Mac.
+- CLI for shell scripts and other languages: `axpilot tools` (list tools and schemas) and `axpilot call <tool> --arg key=value | --json '{...}'` (prints the result as JSON; exit codes per QUALITY.md A9).
+- Later (post-1.0): record and replay of action sequences as scripts.
+
 ---
 
 ## 7. Security and safety model

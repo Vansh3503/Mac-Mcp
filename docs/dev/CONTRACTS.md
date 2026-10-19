@@ -396,3 +396,52 @@ key params, and what comes back.
   `main()` is the console-script entry point.
 - `axpilot/clients/`: one writer per client: `ClientTarget(name, display_name, config_path(scope), format=json|toml|yaml,
   servers_key)`, `connect(target, *, command, args, dry_run, scope) -> ConnectResult(path, changed, backup, snippet)`.
+
+---------------------------------------------------------------------------------------------------
+
+## 8. App compatibility and vision fallback (PLAN §6.10)
+
+- `axpilot/perception/appkind.py`
+  - `AppKind = Literal["native", "catalyst", "ios", "electron", "cef", "chromium_browser", "safari", "firefox",
+    "java", "qt", "office", "adobe", "unknown"]`
+  - `def detect_app_kind(bundle_id: str | None, bundle_path: str | None, *, fs=os) -> AppKind` — inspects the bundle:
+    `Contents/Frameworks/Electron Framework.framework`, `Chromium Embedded Framework.framework`, `Qt*.framework`,
+    Java runtimes (`Contents/PlugIns/*jdk*`, `Contents/runtime`, `JavaAppLauncher`), Info.plist
+    (`UIDeviceFamily`/`LSRequiresIPhoneOS` → ios; `UIApplicationSceneManifest` + Catalyst → catalyst), known bundle-id
+    prefixes (`com.microsoft.`, `com.adobe.`, Chromium browsers, Safari, Firefox). Pure and testable with a fake fs.
+  - `def assess_ax_quality(tree: RawTree) -> Literal["good", "partial", "poor"]` — from node count, share of
+    interactive nodes with names, presence of a web area with content, frames present.
+  - `@dataclass AppProfile(kind, ax_quality, strategies: list[str], notes: list[str])` and
+    `def app_profile(app: AppInfo, tree: RawTree | None) -> AppProfile`.
+- `axpilot/perception/vision.py`
+  - `def ocr_elements(lines: list[OcrLine], *, start_index: int = 1, min_confidence: float = 0.3) -> list[Element]` —
+    pseudo-elements with refs `o1…`, role `ocrtext`, frame from OCR, `interactive=True` (clickable by center),
+    `handle=None`, locator path empty. Merges words on the same line, drops duplicates of AX element names.
+  - `def merge_vision(snap: Snapshot, elements: list[Element]) -> Snapshot` — appends to `all_elements` and the page,
+    keeping AX elements first; the store resolves `o` refs too (click falls back to coordinates).
+- Engines: `MacEngine.capture_tree` keeps enabling AX for Electron/Chromium (already implemented); the server decides
+  when to add vision (`mode="auto"`: `ax_quality == "poor"` and screen recording permitted; `mode="vision"`: always).
+
+## 9. Navigation helpers (PLAN §6.9) — `axpilot/perception/navigate.py`
+- `def scroll_container_for(snap: Snapshot, el: Element | None) -> Element | None` — nearest ancestor scrollarea/
+  list/table/outline/webarea/textarea (or the largest scroll area in the window when `el` is None).
+- `def page_signature(snap: Snapshot, container: Element | None) -> str` — stable hash of visible content inside the
+  container, used to detect "did not move" / end reached.
+- `def merge_pages(pages: list[list[str]]) -> list[str]` — joins text lines from successive pages, removing the
+  overlap between page *n*'s tail and page *n+1*'s head (longest suffix/prefix match).
+- The tools `explore`, `find(scroll=True)`, `scroll`, `read` are implemented in `axpilot/server/tools/navigate.py`
+  using these helpers plus engine calls; each loop is bounded (`max_scrolls` ≤ 50, overall deadline ≤ 60 s) and
+  reports `at_end`, `scrolls`, `complete`.
+
+## 10. Automation SDK (PLAN §6.11) — `axpilot/sdk/`
+- `class Desktop` (sync) and `class AsyncDesktop` with constructors `Desktop.direct(config=None, engine=None)`,
+  `Desktop.fake(fixture=None)`, `Desktop.connect(socket_path=None)` (talks MCP to the host over the bridge protocol).
+- Methods mirror the tools with Pythonic signatures and typed results (`SnapshotResult`, `ActionResult`, `ReadResult`,
+  `ElementHandle` with `.click()`, `.type_text()`, `.set_value()`, `.inspect()`); they call the same tool
+  implementations (so policy, audit, confirmations and error codes are identical) — no second code path.
+- `AXPilotError` is raised on failure; context manager closes resources.
+
+## 11. CLI for scripts
+- `axpilot tools [--profile ...] [--json]` lists tools (name, description, input schema).
+- `axpilot call <tool> [--arg key=value ...] [--json '{...}'] [--engine auto|macos|fake] [--direct] [--yes]` runs one
+  tool and prints `structuredContent` (or `{"error": {...}}`) as JSON; exit codes per QUALITY.md A9.
