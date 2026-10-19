@@ -11,9 +11,11 @@ from axpilot.system.processes import (
     MAX_LIMIT,
     PS_ARGV,
     ProcessInfo,
+    check_kill_allowed,
     kill_process,
     list_processes,
     parse_ps_line,
+    process_exists,
 )
 from axpilot.system.runner import FakeRunner, truncate_output
 
@@ -186,3 +188,18 @@ def test_list_processes_skips_blank_lines_and_rejects_bad_names(runner: FakeRunn
     with pytest.raises(AXPilotError) as info:
         list_processes(runner, name=5)  # type: ignore[arg-type]
     assert info.value.code is ErrorCode.INVALID_ARGUMENT
+
+
+def test_process_exists() -> None:
+    assert process_exists(os.getpid()) is True
+    assert process_exists(0) is False
+    assert process_exists(-1) is False
+    assert process_exists(True) is False  # type: ignore[arg-type]
+    assert process_exists(2**22 + 12345) is False
+
+
+@pytest.mark.parametrize("pid", [1, 0, -3, os.getpid(), os.getppid()])
+def test_check_kill_allowed_refuses_like_kill_process(pid: int) -> None:
+    with pytest.raises(AXPilotError) as caught:
+        check_kill_allowed(pid)
+    assert caught.value.code is ErrorCode.BLOCKED_BY_POLICY

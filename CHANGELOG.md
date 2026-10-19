@@ -36,6 +36,14 @@ Pre-alpha. Nothing is published on PyPI yet.
   long list, table, text view or web page, joined page by page without repeats, with `complete`).
   Scrolling measures the app's line height, applies the input policy and lock, and every loop is
   bounded, returning partial results with a warning instead of failing.
+- App and system tools: `app` (launch, activate, hide, unhide, quit, force-quit), `window` (focus,
+  move, resize, minimize, restore, zoom, full screen, close), `open` (URLs, files and folders; only
+  http(s), mailto, file and System Settings URLs unless scripting is enabled), `clipboard` (text,
+  images, files), `notify`, `spotlight_search`, `system_info`, `system_control` (volume, mute,
+  appearance) and `processes` (list; stopping one refuses system processes, AXPilot and protected
+  apps before asking the user). A `manage` policy kind applies the deny lists to app and window
+  management without the Terminal typing rule; protected apps are recognized by their bundle id,
+  even renamed.
 - Input helpers: key-combo parsing (`cmd+shift+t`, `⌘⇧T`, `Command-Shift-T`) and screenshot-to-screen
   coordinate mapping.
 - Policy layer: profiles and toolsets, app and window deny-lists, the Terminal rule, secure-field

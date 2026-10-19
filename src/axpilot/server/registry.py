@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 __all__ = [
     "REGISTRY",
     "ConfirmText",
+    "ConfirmWhen",
     "RegistryError",
     "ToolFactory",
     "ToolFn",
@@ -59,6 +60,9 @@ ToolFactory = Callable[["ServerContext"], ToolFn]
 
 ConfirmText = Callable[[Mapping[str, Any]], tuple[str, str | None]]
 """Builds ``(summary, detail)`` for the confirmation dialog from a call's arguments."""
+
+ConfirmWhen = Callable[[Mapping[str, Any]], bool]
+"""For a destructive tool: whether *this* call (its arguments) is destructive."""
 
 _TOOLSET_OF: dict[str, str] = {name: toolset for toolset, names in TOOLSETS.items() for name in names}
 _ORDER: dict[str, int] = {name: index for index, name in enumerate(TOOL_ORDER)}
@@ -89,6 +93,10 @@ class ToolSpec:
     """Name under the Windows-MCP naming profile (``Click``), if the tool has one."""
     confirm_text: ConfirmText | None = None
     """Custom confirmation text; the default names the tool and lists the arguments."""
+    confirm_when: ConfirmWhen | None = None
+    """For a destructive tool with harmless actions too (``app``: launch is harmless, force_quit
+    is not): the guard treats a call as destructive only when this returns True for its
+    arguments. ``None``: every call of a destructive tool is."""
 
     def annotations(self) -> ToolAnnotations:
         """MCP tool annotations (hints for clients)."""
@@ -128,6 +136,8 @@ def _validate(spec: ToolSpec) -> None:
         raise RegistryError(f"Tool {spec.name!r} cannot be read-only and destructive/an input action.")
     if not spec.title.strip() or not spec.description.strip():
         raise RegistryError(f"Tool {spec.name!r} needs a title and a description.")
+    if spec.confirm_when is not None and not spec.destructive:
+        raise RegistryError(f"Tool {spec.name!r} has confirm_when but is not destructive.")
 
 
 def register(spec: ToolSpec) -> ToolSpec:
@@ -155,6 +165,7 @@ def tool(
     input_action: bool = False,
     windows_mcp_name: str | None = None,
     confirm_text: ConfirmText | None = None,
+    confirm_when: ConfirmWhen | None = None,
     toolset: str | None = None,
 ) -> Callable[[ToolFactory], ToolFactory]:
     """Decorator that registers a tool factory (see the module docstring). ``toolset``
@@ -175,6 +186,7 @@ def tool(
                 input_action=input_action,
                 windows_mcp_name=windows_mcp_name,
                 confirm_text=confirm_text,
+                confirm_when=confirm_when,
             )
         )
         return factory

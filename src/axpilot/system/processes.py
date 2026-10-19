@@ -22,7 +22,16 @@ from typing import Any
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.system.runner import CommandRunner, ensure_success, output_records
 
-__all__ = ["MAX_LIMIT", "PS_ARGV", "ProcessInfo", "kill_process", "list_processes", "parse_ps_line"]
+__all__ = [
+    "MAX_LIMIT",
+    "PS_ARGV",
+    "ProcessInfo",
+    "check_kill_allowed",
+    "kill_process",
+    "list_processes",
+    "parse_ps_line",
+    "process_exists",
+]
 
 _log = logging.getLogger(__name__)
 
@@ -119,7 +128,7 @@ def kill_process(pid: int, *, force: bool = False) -> str:
     """
     if isinstance(pid, bool) or not isinstance(pid, int):
         raise AXPilotError(ErrorCode.INVALID_ARGUMENT, f"pid must be an integer, got {pid!r}.")
-    _check_kill_allowed(pid)
+    check_kill_allowed(pid)
     sig = signal.SIGKILL if force else signal.SIGTERM
     try:
         os.kill(pid, sig)
@@ -143,7 +152,25 @@ def kill_process(pid: int, *, force: bool = False) -> str:
     return sig.name
 
 
-def _check_kill_allowed(pid: int) -> None:
+def process_exists(pid: int) -> bool:
+    """True if a process with ``pid`` exists (signal 0: nothing is sent). A process of another
+    user counts as existing."""
+    if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def check_kill_allowed(pid: int) -> None:
+    """Raise ``BLOCKED_BY_POLICY`` if :func:`kill_process` would refuse ``pid`` (pid ≤ 1,
+    AXPilot itself or its parent), so callers can refuse before asking the user."""
     hint = "This safety rule cannot be turned off. Quit the app normally or ask the user."
     if pid <= 1:
         raise AXPilotError(

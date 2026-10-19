@@ -6,7 +6,8 @@ For each call, in this order:
 2. **rate limit**: input tools count against ``[safety] max_actions_per_minute``
    (``RATE_LIMITED``);
 3. **confirmation**: when :meth:`Policy.requires_confirmation` says so, the user is asked
-   (bounded wait; a "no" or no answer is ``USER_DENIED``);
+   (bounded wait; a "no" or no answer is ``USER_DENIED``). A destructive tool with harmless
+   actions too counts as destructive only for the calls its ``confirm_when`` picks;
 4. **input turn**: input tools hold the single input lock
    (:meth:`ControlState.input_turn`: ``PAUSED_BY_USER``, ``USER_ACTIVE``, ``BUSY``);
 5. **the tool body**, which applies the app/window policy and calls the engine through
@@ -184,7 +185,8 @@ class _Call:
 
     async def _confirm(self, state: CallState, args: Mapping[str, Any]) -> None:
         spec, ctx = self.spec, self.ctx
-        if not ctx.policy.requires_confirmation(spec.name, destructive=spec.destructive):
+        destructive = spec.destructive and (spec.confirm_when is None or spec.confirm_when(args))
+        if not ctx.policy.requires_confirmation(spec.name, destructive=destructive):
             return
         if spec.confirm_text is not None:
             summary, detail = spec.confirm_text(args)

@@ -46,8 +46,13 @@ __all__ = [
     "Policy",
 ]
 
-AccessKind = Literal["observe", "input", "capture"]
-_KINDS: frozenset[str] = frozenset({"observe", "input", "capture"})
+AccessKind = Literal["observe", "input", "capture", "manage"]
+"""``observe``: read the accessibility tree; ``input``: send clicks, keys and scrolls;
+``capture``: take pixels; ``manage``: launch, activate, hide, quit an app or move, resize, close
+its windows. ``manage`` gets every rule of ``input`` except the Terminal rule (switching to a
+terminal does not type into it)."""
+_KINDS: frozenset[str] = frozenset({"observe", "input", "capture", "manage"})
+_ACTING_KINDS: frozenset[str] = frozenset({"input", "manage"})
 
 TERMINAL_BUNDLE_IDS: frozenset[str] = frozenset(
     {
@@ -81,7 +86,12 @@ _READ_ONLY_TOOLS: frozenset[str] = frozenset(TOOLSETS["observe"])
 _TERMINAL_IDS_CF: frozenset[str] = frozenset(b.casefold() for b in TERMINAL_BUNDLE_IDS)
 _AUTH_IDS_CF: frozenset[str] = frozenset(b.casefold() for b in AUTH_DIALOG_BUNDLE_IDS)
 _SELF_NAME = "axpilot"
-_KIND_VERB: dict[str, str] = {"observe": "Reading", "input": "Controlling", "capture": "Capturing"}
+_KIND_VERB: dict[str, str] = {
+    "observe": "Reading",
+    "input": "Controlling",
+    "capture": "Capturing",
+    "manage": "Managing",
+}
 _CONFIG_HINT = "`axpilot config edit` opens the config file."
 
 
@@ -329,7 +339,7 @@ class Policy:
         return compiled
 
     def _check_unknown_target(self, rules: _Compiled, kind: str) -> None:
-        if kind == "input" and rules.allow:
+        if kind in _ACTING_KINDS and rules.allow:
             raise _blocked(
                 "Controlling this target is blocked by the allow_apps rule: the app under it "
                 "could not be identified.",
@@ -341,7 +351,7 @@ class Policy:
 
     @staticmethod
     def _check_self(app: AppInfo, kind: str) -> None:
-        if kind == "input":
+        if kind in _ACTING_KINDS:
             raise _blocked(
                 "Controlling AXPilot's own windows is blocked: its confirmations and settings "
                 "must be answered by the user.",
@@ -353,7 +363,7 @@ class Policy:
 
     @staticmethod
     def _check_auth_dialog(app: AppInfo, kind: str) -> None:
-        if kind == "input" and app.bundle_id and app.bundle_id.casefold() in _AUTH_IDS_CF:
+        if kind in _ACTING_KINDS and app.bundle_id and app.bundle_id.casefold() in _AUTH_IDS_CF:
             raise AXPilotError(
                 ErrorCode.NEEDS_USER,
                 f"{_describe(app)} is a macOS authentication dialog; AXPilot never operates it.",

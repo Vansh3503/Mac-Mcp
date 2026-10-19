@@ -20,7 +20,7 @@ from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.policy.confirm import ConfirmRequest
 from axpilot.server.context import ServerContext
 from axpilot.server.guard import CONTEXT_PARAM, guard_tool
-from axpilot.server.registry import ToolSpec
+from axpilot.server.registry import RegistryError, ToolSpec, register
 from axpilot.server.results import error_code_of, text_of
 from axpilot.testing import make_test_context
 
@@ -256,6 +256,30 @@ async def test_custom_confirmation_text_is_used() -> None:
     async with serve(ctx, spec, echo) as client:
         await client.call_tool("shell", {"text": "echo hi"})
     assert seen[0].summary == "Run: echo hi"
+
+
+async def test_confirm_when_limits_confirmations_to_destructive_arguments() -> None:
+    seen: list[ConfirmRequest] = []
+
+    class Recorder:
+        async def confirm(self, request: ConfirmRequest) -> bool:
+            seen.append(request)
+            return False
+
+    ctx = make_test_context({"tools.profile": "full"}, confirm=Recorder())
+    spec = make_spec("app", destructive=True, confirm_when=lambda args: args.get("text") == "force_quit")
+    assert spec.annotations().destructive_hint is True
+    async with serve(ctx, spec, echo) as client:
+        harmless = await client.call_tool("app", {"text": "launch"})
+        risky = await client.call_tool("app", {"text": "force_quit"})
+    assert not harmless.is_error
+    assert error_code_of(risky) == "USER_DENIED"
+    assert [request.tool for request in seen] == ["app"]
+
+
+def test_confirm_when_needs_a_destructive_tool() -> None:
+    with pytest.raises(RegistryError, match="not destructive"):
+        register(make_spec("status", confirm_when=lambda args: True))
 
 
 async def test_confirm_never_skips_the_question() -> None:

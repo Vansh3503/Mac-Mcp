@@ -19,7 +19,7 @@ SETTINGS = AppInfo("System Settings", 500, "com.apple.systempreferences")
 SECURITY_AGENT = AppInfo("SecurityAgent", 400, "com.apple.SecurityAgent")
 AXPILOT = AppInfo("AXPilot", 300, BUNDLE_ID)
 
-KINDS = ("observe", "input", "capture")
+KINDS = ("observe", "input", "capture", "manage")
 
 
 def make_policy(enabled: Iterable[str] | None = None, **safety: object) -> Policy:
@@ -190,6 +190,21 @@ def test_terminals_block_input_without_shell(bundle_id: str) -> None:
     assert "scripting" in (error.hint or "")
     policy.check_app(app, kind="observe")
     policy.check_app(app, kind="capture")
+    policy.check_app(app, kind="manage")  # switching to a terminal types nothing into it
+
+
+def test_managing_apps_follows_every_other_rule() -> None:
+    policy = make_policy()
+    deny = blocked(policy, ONEPASSWORD, "manage")
+    assert deny.details["rule"] == "deny_apps"
+    assert deny.message.startswith("Managing 1Password")
+    assert blocked(policy, AXPILOT, "manage").details["rule"] == "self"
+    assert blocked(policy, SECURITY_AGENT, "manage").code is ErrorCode.NEEDS_USER
+    window = blocked(policy, SETTINGS, "manage", window_title="Privacy & Security")
+    assert window.details["rule"] == "deny_windows"
+    allow = blocked(make_policy(allow_apps=["com.apple.Notes"]), TEXTEDIT, "manage")
+    assert allow.details["rule"] == "allow_apps"
+    make_policy(allow_apps=["com.apple.Notes"]).check_app(NOTES, kind="manage")
 
 
 def test_terminal_input_allowed_when_shell_enabled() -> None:

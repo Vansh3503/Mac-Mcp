@@ -310,7 +310,7 @@ scripting + browser. `computer` = computer, status. `enable`/`disable` accept to
 TERMINAL_BUNDLE_IDS: frozenset[str]   # Terminal, iTerm2, Ghostty, Warp, kitty, Alacritty, WezTerm, Hyper, Tabby
 class Policy:
     def __init__(self, safety: SafetyConfig, enabled: Iterable[str]) -> None
-    def check_app(self, app: AppInfo | None, *, kind: Literal["observe","input","capture"],
+    def check_app(self, app: AppInfo | None, *, kind: Literal["observe","input","capture","manage"],
                   window_title: str | None = None) -> None    # raises BLOCKED_BY_POLICY
     def check_secure_target(self, secure: bool) -> None        # typing into secure fields
     def requires_confirmation(self, tool: str, *, destructive: bool) -> bool
@@ -320,7 +320,9 @@ class Policy:
 Rules: deny_apps (bundle id or case-insensitive name) block observe/input/capture; allow_apps (if set)
 blocks everything else; deny_windows (`bundle::title-substring`) block when the window matches;
 terminal apps are blocked for `input` unless `shell` is enabled; AXPilot never blocks *reading* its own
-status. Messages must name the app and the rule.
+status. `manage` (launching, activating, hiding, quitting an app; moving, resizing, closing its windows) gets
+every rule of `input` (deny/allow lists, protected windows, AXPilot itself, authentication dialogs) except the
+Terminal rule. Messages must name the app and the rule.
 
 ### `axpilot/policy/ratelimit.py`
 `class RateLimiter(max_per_minute: int, clock=time.monotonic)`; `.check() -> None` raises `RATE_LIMITED`
@@ -388,7 +390,9 @@ Never `shell=True` except inside `shell.run_shell`, which runs `[shell, "-lc", c
 - `defaults.py`: `defaults_read(runner, domain, key=None) -> str`, `defaults_write(runner, domain, key, value, type_=None)`
   (type inferred: bool→-bool, int→-int, float→-float, str→-string).
 - `processes.py`: `list_processes(runner, *, name=None, limit=50) -> list[ProcessInfo]` (`ps -axo pid=,ppid=,%cpu=,%mem=,comm=`),
-  `kill_process(pid, *, force=False)` (refuses pid ≤ 1 and our own pid with `BLOCKED_BY_POLICY`).
+  `kill_process(pid, *, force=False)` (refuses pid ≤ 1, our own pid and our parent's with `BLOCKED_BY_POLICY`);
+  `check_kill_allowed(pid)` (the same refusal without signalling) and `process_exists(pid) -> bool` (signal 0), so
+  the `processes` tool refuses before it asks the user.
 - `sysinfo.py`: `system_info(runner) -> dict` (sw_vers, `sysctl -n hw.model hw.memsize machdep.cpu.brand_string`,
   `pmset -g batt`, appearance via `defaults read -g AppleInterfaceStyle`, uptime), `set_volume(runner, level|None, mute|None)`,
   `set_appearance(runner, dark: bool)` (osascript System Events).
@@ -430,7 +434,10 @@ def build_server(ctx: ServerContext, *, profile: str | None = None, naming: str 
                  client_name: str | None = None) -> MCPServer
 ```
 Every tool is registered through `axpilot/server/registry.py` (`ToolSpec`: name, toolset, factory(ctx)->async fn,
-title, description, read_only, destructive, idempotent, open_world, windows_mcp_name). A shared guard wraps
+title, description, read_only, destructive, idempotent, open_world, input_action, windows_mcp_name, confirm_text,
+confirm_when). `confirm_when(args) -> bool` lets a destructive tool with harmless actions too (`app`, `processes`)
+be confirmed only for some calls; tools that must resolve and policy-check their target first return False there
+and ask with `ServerContext.confirm_action` once the target is known. A shared guard wraps
 each tool: tool-enabled check → rate limit (input tools) → policy → confirmation (destructive) →
 `control.input_turn()` (input tools) → engine call in a worker thread → audit. `AXPilotError` becomes
 `CallToolResult(is_error=True, content=[TextContent(text=err.to_text())], meta={"axpilot/error": err.to_dict()})`.
