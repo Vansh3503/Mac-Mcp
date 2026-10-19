@@ -550,7 +550,8 @@ Params: ref | x+y (coordinate_space "points" or "screenshot" + screenshot_id), b
 strategy (auto|ax|mouse), report (diff|snapshot|none).
 Returns how it clicked and what changed (new/removed elements, focus and value changes) with the
 new snapshot_id. Errors: STALE_REF (take a new snapshot), ELEMENT_NOT_ACTIONABLE (disabled or
-covered), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER, INVALID_ARGUMENT."""
+covered), TIMEOUT (the app did not answer; the press may still land, so snapshot before retrying),
+BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER, INVALID_ARGUMENT."""
 
 ClickStrategy = Literal["auto", "ax", "mouse"]
 
@@ -596,7 +597,14 @@ async def click_target(
             await ctx.run_engine(ctx.engine.perform_action, target.handle, action)
             return f"ax:{action}", attempts
         except AXPilotError as err:
-            if strategy == "ax" or err.code not in (ErrorCode.ELEMENT_NOT_ACTIONABLE, ErrorCode.TIMEOUT):
+            if err.code is ErrorCode.TIMEOUT:  # the press may still land: clicking too could press twice
+                raise AXPilotError(
+                    err.code,
+                    f"Pressing {target.describe()} did not finish in time; it may still have happened.",
+                    hint="Take a snapshot to see whether it did before you try again.",
+                    details=err.details,
+                ) from err
+            if strategy == "ax" or err.code is not ErrorCode.ELEMENT_NOT_ACTIONABLE:
                 raise
             errors.append(err.message)
     elif strategy == "ax":

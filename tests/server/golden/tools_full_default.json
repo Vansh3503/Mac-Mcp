@@ -576,7 +576,7 @@
    "readOnlyHint": false,
    "title": "Click"
   },
-  "description": "Click an element (by ref) or a point.\nPrefer ref from the latest snapshot: AXPilot presses it through accessibility (works even when the\nwindow is in the background, without moving the pointer) and falls back to a real mouse click.\nParams: ref | x+y (coordinate_space \"points\" or \"screenshot\" + screenshot_id), button\n(left|right|middle), count (2 = double-click), modifiers (e.g. [\"cmd\"] to add to a selection),\nstrategy (auto|ax|mouse), report (diff|snapshot|none).\nReturns how it clicked and what changed (new/removed elements, focus and value changes) with the\nnew snapshot_id. Errors: STALE_REF (take a new snapshot), ELEMENT_NOT_ACTIONABLE (disabled or\ncovered), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER, INVALID_ARGUMENT.",
+  "description": "Click an element (by ref) or a point.\nPrefer ref from the latest snapshot: AXPilot presses it through accessibility (works even when the\nwindow is in the background, without moving the pointer) and falls back to a real mouse click.\nParams: ref | x+y (coordinate_space \"points\" or \"screenshot\" + screenshot_id), button\n(left|right|middle), count (2 = double-click), modifiers (e.g. [\"cmd\"] to add to a selection),\nstrategy (auto|ax|mouse), report (diff|snapshot|none).\nReturns how it clicked and what changed (new/removed elements, focus and value changes) with the\nnew snapshot_id. Errors: STALE_REF (take a new snapshot), ELEMENT_NOT_ACTIONABLE (disabled or\ncovered), TIMEOUT (the app did not answer; the press may still land, so snapshot before retrying),\nBLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER, INVALID_ARGUMENT.",
   "input_schema": {
    "additionalProperties": false,
    "properties": {

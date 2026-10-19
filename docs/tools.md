@@ -334,7 +334,8 @@ Params: ref | x+y (coordinate_space "points" or "screenshot" + screenshot_id), b
 strategy (auto|ax|mouse), report (diff|snapshot|none).
 Returns how it clicked and what changed (new/removed elements, focus and value changes) with the
 new snapshot_id. Errors: STALE_REF (take a new snapshot), ELEMENT_NOT_ACTIONABLE (disabled or
-covered), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER, INVALID_ARGUMENT.
+covered), TIMEOUT (the app did not answer; the press may still land, so snapshot before retrying),
+BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER, INVALID_ARGUMENT.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|

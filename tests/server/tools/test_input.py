@@ -259,6 +259,23 @@ async def test_engine_faults_during_a_click_release_the_input_lock(
         faulty.release()
 
 
+async def test_a_timed_out_ax_press_is_not_followed_by_a_mouse_click() -> None:
+    faulty = FaultyEngine(FakeEngine.demo())
+    ctx = fast(make_test_context({"tools.profile": "full"}, engine=faulty))
+    ctx.engine_timeout_s = 0.1
+    try:
+        async with connected_client(ctx) as client:
+            refs = await refs_of(client, "Notes")
+            faulty.set_fault("perform_action", Fault.hang(10))
+            result, error = await call(client, "click", {"ref": refs["New Note"]})
+        assert error == "TIMEOUT"
+        assert "may still have happened" in text_of(result)
+        assert faulty.calls["mouse_click"] == 0  # the press may land late: a click would press twice
+        assert not ctx.control.busy
+    finally:
+        faulty.release()
+
+
 async def test_a_failed_ax_press_falls_back_to_the_mouse_once() -> None:
     faulty = FaultyEngine(FakeEngine.demo())
     ctx = fast(make_test_context({"tools.profile": "full"}, engine=faulty))
