@@ -139,7 +139,7 @@ integrated terminal it is VS Code or Cursor.
    applies a new grant to new processes only.
 3. For screenshots, do the same under **Screen & System Audio Recording**. It is optional: snapshot
    tools work without it.
-4. Check with `uv run axpilot doctor` *(planned; until it lands, run the macOS tests above)*.
+4. Check with `uv run axpilot doctor`.
 
 Do not try to grant permissions to `python` itself. uv's interpreters are symlinks, and a grant to
 an interpreter path breaks whenever the interpreter changes.
@@ -157,11 +157,13 @@ Working on a test machine or a VM is a good idea: macOS tests click and type for
 
 ## Recording accessibility fixtures
 
-Perception tests run on recorded AX trees, so a fixture from a real app is a very useful
-contribution, especially for apps that behave oddly.
+Tests run on a simulated desktop and hand-built trees, so a tree recorded from a real app is a very
+useful contribution, especially for apps that behave oddly. Recorded trees go in
+`tests/fixtures/ax-trees/`:
 
 ```sh
-uv run axpilot debug dump-tree --app TextEdit > tests/fixtures/ax-trees/textedit-document.json   # planned command
+mkdir -p tests/fixtures/ax-trees
+uv run axpilot debug dump-tree --app TextEdit > tests/fixtures/ax-trees/textedit-document.json
 ```
 
 The format is described in [CONTRACTS.md §1](docs/dev/CONTRACTS.md) (`serialize.py`). **Scrub

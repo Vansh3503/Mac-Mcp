@@ -71,17 +71,18 @@ axpilot connect claude-desktop      # or cursor, vscode, claude-code, … (axpil
 `uv tool install` puts `axpilot` in `~/.local/bin`. If your shell can't find it, run
 `uv tool update-shell` and open a new terminal.
 
-### What `axpilot setup` will do *(planned)*
+### What `axpilot setup` does
 
 1. Check that you run macOS 14 or later, and your architecture.
 2. Create a **dedicated runtime** in `~/Library/Application Support/AXPilot/runtime/` (a uv virtual
    environment with a pinned `axpilot`), so the host never depends on uvx caches or project venvs.
 3. Copy the **launcher** to `~/Applications/AXPilot.app`, byte for byte, verify its cdhash, and
    write `runtime.json` (which tells the launcher how to start the host).
-4. Optionally register a login item.
-5. Open **onboarding** for permissions: Accessibility (required), Screen Recording (optional),
-   Automation (asked on demand). See [Permissions](permissions.md).
-6. Offer to **connect** the MCP clients it finds.
+4. Optionally register a login item (`--login-item`) and open the app (`--launch`).
+
+It prints a report of every step. Granting permissions happens in the launcher's onboarding
+*(planned, v0.2)*; see [Permissions](permissions.md). Add AXPilot to your MCP clients with
+`axpilot connect` ([Connect a client](clients.md)).
 
 The launcher arrives with v0.2. Until then, `setup` checks your system and you use direct mode.
 
@@ -104,18 +105,19 @@ is short; please read it before piping it to a shell. It:
 Running it again is safe. Options: `--yes` (don't ask), `--no-setup` (skip step 5), `--dry-run`
 (print the commands only). Pass them through the pipe with `sh -s -- --yes`.
 
-## Update and uninstall *(planned)*
+## Update and uninstall
 
 ```sh
 axpilot update        # upgrades the runtime; the launcher is untouched, so no re-grant is needed
-axpilot uninstall     # removes the launcher, runtime, socket and (optionally) config and logs
+axpilot uninstall     # removes the login item, the runtime and its manifest; keeps config and logs
+                      # (--remove-launcher also deletes AXPilot.app, which means granting permissions again)
 uv tool uninstall axpilot
 ```
 
 When a release ships a new **launcher** version (rare, announced in the changelog), macOS asks you
 to grant Accessibility once more. `axpilot doctor` detects this and walks you through it.
 
-## Check your installation *(planned)*
+## Check your installation
 
 ```sh
 axpilot doctor

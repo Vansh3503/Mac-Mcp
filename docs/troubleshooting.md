@@ -1,6 +1,6 @@
 # Troubleshooting
 
-## Start with `axpilot doctor` *(planned)*
+## Start with `axpilot doctor`
 
 ```sh
 axpilot doctor          # or, from a source checkout: uv run axpilot doctor
@@ -65,7 +65,7 @@ allow it again in System Settings. Snapshot-based tools work without this permis
   on request. AXPilot asks for it (`perception.enhance_electron_chrome = true`, the default); the
   first snapshot after launch can still be thin, so call `snapshot` again after a second.
 - **Games, canvases, some cross-platform toolkits:** there is little or no accessibility tree. Use
-  `screenshot` (and `ocr`, *planned*) with screenshot coordinates.
+  `screenshot` and `ocr` with screenshot coordinates.
 - **Wrong window:** `snapshot` targets the frontmost app's focused window by default. Pass `app` or
   `window_id` (from `list_windows`).
 - **More elements than shown:** the result says `42 of 318 elements shown`. Use `offset`, or `find`.

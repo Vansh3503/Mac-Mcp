@@ -1,7 +1,7 @@
 # Connect a client
 
 Every MCP client connects the same way: it starts `axpilot stdio` and talks MCP over stdin and
-stdout. Once AXPilot is published, `axpilot connect <client>` *(planned)* writes the right config
+stdout. `axpilot connect <client>` writes the right config
 for you, keeps a backup of the old file, and prints what it changed:
 
 ```sh
@@ -148,9 +148,9 @@ block (see [Configuration](configuration.md)):
 
 | Option | Use |
 |---|---|
-| `--profile minimal` | About 9 tools, for small or local models with limited context |
+| `--profile minimal` | 10 tools, for small or local models with limited context |
 | `--profile full` | Adds the `system`, `scripting` and `browser` toolsets (each still policy-gated) |
-| `--profile computer` | A single `computer` tool for vision-first computer-use loops *(planned)* |
+| `--profile computer` | A single `computer` tool for vision-first computer-use loops |
 | `--naming windows-mcp` | Windows-MCP's tool names and parameter shapes (`Click(loc=[x, y])`, `Type(text, label=12)`, …) |
 
 ## Streamable HTTP
