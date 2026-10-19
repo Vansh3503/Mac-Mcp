@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import stat
 import sys
@@ -342,3 +343,13 @@ def test_manifest_problems(tmp_path: Path, make_executable: Callable[[Path], Pat
     assert manifest_problems(RuntimeManifest(python=str(python), cwd=gone)) == [
         f"the working folder {gone} does not exist"
     ]
+
+
+def test_the_host_args_name_a_runnable_module() -> None:
+    """``python -m <module>`` needs a module, or a package with ``__main__``: the launcher
+    starts the host with exactly these arguments."""
+    assert HOST_ARGS[0] == "-m"
+    spec = importlib.util.find_spec(HOST_ARGS[1])
+    assert spec is not None
+    if spec.submodule_search_locations is not None:  # a package
+        assert importlib.util.find_spec(f"{HOST_ARGS[1]}.__main__") is not None

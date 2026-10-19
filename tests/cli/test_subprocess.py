@@ -242,3 +242,28 @@ def test_http_serves_mcp_with_the_token(env: dict[str, str], tmp_path: Path) -> 
     assert f"http://127.0.0.1:{port}/mcp" in stderr
     assert token not in stderr  # shown only with --show-token
     assert "Traceback" not in stderr
+
+
+def test_the_launchers_command_starts_the_host(env: dict[str, str], sock_dir: Path) -> None:
+    """``AXPilot.app`` runs ``python -m axpilot.host`` (``HOST_ARGS``); it must start a working host."""
+    path = sock_dir / "axpilot.sock"
+    process = subprocess.Popen(
+        [sys.executable, "-m", "axpilot.host", "--engine", "fake", "--yes", "--socket", str(path)],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    try:
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline and not _accepts(path):
+            if process.poll() is not None:
+                err = process.stderr.read().decode() if process.stderr else ""
+                pytest.fail(f"python -m axpilot.host exited with {process.returncode}: {err}")
+            time.sleep(0.1)
+        assert _accepts(path), "python -m axpilot.host did not open its socket"
+        process.send_signal(signal.SIGTERM)
+        assert process.wait(timeout=20) == 0
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
