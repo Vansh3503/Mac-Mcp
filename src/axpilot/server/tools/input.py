@@ -523,7 +523,7 @@ async def activate_app(ctx: ServerContext, app: AppInfo | None) -> None:
     await ctx.sleep(ctx.config.perception.settle_ms / 1000)
 
 
-async def _ensure_uncovered(ctx: ServerContext, target: Target) -> None:
+async def ensure_uncovered(ctx: ServerContext, target: Target) -> None:
     """A synthesized click lands on whatever is on top: make sure that is the target's app."""
     if target.app is None:
         return
@@ -612,7 +612,7 @@ async def click_target(
     if strategy == "ax":
         raise _not_actionable(target, "press", attempts, errors)
     attempts.append("mouse")
-    await _ensure_uncovered(ctx, target)
+    await ensure_uncovered(ctx, target)
     await activate_app(ctx, target.app)
     await ctx.run_engine(
         functools.partial(
@@ -767,7 +767,7 @@ async def _focus(ctx: ServerContext, target: Target) -> str:
         except AXPilotError as err:
             if err.code is not ErrorCode.ELEMENT_NOT_ACTIONABLE:
                 raise
-    await _ensure_uncovered(ctx, target)
+    await ensure_uncovered(ctx, target)
     await activate_app(ctx, target.app)
     await ctx.run_engine(ctx.engine.mouse_click, target.point)
     return "click_focus"
@@ -999,8 +999,9 @@ def drag_tool(ctx: ServerContext) -> ToolFn:
             space=coordinate_space, screenshot_id=screenshot_id,
         )  # fmt: skip
         before = await snapshot_before(ctx, start, report)
-        await _ensure_uncovered(ctx, start)
+        await ensure_uncovered(ctx, start)
         await activate_app(ctx, start.app)
+        await resolve_point(ctx, end.point.x, end.point.y)  # the drop lands on whatever is on top there
         await ctx.run_engine(
             functools.partial(
                 ctx.engine.mouse_drag, start.point, end.point,

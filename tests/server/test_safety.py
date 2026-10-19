@@ -10,6 +10,8 @@ from typing import Any
 import anyio
 import pytest
 
+from axpilot.engine.fake import FakeEngine
+from axpilot.models import Point, Rect
 from axpilot.policy.confirm import ConfirmRequest
 from axpilot.server.context import ServerContext
 from axpilot.server.results import error_code_of, text_of
@@ -116,3 +118,47 @@ async def test_the_audit_log_keeps_typed_text_out_in_both_namings() -> None:
         {"fields": [{"ref": field, "value": "<redacted 8 chars>"}], "snapshot_id": None, "report": "diff"},
         {"labels": [["<redacted 3 chars>", "<redacted 8 chars>"]], "locs": None},  # MultiEdit
     ]
+
+
+def cover_with_1password(ctx: ServerContext, point: list[float]) -> None:
+    """Move 1Password (deny-listed) over ``point`` and bring it to the front."""
+    engine = ctx.engine
+    assert isinstance(engine, FakeEngine)
+    window = next(w for w in engine.list_windows() if w.app == "1Password")
+    engine.window_control(window.window_id, "move", Rect(point[0] - 100, point[1] - 100, 0, 0))
+    engine.app_control("activate", "1Password")
+    under = engine.app_at_point(Point(point[0], point[1]))
+    assert under is not None
+    assert under.name == "1Password"
+
+
+async def test_drops_and_scrolls_never_land_on_a_covering_protected_app() -> None:
+    ctx = make_ctx(confirm=True)
+    engine = ctx.engine
+    assert isinstance(engine, FakeEngine)
+    async with connected_client(ctx) as client:
+        elements = structured(await client.call_tool("snapshot", {"app": "Notes", "mode": "full"}))[
+            "elements"
+        ]
+        search = next(el for el in elements if el["name"] == "Search")
+        scroller = next(el for el in elements if el["role"] in ("list", "scrollarea", "textarea"))
+        cover_with_1password(ctx, search["center"])
+        start = next(
+            (x, y)
+            for x, y in ((130, 120), (200, 200), (300, 300))
+            if (app := engine.app_at_point(Point(x, y))) is not None and app.name != "1Password"
+        )
+        result = await client.call_tool(
+            "drag", {"from_x": start[0], "from_y": start[1], "to_ref": search["ref"]}
+        )
+        assert error_code_of(result) == "BLOCKED_BY_POLICY", text_of(result)
+        assert not engine.events_of("mouse_drag")
+
+        cover_with_1password(ctx, scroller["center"])
+        result = await client.call_tool("scroll", {"ref": scroller["ref"], "direction": "down"})
+        assert error_code_of(result) is None, text_of(result)  # Notes was brought forward first
+    assert engine.events_of("scroll")
+    for scroll in engine.events_of("scroll"):
+        under = engine.app_at_point(Point(*scroll["point"]))
+        assert under is not None
+        assert under.name != "1Password"

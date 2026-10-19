@@ -72,9 +72,11 @@ from axpilot.server.tools.input import (
     ReportArg,
     ScreenshotIdArg,
     SpaceArg,
+    Target,
     XArg,
     YArg,
     element_brief,
+    ensure_uncovered,
     resolve_point,
 )
 from axpilot.server.tools.observe import app_profile_of
@@ -518,11 +520,15 @@ class _Scroller:
 
     async def _scroll(self, point: Point, dx: float, dy: float) -> None:
         ctx = self.ctx
+        # wheel events go to the window under the pointer: it must be this app's
+        target = Target(point=point, app=self.snap.app, window=self.snap.window)
         if self.own_turns:
             async with ctx.control.input_turn(timeout_s=ctx.input_lock_timeout_s, label=self.label):
+                await ensure_uncovered(ctx, target)
                 await ctx.run_engine(ctx.engine.scroll, point, dx, dy)
         else:
             ctx.control.ensure_running()
+            await ensure_uncovered(ctx, target)
             await ctx.run_engine(ctx.engine.scroll, point, dx, dy)
         self.scrolls += 1
 
