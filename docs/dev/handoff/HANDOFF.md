@@ -288,6 +288,35 @@ refute each finding. Fix the confirmed ones and keep everything green.
 - `c439cc8` A5: `read`/`find` restore spun on zero-line scrolls until the time budget ran out when half a line was
   left (`round(0.5) == 0`).
 
+Safety review (S-findings), each with a test:
+- `a5eaa22`: no tool may act while AXPilot is asking the user something (pairing or a confirmation dialog).
+- `48c0ac6`: `open` no longer runs code or app URLs through files (`.command`, `.app`, `.webloc`…).
+- `1e8832f`: `press_keys` with `app` and `select_menu` respect `deny_windows`.
+- `41d4694`: `fill_form` values and typed keys stay out of the audit log.
+- `0e11d39`: drop points and every scroll step are hit-tested like coordinate targets (a covering window of
+  another app is refused).
+- `d04bb5e`: keystrokes into the *focused* field (`type_text`/`press_keys` without a ref, `computer type`) follow
+  the secure-field rule.
+- Finding 7, checked and left as designed (documented here):
+  - The bridge hello may ask for any profile: profiles are per client by design (`axpilot stdio --profile`),
+    and pairing plus the safety deny-lists still apply.
+  - The rate limit is **one host-wide budget** that all clients share, because each connection's context
+    shares the host's `RateLimiter`. One hand on one desktop is the point, but a runaway client can starve the
+    others until its actions age out (60 s). A per-client budget belongs with the per-client control lease
+    (post-1.0, PLAN §5.3).
+
+macOS engine review (M-findings; Linux tests cover the logic, a Mac must confirm the behaviour):
+- `3802403` (blocker): `python -m axpilot.host`, the exact command `AXPilot.app` runs (`HOST_ARGS`), failed:
+  the host package had no `__main__`. The launcher tests use a stub host and never caught it.
+- `002bcd5` M1: nothing turned the main Cocoa run loop (the CLI and host run asyncio on the main thread). So the
+  keyboard-layout lookup (scheduled with `callAfter`) always fell back to US-ANSI after a 0.5 s wait, and
+  `NSWorkspace`'s app list could go stale. `axpilot.runloop` now turns it every 50 ms in every CLI command, in
+  the sync `Desktop` while it waits and in `AsyncDesktop` while it is open.
+- `a0a9bbb` M2: activation set `AXFrontmost` only after a full 1.5 s timeout, although macOS 14+ ignores
+  `activateWithOptions:` from background processes; both now go out in the first attempt.
+- `a0a9bbb` M3: menu shortcuts that are whitespace characters (⌘Space, ⌘↩, ⌃⇥) were lost because the command
+  character was stripped like a title.
+
 Checked and found fine: the MCP surface (capabilities come from the SDK's subscription model; errors are
 `isError` results with a code and hint; unknown tools give `INVALID_ARGUMENT`), stderr excerpts ≤ 500 chars,
 clipboard restore in `finally`, audit redaction of the new tools' text, every loop in the tools bounded.
