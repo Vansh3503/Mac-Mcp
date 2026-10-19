@@ -218,3 +218,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- macOS / AXPilot ---
+.DS_Store
+*.xcuserstate
+xcuserdata/
+DerivedData/
+launcher/build/
+spikes/**/results/*.json
+!spikes/**/results/.gitkeep
