@@ -195,11 +195,10 @@ class ClientTarget:
         if scope == "project" and self.project_path is not None:
             base = Path(project_dir).expanduser() if project_dir is not None else Path.cwd()
             return base.absolute().joinpath(*self.project_path)
-        supported = " or ".join(f"`{s}`" for s in self.scopes) or "no scope"
         raise AXPilotError(
             ErrorCode.INVALID_ARGUMENT,
             f"{self.display_name} has no {scope}-level MCP configuration.",
-            hint=f"Use --scope {self.scopes[0]}." if self.scopes else f"It supports {supported}.",
+            hint=f"Use --scope {self.scopes[0]}." if self.scopes else None,
         )
 
     def entry(

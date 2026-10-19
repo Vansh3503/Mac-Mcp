@@ -280,7 +280,10 @@ def _check_host() -> Check:
             f"{label} belongs to another user.",
             "Delete it (or set AXPILOT_SOCKET to a path of your own) and restart AXPilot.",
         )
-    result = _probe_socket(path)
+    try:
+        result = _probe_socket(path)
+    except OSError as exc:  # e.g. a path longer than AF_UNIX allows
+        return Check("Host", "fail", f"Cannot connect to {label}: {exc.strerror or exc}.", "Restart AXPilot.")
     if result == 0 or result in (errno.EINPROGRESS, errno.EAGAIN, errno.EWOULDBLOCK):
         return Check("Host", "ok", f"Running and accepting connections at {label}.")
     if result == errno.ECONNREFUSED:
