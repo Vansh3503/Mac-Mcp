@@ -63,9 +63,9 @@ async def test_nothing_acts_while_a_confirmation_is_open() -> None:
     runner = FakeRunner()
     ctx = make_ctx(confirm=confirmer, runner=runner)
     codes: dict[str, str | None] = {}
+    outcome: dict[str, Any] = {}
     async with connected_client(ctx) as client:
         async with anyio.create_task_group() as tg:
-            outcome: dict[str, Any] = {}
 
             async def run_shell() -> None:
                 outcome["shell"] = await client.call_tool("shell", {"command": "echo hi"})
