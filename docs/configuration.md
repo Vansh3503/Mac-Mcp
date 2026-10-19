@@ -102,7 +102,9 @@ log_args = "redacted"     # none | redacted | full
 | `allow_remote` | `false` | Allow non-localhost connections; requires `tls_cert` and `tls_key`. Prefer an SSH tunnel or Tailscale |
 | `tls_cert`, `tls_key` | unset | PEM files for TLS |
 
-The HTTP bearer token is generated on first use and stored in your Keychain, not in this file.
+The HTTP bearer token is generated on first use and stored in
+`~/Library/Application Support/AXPilot/http-token` (mode `0600`), not in this file. Keychain storage
+is planned.
 
 ## `[tools]`
 
@@ -128,7 +130,7 @@ Unknown tool or toolset names are an error (with a "did you mean" suggestion).
 | `allow_apps` | `[]` | If non-empty, **only** these apps can be observed or controlled |
 | `allow_secure_fields` | `false` | Allow typing into password fields. Their values are never returned either way |
 | `max_actions_per_minute` | `120` | Input rate limit (1–10000); excess calls get `RATE_LIMITED` |
-| `require_pairing` | `true` | Ask before a new client may connect to the host *(planned, v0.2)* |
+| `require_pairing` | `true` | Ask before a new client app may connect to the host; the answer is remembered |
 
 Setting `deny_apps` or `deny_windows` **replaces** the default list. Copy the defaults from the example
 above if you only want to add an entry.

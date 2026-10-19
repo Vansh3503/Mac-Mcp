@@ -450,20 +450,65 @@ key params, and what comes back.
 
 ## 7. Host, bridge, CLI
 
-- `axpilot/bridge/protocol.py`: newline-delimited JSON. The bridge's first line is a hello:
+- `axpilot/bridge/protocol.py`: newline-delimited JSON, at most `MAX_LINE_BYTES` (4 MiB) per line. The bridge's
+  first line is a hello:
   `{"axpilot_bridge": 1, "client": {"parent_app": str|None, "parent_bundle_id": str|None, "pid": int},
   "profile": str|None, "naming": str|None}`; the host replies `{"ok": true, "server_version": "..."}` or
-  `{"ok": false, "error": {...}}`. After that both directions carry raw MCP JSON-RPC lines.
-- `axpilot/bridge/stdio_pipe.py`: `async def run_bridge(socket_path, hello) -> int` pumps stdin→socket,
-  socket→stdout until EOF. `axpilot/bridge/launch.py`: `ensure_host_running(timeout_s=10)` (on macOS:
-  `open -g -a <launcher>`; elsewhere `HOST_UNAVAILABLE`).
-- `axpilot/host/daemon.py`: `async def serve(ctx, socket_path)` — Unix socket server (0600, same-uid check via
-  `SO_PEERCRED`/`LOCAL_PEERCRED`/`getpeereid`), hello/pairing, one MCP server session per connection over the
-  socket streams. Runs on Linux with the fake engine (tests). `axpilot/host/pairing.py`: `PairingStore`.
+  `{"ok": false, "error": {...}}` (an `AXPilotError` dict). A hello with a newer `axpilot_bridge` version gets
+  `NOT_SUPPORTED`; a malformed one, or an unknown profile or naming, `INVALID_ARGUMENT`. After the reply both
+  directions carry raw MCP JSON-RPC lines; a line that is not JSON gets a JSON-RPC `-32700` parse error and the
+  session goes on. `ClientIdentity.key` (bundle id, else app name, else `pid:<n>`) keys pairing decisions.
+  `LineReader` reads lines from any anyio byte stream.
+- `axpilot/bridge/stdio_pipe.py`: `async def run_bridge(socket_path, hello, *, read_input=None,
+  write_output=None, reply_timeout_s=REPLY_TIMEOUT_S) -> int` sends the hello, waits for the reply (pairing may
+  ask the user first: up to the confirmation limit + 15 s), raises the host's error on a refusal and
+  `HOST_UNAVAILABLE` when the host is unreachable or silent, then pumps stdin→socket and socket→stdout. When
+  stdin ends it half-closes the socket and keeps forwarding until the host closes; returns `0`. Only the host's
+  bytes are written to stdout.
+- `axpilot/bridge/launch.py`: `ensure_host_running(socket_path=None, *, timeout_s=10, ...) -> Path` returns at
+  once if a host answers; on macOS runs `open -g -a <launcher>` and polls the socket; elsewhere (and when the
+  launcher is missing) raises `HOST_UNAVAILABLE` with a hint to use `--direct` or `--engine fake`.
+  `identify_parent()` walks the parent processes with `ps` and names the outermost enclosing `.app` (name and
+  `CFBundleIdentifier`), else the nearest ancestor's command; it never raises.
+- `axpilot/bridge/client.py`: `host_transport(socket_path=None, hello=None)`, an async context manager yielding
+  MCP `(read_stream, write_stream)` to the host, for `mcp.Client(host_transport())` in-process (the SDK's
+  `Desktop.connect()` and the tests).
+- `axpilot/host/daemon.py`: `async def serve(ctx, socket_path=None, *, pairing=None, pairing_confirmer=None,
+  max_clients=8, task_status=...)` and the `Host` class behind it. The socket is created `0600` inside a `0700`
+  folder; a live host on the path is `HOST_UNAVAILABLE`, a stale socket is removed, any other file in the way
+  is never deleted. Each connection: peer uid check (`SO_PEERCRED` on Linux, `LOCAL_PEERCRED` on macOS; another
+  user is refused with `BLOCKED_BY_POLICY`), hello within `hello_timeout_s`, `BUSY` past `max_clients`, the
+  pairing decision, then one MCP server session (`build_server(ctx, profile, naming, client_name)` with
+  `mode="host"` and the client's pairing in `status`). One broken connection never stops the host; the socket
+  is removed when `serve` ends. `axpilot host` stops cleanly on SIGTERM/SIGINT.
+- Pairing (`axpilot/host/pairing.py`): `PairingStore(path=paths.pairing_file())` with `decision(key)`,
+  `remember(key, "always"|"denied", display=...)`, `forget(key)`, `entries()`. JSON
+  `{"version": 1, "clients": {key: {"decision", "decided_at", "display"}}}`, written atomically with `0600`; a
+  damaged file is moved to `<name>.corrupt` and everyone is asked again. The host asks once per client app
+  (one question at a time, through the pairing confirmer: a macOS dialog from `host/dialogs.py`, or `--yes`);
+  a denial is remembered and refused without asking, an unanswered question is not remembered. With
+  `[safety] require_pairing = false` nobody is asked.
+- `axpilot/host/session.py`: `serve_session(server, reader, send)` runs one MCP session over a `LineReader` and
+  a send function; `run_lowlevel` isolates the one private SDK attribute it needs (`MCPServer._lowlevel_server`,
+  pinned by a test).
+- `axpilot/host/http.py`: `build_http_app(ctx, *, token, host, port, allowed_origins, ...)` is the SDK's
+  Streamable HTTP app at `/mcp` behind `AccessGuard`: a `Host` header other than the bound address and port, or
+  an `Origin` not in `--allow-origin`, gets `403`; a missing or wrong bearer token gets `401` (constant-time
+  comparison). No CORS headers. `check_bind` refuses non-loopback addresses unless `allow_remote` and a TLS
+  certificate and key are given (`BLOCKED_BY_POLICY`). The token lives in `<app support>/http-token` (`0600`,
+  at least 32 characters, created on first use; Keychain storage is a later macOS enhancement).
 - `axpilot/cli.py` (Typer): `stdio [--direct] [--engine auto|macos|fake] [--fixture PATH] [--profile]
-  [--naming] [--yes]`, `http`, `host`, `setup`, `update`, `uninstall`, `doctor`, `connect <client>|--list
-  [--dry-run] [--scope]`, `config get|set|edit|path|show`, `skill install`, `debug dump-tree`, `version`.
-  `main()` is the console-script entry point.
+  [--naming] [--yes]` (in-process with `--direct`, `--engine fake` or `--fixture`, else the bridge),
+  `http [--host] [--port] [--allow-remote --tls-cert --tls-key] [--allow-origin ...] [--show-token]`,
+  `host [--engine] [--socket] [--max-clients] [--yes]`, `setup`, `update`, `uninstall [--remove-launcher]
+  [--yes]`, `doctor`, `connect <client>|--list [--dry-run] [--scope] [--project-dir] [--force]`, `disconnect`,
+  `config get|set|edit|path|show`, `skill install [--target claude|claude-project|codex] [--dest] [--force]`,
+  `debug dump-tree`, `tools`, `call`, `version`; most take `--json`. `main()` is the console-script entry
+  point and `python -m axpilot` runs it. Exit codes per QUALITY.md A9: `0` ok, `1` operational error, `2` usage
+  error (including `INVALID_ARGUMENT`), `3` missing permission, `4` unsupported OS, `130` interrupted. Errors
+  print `error: CODE: message` and `hint: ...` on stderr (`{"error": {...}}` on stdout with `--json` and for
+  `call`); tracebacks only with `--debug`. Without `--yes`, confirmations use a macOS dialog, and are declined
+  where no dialog can be shown (Linux, the fake engine).
 - `axpilot/clients/`: one writer per client: `ClientTarget(name, display_name, config_path(scope), format=json|toml|yaml,
   servers_key)`, `connect(target, *, command, args, dry_run, scope) -> ConnectResult(path, changed, backup, snippet)`.
 
@@ -536,6 +581,11 @@ key params, and what comes back.
 - `AXPilotError` is raised on failure; context manager closes resources.
 
 ## 11. CLI for scripts
-- `axpilot tools [--profile ...] [--json]` lists tools (name, description, input schema).
-- `axpilot call <tool> [--arg key=value ...] [--json '{...}'] [--engine auto|macos|fake] [--direct] [--yes]` runs one
-  tool and prints `structuredContent` (or `{"error": {...}}`) as JSON; exit codes per QUALITY.md A9.
+- `axpilot tools [--profile ...] [--naming ...] [--json]` lists tools; `--json` prints
+  `{"tools": [{"name", "title", "description", "input_schema", "output_schema", "annotations"}], "count"}` with
+  MCP's annotation names (`readOnlyHint`, ...).
+- `axpilot call <tool> [--arg key=value ...] [--json '{...}'] [--engine auto|macos|fake] [--fixture PATH]
+  [--profile] [--naming] [--yes]` runs one tool in this process and prints `structuredContent` (or
+  `{"error": {...}}`) as JSON on stdout. `--arg` values are parsed as JSON when they parse (`max_elements=5`,
+  `modifiers=["cmd"]`), else kept as strings; `--arg` pairs override keys from `--json`. Exit codes per
+  QUALITY.md A9 (an unknown tool or bad arguments: `2`).

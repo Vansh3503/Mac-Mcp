@@ -16,7 +16,6 @@ URLs) that can act inside apps without any UI an agent or the user would see, so
 
 import math
 import os
-import plistlib
 import re
 from collections.abc import Mapping
 from pathlib import Path
@@ -34,6 +33,7 @@ from axpilot.server.context import ServerContext
 from axpilot.server.registry import ToolFn, tool
 from axpilot.server.results import ok_result
 from axpilot.server.schemas import AppModel, OutputModel, SnapshotIdArg, WindowModel
+from axpilot.system.bundles import bundle_id_of
 
 __all__ = ["OPEN_SCHEMES", "app_from_query"]
 
@@ -48,18 +48,6 @@ WindowActionArg = Literal["focus", "move", "resize", "minimize", "restore", "zoo
 
 
 # =========================================================================== shared
-def _bundle_id_of(path: Path) -> str | None:
-    """``CFBundleIdentifier`` from an ``.app`` bundle's ``Contents/Info.plist`` (``None`` if
-    unreadable): a bundle's identity, whatever the folder is called."""
-    try:
-        with (path / "Contents" / "Info.plist").open("rb") as file:
-            info = plistlib.load(file)
-    except (OSError, plistlib.InvalidFileException, ValueError):
-        return None
-    bundle_id = info.get("CFBundleIdentifier") if isinstance(info, dict) else None
-    return bundle_id if isinstance(bundle_id, str) and bundle_id.strip() else None
-
-
 def app_from_query(query: str) -> AppInfo:
     """A best guess of the app a launch query names (name, bundle id or ``.app`` path), for the
     policy check before an app that is not running is resolved. For a path, the bundle id comes
@@ -68,7 +56,7 @@ def app_from_query(query: str) -> AppInfo:
     if "/" in text:
         path = Path(os.path.expanduser(text.rstrip("/")))
         return AppInfo(
-            name=path.name.removesuffix(".app"), pid=0, bundle_id=_bundle_id_of(path), path=str(path)
+            name=path.name.removesuffix(".app"), pid=0, bundle_id=bundle_id_of(path), path=str(path)
         )
     if _BUNDLE_ID.match(text) and not text.casefold().endswith(".app"):
         return AppInfo(name=text, pid=0, bundle_id=text)

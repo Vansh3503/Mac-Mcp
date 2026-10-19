@@ -74,8 +74,12 @@ path = "src/axpilot/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/axpilot"]
 
+[tool.hatch.build.targets.wheel.force-include]
+# `axpilot skill install` ships the Agent Skill from the package.
+"skills/axpilot/SKILL.md" = "axpilot/_data/SKILL.md"
+
 [tool.hatch.build.targets.sdist]
-include = ["src/axpilot", "tests", "README.md", "LICENSE", "CHANGELOG.md"]
+include = ["src/axpilot", "skills", "tests", "README.md", "LICENSE", "CHANGELOG.md"]
 
 [tool.ruff]
 line-length = 110

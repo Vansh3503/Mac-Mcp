@@ -44,6 +44,17 @@ Pre-alpha. Nothing is published on PyPI yet.
   apps before asking the user). A `manage` policy kind applies the deny lists to app and window
   management without the Terminal typing rule; protected apps are recognized by their bundle id,
   even renamed.
+- The AXPilot host and the stdio bridge: MCP clients run `axpilot stdio`, which starts
+  `AXPilot.app` if needed and connects to the host's private Unix socket (`0600` in a `0700`
+  folder, same-user only). The host asks once per client app whether it may connect, remembers
+  the answer, gives each client its own profile and naming, and limits concurrent clients.
+  `axpilot stdio --direct` and `--engine fake` run the server in-process instead.
+- Streamable HTTP (`axpilot http`): loopback only by default, a bearer token stored privately,
+  `Host` and `Origin` checks and no CORS; other addresses need `--allow-remote` and TLS.
+- The `axpilot` command: `stdio`, `http`, `host`, `setup`, `update`, `uninstall`, `doctor`,
+  `connect`/`disconnect`, `config`, `skill install`, `tools`, `call`, `debug dump-tree` and
+  `version`, with documented exit codes, `--json` output, one-line errors and tracebacks only with
+  `--debug`. The Agent Skill ships inside the package.
 - Input helpers: key-combo parsing (`cmd+shift+t`, `⌘⇧T`, `Command-Shift-T`) and screenshot-to-screen
   coordinate mapping.
 - Policy layer: profiles and toolsets, app and window deny-lists, the Terminal rule, secure-field

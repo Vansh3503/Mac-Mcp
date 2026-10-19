@@ -153,7 +153,7 @@ block (see [Configuration](configuration.md)):
 | `--profile computer` | A single `computer` tool for vision-first computer-use loops *(planned)* |
 | `--naming windows-mcp` | Windows-MCP's tool names and parameter shapes *(planned)* |
 
-## Streamable HTTP *(planned)*
+## Streamable HTTP
 
 For frameworks and clients that prefer HTTP:
 
@@ -161,13 +161,18 @@ For frameworks and clients that prefer HTTP:
 axpilot http --port 7788
 ```
 
-The endpoint is `http://127.0.0.1:7788/mcp`. It binds to localhost only, requires a bearer token
-(generated on first run and stored in your Keychain), and checks the `Origin` and `Host` headers.
-Remote access needs `--allow-remote` with TLS; an SSH tunnel or Tailscale is the safer choice.
+The endpoint is `http://127.0.0.1:7788/mcp`. It binds to localhost only and requires a bearer
+token, generated on first run and stored in `~/Library/Application Support/AXPilot/http-token`
+(readable only by you; `--show-token` prints it). Requests with another `Host` header, or from a
+web page whose `Origin` you did not allow with `--allow-origin`, are refused, and there are no CORS
+headers. Remote access needs `--allow-remote` with TLS; an SSH tunnel or Tailscale is the safer
+choice. Defaults come from the `[server]` section of the configuration.
 
 ## Several clients at once
 
 Several clients can be connected at the same time. Observation tools run concurrently; input
 actions are serialized (AXPilot has one "virtual hand"), and a client that waits too long for its
 turn gets `BUSY`. In launcher mode, the first connection from a new client asks you to approve it:
-*"Allow «Cursor» to control this Mac?"* (Once, Always or Deny; *planned*).
+*"Allow Cursor to see and control this Mac through AXPilot?"* (Allow or Deny). The answer is
+remembered per client app in `~/Library/Application Support/AXPilot/paired-clients.json`; remove
+an entry there to be asked again.
