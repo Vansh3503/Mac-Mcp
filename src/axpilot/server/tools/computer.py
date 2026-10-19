@@ -35,7 +35,9 @@ from axpilot.server.schemas import CaptureModel, OutputModel
 from axpilot.server.tools.input import (
     Target,
     activate_app,
+    check_focus_not_secure,
     keystroke_target,
+    produces_text,
     require_keyboard,
     resolve_point,
     type_keystrokes,
@@ -335,6 +337,8 @@ def computer_tool(ctx: ServerContext) -> ToolFn:
                 raise AXPilotError(ErrorCode.INVALID_ARGUMENT, f"{action} needs text.")
             combos = parse_sequence(text) if action == "key" else None
             app, _ = await keystroke_target(ctx)
+            if combos is None or produces_text(combos):
+                await check_focus_not_secure(ctx, app)
             async with turn():
                 await require_keyboard(ctx)
                 if combos is None:

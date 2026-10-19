@@ -380,6 +380,37 @@ async def test_password_fields_are_off_limits_by_default(ctx: ServerContext, cli
     assert not events(ctx, "type_text")
 
 
+async def test_keystrokes_without_a_ref_check_the_focused_field() -> None:
+    """Typing "wherever the focus is" must not get around the secure-field rule."""
+    ctx = demo_ctx(**{"tools.enable": ["computer"]})
+    async with connected_client(ctx) as client:
+        refs = await refs_of(client, "Login Demo")
+        _, password = ctx.snapshots.resolve(refs["Password"], None)
+        engine_of(ctx).app_control("activate", "Login Demo")
+        engine_of(ctx).focus(password.handle)
+        focused = structured(await client.call_tool("snapshot", {"app": "Login Demo"}))
+        assert focused["focused_ref"] == refs["Password"]
+        for tool, args in (
+            ("type_text", {"text": "hunter2"}),
+            ("press_keys", {"keys": "h u n t e r 2"}),
+            ("computer", {"action": "type", "text": "hunter2"}),
+            ("computer", {"action": "key", "text": "shift+h"}),
+        ):
+            result, error = await call(client, tool, args)
+            assert error == "BLOCKED_BY_POLICY", (tool, args, text_of(result))
+        assert not events(ctx, "type_text")
+        _, error = await call(client, "press_keys", {"keys": "tab"})  # moving on is fine
+        assert error is None
+    allowed = demo_ctx(**{"safety.allow_secure_fields": True})
+    async with connected_client(allowed) as client:
+        refs = await refs_of(client, "Login Demo")
+        _, password = allowed.snapshots.resolve(refs["Password"], None)
+        engine_of(allowed).app_control("activate", "Login Demo")
+        engine_of(allowed).focus(password.handle)
+        _, error = await call(client, "type_text", {"text": "hunter2"})
+        assert error is None
+
+
 async def test_password_fields_can_be_allowed_and_the_text_never_reaches_the_audit_log() -> None:
     ctx = demo_ctx(**{"safety.allow_secure_fields": True})
     async with connected_client(ctx) as client:

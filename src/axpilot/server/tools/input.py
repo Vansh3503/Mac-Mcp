@@ -701,6 +701,33 @@ async def keystroke_target(ctx: ServerContext) -> tuple[AppInfo | None, WindowIn
     return app, window
 
 
+def produces_text(combos: Sequence[KeyCombo]) -> bool:
+    """True if pressing ``combos`` types characters (a key without ⌘/⌃/fn, or space)."""
+    return any(
+        (len(combo.key) == 1 or combo.key == "space") and not combo.modifiers & {"cmd", "ctrl", "fn"}
+        for combo in combos
+    )
+
+
+async def check_focus_not_secure(
+    ctx: ServerContext, app: AppInfo | None, snap: Snapshot | None = None
+) -> None:
+    """Apply the secure-field rule to keystrokes sent without a ref: they go to the focused element.
+
+    Uses ``snap`` (a snapshot of ``app`` taken just before) when given. When the focus can't be
+    read, macOS Secure Event Input remains the guard for native password fields."""
+    if ctx.config.safety.allow_secure_fields or app is None:
+        return
+    if snap is None:
+        try:
+            snap = await ctx.take_snapshot(app=_app_key(app), store=False)
+        except AXPilotError as err:
+            ctx.logger.debug("Could not read the focused element of %s: %s", app.name, err.message)
+            return
+    focused = snap.focused_element
+    ctx.policy.check_secure_target(bool(focused is not None and focused.secure))
+
+
 async def front_window_title(ctx: ServerContext, app: AppInfo | None) -> str | None:
     """The title of ``app``'s front window (for the ``deny_windows`` rule), if it has one."""
     if app is None:
@@ -865,6 +892,8 @@ def type_text_tool(ctx: ServerContext) -> ToolFn:
         if before is None and report == "diff" and app is not None:
             with contextlib.suppress(AXPilotError):
                 before = await ctx.take_snapshot(app=_app_key(app), store=False)
+        if target is None:
+            await check_focus_not_secure(ctx, app, before)
         warnings: list[str] = []
         if target is not None and target.el is not None and target.el.role not in TEXT_ROLES:
             warnings.append(
@@ -947,6 +976,8 @@ def press_keys_tool(ctx: ServerContext) -> ToolFn:
         if report == "diff" and target_app is not None:
             with contextlib.suppress(AXPilotError):
                 before = await ctx.take_snapshot(app=_app_key(target_app), store=False)
+        if produces_text(combos):
+            await check_focus_not_secure(ctx, target_app, before)
         for _ in range(repeat):
             for combo in combos:
                 ctx.control.ensure_running()

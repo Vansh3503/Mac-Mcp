@@ -58,8 +58,10 @@ Coordinate clicks are **hit-tested** first: AXPilot finds the app and window und
 applies the same rules, so a click can't land on a deny-listed app by coordinates.
 
 **Secure fields** (password fields) never return their values, in any mode. Typing into them is
-refused unless `allow_secure_fields = true`; when macOS's Secure Event Input is on, synthetic
-keystrokes are impossible anyway (`SECURE_INPUT_ACTIVE`).
+refused unless `allow_secure_fields = true`, whether the agent names the field or types into
+whatever has focus (`type_text` without a ref, characters sent with `press_keys` or `computer`).
+When macOS's Secure Event Input is on, synthetic keystrokes are impossible anyway
+(`SECURE_INPUT_ACTIVE`).
 
 Policy errors name the app and the rule, and say how *the user* can change it. Agents are told not
 to work around a `BLOCKED_BY_POLICY` result.
