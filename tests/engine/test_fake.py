@@ -3,6 +3,8 @@ from __future__ import annotations
 import inspect
 import io
 import json
+import platform
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -112,6 +114,16 @@ def test_create_engine_builds_the_fake_engine(tmp_path: Path) -> None:
     custom = create_engine("fake", fixture=path)
     assert isinstance(custom, FakeEngine)
     assert custom.os_version() == "14.6"
+
+
+@pytest.mark.parametrize("release", ["13.6.1", "12.0"])
+def test_the_macos_engine_refuses_old_systems(release: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(platform, "mac_ver", lambda: (release, ("", "", ""), "arm64"))
+    with pytest.raises(AXPilotError) as caught:
+        create_engine("macos")
+    assert caught.value.code is ErrorCode.UNSUPPORTED_OS
+    assert release in caught.value.message
 
 
 def test_demo_fixture_has_the_documented_desktop(engine: FakeEngine) -> None:

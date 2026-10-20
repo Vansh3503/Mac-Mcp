@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import platform
 import sys
 from pathlib import Path
 
@@ -27,6 +28,7 @@ def create_engine(kind: str = "auto", *, fixture: Path | None = None, **options:
     if kind == "macos":
         if sys.platform != "darwin":
             raise AXPilotError(ErrorCode.UNSUPPORTED_OS, "The macOS engine only runs on macOS.")
+        _require_supported_macos()
         try:
             from axpilot.engine.macos import MacEngine  # noqa: PLC0415 - darwin-only import
         except ImportError as exc:  # pragma: no cover - depends on PyObjC install
@@ -41,3 +43,16 @@ def create_engine(kind: str = "auto", *, fixture: Path | None = None, **options:
         f"AXPilot controls macOS; this platform is {sys.platform!r}.",
         hint="Use `--engine fake` to try the server with a simulated desktop.",
     )
+
+
+def _require_supported_macos() -> None:
+    """Raise ``UNSUPPORTED_OS`` below macOS 14 (ADR-0003: older systems lack the capture APIs)."""
+    from axpilot.setup import MIN_MACOS, parse_version  # noqa: PLC0415 - only needed on macOS
+
+    release = platform.mac_ver()[0]
+    if release and parse_version(release) < MIN_MACOS:
+        raise AXPilotError(
+            ErrorCode.UNSUPPORTED_OS,
+            f"AXPilot needs macOS {MIN_MACOS[0]} Sonoma or later; this Mac runs macOS {release}.",
+            hint="Update macOS, or use `--engine fake` to try the server with a simulated desktop.",
+        )
