@@ -647,6 +647,19 @@ class FakeClock:
         return self.now - self.last_hid
 
 
+def test_waiting_for_a_tree_that_is_being_built() -> None:
+    """Chrome (macOS 26): one 150 ms pause after switching its tree on was not enough; the first
+    snapshot showed a lone group. Readings repeat until two agree, bounded."""
+    readings = iter([1, 3, 40, 200, 200, 999])
+    slept: list[float] = []
+    assert h.wait_until_stable(lambda: next(readings), slept.append, interval_s=0.15, polls=10) == 200
+    assert slept == [0.15] * 4
+    growing = iter(range(100))
+    slept.clear()
+    assert h.wait_until_stable(lambda: next(growing), slept.append, interval_s=0.15, polls=3) == 3
+    assert len(slept) == 3  # bounded even if it never settles
+
+
 def test_idle_estimator_ignores_our_own_events() -> None:
     clock = FakeClock()
     estimator = h.IdleEstimator(clock.idle, lambda: clock.now)

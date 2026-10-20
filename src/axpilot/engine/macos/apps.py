@@ -29,7 +29,7 @@ import AppKit
 from axpilot.engine.macos import attributes as A
 from axpilot.engine.macos import helpers as h
 from axpilot.engine.macos.actions import process_alive
-from axpilot.engine.macos.ax import AX, AXCallError
+from axpilot.engine.macos.ax import AX, AXCallError, AXElement
 from axpilot.engine.macos.sync import call_with_completion, ns_error_text
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.models import AppAction, AppInfo
@@ -45,7 +45,11 @@ FORCE_QUIT_TIMEOUT_S = 3.0
 POLL_S = 0.05
 INSTALLED_TTL_S = 60.0
 ENHANCE_SETTLE_S = 0.15
-"""Pause after switching on Chromium/Electron accessibility, so the tree exists."""
+"""Interval between readings of a Chromium/Electron tree that is being built."""
+ENHANCE_POLLS = 10
+"""At most this many readings (1.5 s): Chrome needed more than one 150 ms pause (macOS 26)."""
+ENHANCE_COUNT_LIMIT = 200
+"""Nodes counted per reading; a tree this big is built enough to read."""
 
 
 def _running_app(pid: int) -> Any:
@@ -114,8 +118,22 @@ class ElectronEnhancer:
             with self._lock:
                 self._enhanced_ui.add(app.pid)
         _log.info("enabled the accessibility tree of %s (%s)", app.name, kind)
-        time.sleep(ENHANCE_SETTLE_S)
+        h.wait_until_stable(
+            lambda: self._tree_size(element), time.sleep, interval_s=ENHANCE_SETTLE_S, polls=ENHANCE_POLLS
+        )
         return True
+
+    def _tree_size(self, element: AXElement) -> int:
+        """Nodes under ``element``, counted up to :data:`ENHANCE_COUNT_LIMIT`."""
+        count, stack = 0, [element]
+        while stack and count < ENHANCE_COUNT_LIMIT:
+            node = stack.pop()
+            count += 1
+            try:
+                stack.extend(list(self._ax.get(node, A.CHILDREN) or ()))
+            except AXCallError as exc:
+                _log.debug("cannot count the tree being built: %s", exc)
+        return count
 
     @contextlib.contextmanager
     def geometry_change(self, pid: int) -> Iterator[None]:
