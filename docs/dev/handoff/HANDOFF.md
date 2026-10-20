@@ -106,12 +106,14 @@ Bugs found and fixed by the new tests: collapsed scroll areas lost their viewpor
 4,200-pt frame, so scrolling at its "center" missed the screen); `collect_rows` on a scroll area duplicated rows
 and cells; key sequences with `+`/`-`; app-kind fallback order.
 
-### Test status (Linux, end of build round 2)
+### Test status (Linux, after the audit and hardening, commit `b694402`)
 
-`uv run pytest -q -p no:cacheprovider --cov --cov-branch` → **2880 passed, 50 skipped (macOS-only / launcher /
+`uv run pytest -q -p no:cacheprovider --cov --cov-branch` → **3042 passed, 51 skipped (macOS-only / launcher /
 root-only), 0 failed; 94% branch coverage** (gate: `fail_under = 90` in `pyproject.toml`, enforced by CI's
-`pytest --cov`). `ruff check`, `ruff format --check` and `pyright` are clean. The full run takes about 5 minutes
-without coverage and 13 with it.
+`pytest --cov`), run with `HOME` pointed at an empty folder, which stayed empty. `ruff check`,
+`ruff format --check` and `pyright --pythonpath .venv/bin/python` are clean; `docs/tools.md` is up to date.
+The full run takes about 5 minutes without coverage and 11–15 with it. CI itself has never run on GitHub (it
+triggers on `main` and pull requests only).
 
 ### Build round 2 (done, one commit per package)
 
