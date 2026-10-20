@@ -209,6 +209,15 @@ def page_signature(snap: Snapshot, container: Element | None) -> str:
     origin_x = viewport.x if viewport is not None else 0.0
     origin_y = viewport.y if viewport is not None else 0.0
     items: list[Any] = [container.value if container is not None else None]
+    if container is not None and container.frame is not None:
+        # A document view (a text area, a table) spans its whole content: scrolling moves it, and a
+        # text area has no children whose positions would show that (seen in TextEdit, macOS 26).
+        items.append(
+            [
+                round((container.frame.x - origin_x) / SIGNATURE_GRID),
+                round((container.frame.y - origin_y) / SIGNATURE_GRID),
+            ]
+        )
     for el in index.descendants(container):
         if _visible_share(el, viewport) <= 0.0:
             continue
