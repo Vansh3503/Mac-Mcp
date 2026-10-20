@@ -228,10 +228,22 @@ every observe call and older protocol versions (`tests/server/test_hardening.py`
 (`set_value`), multi-select with modifiers (`click`), right-click (`click button=right`) and
 `AXShowMenu` (`perform_action`), off-screen and disabled elements, `SECURE_INPUT_ACTIVE`.
 
-**Still open** (no dedicated handling yet; agents can get there with the generic tools): date pickers,
-color wells, table header sort and cell editing, open/save panels (⌘⇧G + path), toolbar overflow (»),
-menu-bar extras. UI conditions that only a real Mac can exercise: Spaces, multi-display and Retina
-coordinates, RTL and localized UIs, non-US keyboard layouts, animations settling.
+**Remaining control types, done afterwards** (each tested on the fake desktop; the macOS side is
+unverified):
+- `7f69765` menu-bar extras: `select_menu(extras=true)` reads `AXExtrasMenuBar` (Control Center by
+  default); a one-title path clicks the status item. Menu titles match across hyphen variants.
+- `d7bac2c` open/save panels: `handle_dialog(path=...)` uses ⇧⌘G, waits for the "Go to the folder" field,
+  confirms with Return and refuses (Escape, nothing accepted) when the panel keeps the field. Action diffs
+  now compare snapshots taken in the same mode (they used to report the whole window as removed).
+- `e54da64` date pickers: `set_value` takes ISO 8601 (`axpilot.input.dates`), the engine sends an NSDate,
+  dates are shown in local time; `AXDateTimeArea`/`AXTimeField` roles.
+- `c450876` tables: header sort direction (`AXSortDirection`) is the header button's value; color wells
+  give a clear error pointing to the Colors panel; the Agent Skill has recipes for cell editing (double
+  click + `type_text`), toolbar overflow (») and color wells. Toolbar overflow has no code: macOS does not
+  document how the » button is exposed, so it needs a Mac to design against.
+
+UI conditions that only a real Mac can exercise: Spaces, multi-display and Retina coordinates, RTL and
+localized UIs, non-US keyboard layouts, animations settling.
 
 The original brief, kept for reference:
 
