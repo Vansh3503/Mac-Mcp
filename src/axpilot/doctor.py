@@ -328,15 +328,26 @@ def _check_permissions(engine: Engine | None) -> list[Check]:
         ),
     ]
     if perms.automation:
-        denied = sorted(app for app, allowed in perms.automation.items() if not allowed)
+        unasked = sorted(set(perms.automation_unasked))
+        denied = sorted(app for app, ok in perms.automation.items() if not ok and app not in unasked)
         allowed = sorted(app for app, ok in perms.automation.items() if ok)
+        later = f" Not asked yet for {', '.join(unasked)}." if unasked else ""
         if denied:
             checks.append(
                 Check(
                     "Automation",
                     "warn",
-                    "Denied for " + ", ".join(denied) + ".",
-                    _default_hint(ErrorCode.PERMISSION_AUTOMATION),
+                    "Denied for " + ", ".join(denied) + "." + later,
+                    "Allow AXPilot (or the app that runs it) in System Settings → Privacy & Security → "
+                    "Automation.",
+                )
+            )
+        elif unasked:
+            checks.append(
+                Check(
+                    "Automation",
+                    "skip",
+                    f"Not asked yet for {', '.join(unasked)}; macOS asks the first time a tool needs it.",
                 )
             )
         else:

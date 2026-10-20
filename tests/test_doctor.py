@@ -433,6 +433,26 @@ def test_permissions_missing(env: Path, runner: Runner) -> None:
     assert "Mail" in checks["Automation"].detail
 
 
+def test_automation_not_asked_yet_is_not_a_denial(env: Path, runner: Runner) -> None:
+    """macOS 26: Finder gave -1744 (not asked yet), and doctor said "Denied" with a Settings path
+    that listed nothing."""
+    unasked = PermissionStatus(
+        True, True, {"com.apple.finder": False}, automation_unasked=["com.apple.finder"]
+    )
+    check = linux_checks(runner, StubEngine(unasked))["Automation"]
+    assert check.status == "skip"
+    assert check.detail == "Not asked yet for com.apple.finder; macOS asks the first time a tool needs it."
+    both = PermissionStatus(
+        True,
+        True,
+        {"com.apple.finder": False, "com.apple.mail": False},
+        automation_unasked=["com.apple.finder"],
+    )
+    check = linux_checks(runner, StubEngine(both))["Automation"]
+    assert check.status == "warn"
+    assert check.detail == "Denied for com.apple.mail. Not asked yet for com.apple.finder."
+
+
 def test_permissions_without_automation_entries(env: Path, runner: Runner) -> None:
     checks = linux_checks(runner, StubEngine(PermissionStatus(True, False)))
     assert "Automation" not in checks

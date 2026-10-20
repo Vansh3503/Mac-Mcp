@@ -647,6 +647,21 @@ class FakeClock:
         return self.now - self.last_hid
 
 
+def test_automation_notes_tell_denied_from_not_asked() -> None:
+    from axpilot.engine.macos.permissions import automation_notes
+
+    notes = automation_notes(
+        {"com.apple.finder": False, "com.apple.mail": False, "x": True}, ["com.apple.finder"]
+    )
+    assert notes == [
+        "Automation (Apple events) is denied for: com.apple.mail; allow it in System Settings → "
+        "Privacy & Security → Automation.",
+        "Automation (Apple events) has not been asked for yet for: com.apple.finder; macOS asks the "
+        "first time a tool needs it.",
+    ]
+    assert automation_notes({"x": True}, []) == []
+
+
 def test_waiting_for_a_tree_that_is_being_built() -> None:
     """Chrome (macOS 26): one 150 ms pause after switching its tree on was not enough; the first
     snapshot showed a lone group. Readings repeat until two agree, bounded."""

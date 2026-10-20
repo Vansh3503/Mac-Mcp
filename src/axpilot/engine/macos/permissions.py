@@ -86,20 +86,22 @@ _apple_events_failed = False
 _ae_lock = threading.Lock()
 
 
-def automation_status(bundle_ids: Iterable[str], running: set[str]) -> dict[str, bool]:
-    """Whether we may send Apple events to each *running* target (no prompts)."""
+def automation_status(bundle_ids: Iterable[str], running: set[str]) -> tuple[dict[str, bool], list[str]]:
+    """Whether we may send Apple events to each *running* target (no prompts), and the targets
+    macOS has not asked the user about yet (``-1744``; ``-1743`` means denied)."""
     global _apple_events, _apple_events_failed  # noqa: PLW0603 - one process-wide set of bindings
     result: dict[str, bool] = {}
+    unasked: list[str] = []
     with _ae_lock:
         if _apple_events_failed:
-            return result
+            return result, unasked
         try:
             if _apple_events is None:
                 _apple_events = _AppleEvents()
         except (OSError, AttributeError) as exc:
             _apple_events_failed = True
             _log.warning("cannot check Automation permission: %s", exc)
-            return result
+            return result, unasked
         events = _apple_events
     for bundle_id in bundle_ids:
         if bundle_id not in running:
@@ -109,9 +111,29 @@ def automation_status(bundle_ids: Iterable[str], running: set[str]) -> dict[str,
             result[bundle_id] = True
         elif code in (ERR_AE_EVENT_NOT_PERMITTED, ERR_AE_WOULD_REQUIRE_USER_CONSENT):
             result[bundle_id] = False
+            if code == ERR_AE_WOULD_REQUIRE_USER_CONSENT:
+                unasked.append(bundle_id)
         elif code != PROC_NOT_FOUND:
             _log.debug("AEDeterminePermissionToAutomateTarget(%s) returned %d", bundle_id, code)
-    return result
+    return result, unasked
+
+
+def automation_notes(automation: dict[str, bool], unasked: Iterable[str]) -> list[str]:
+    """Notes for :func:`permission_status`: denied targets and targets macOS has not asked about."""
+    not_asked = sorted(set(unasked))
+    denied = sorted(bundle for bundle, ok in automation.items() if not ok and bundle not in not_asked)
+    notes: list[str] = []
+    if denied:
+        notes.append(
+            "Automation (Apple events) is denied for: " + ", ".join(denied) + "; allow it in System "
+            "Settings → Privacy & Security → Automation."
+        )
+    if not_asked:
+        notes.append(
+            "Automation (Apple events) has not been asked for yet for: " + ", ".join(not_asked) + "; "
+            "macOS asks the first time a tool needs it."
+        )
+    return notes
 
 
 def responsible_app(runner: CommandRunner) -> str | None:
@@ -132,7 +154,7 @@ def permission_status(ax: AX, *, responsible: str | None, running_bundle_ids: se
     """Current status (never prompts)."""
     accessibility = ax.is_trusted()
     screen = screen_recording_allowed()
-    automation = automation_status(AUTOMATION_TARGETS, running_bundle_ids)
+    automation, unasked = automation_status(AUTOMATION_TARGETS, running_bundle_ids)
     who = responsible or "the app that runs AXPilot"
     notes: list[str] = []
     if not accessibility:
@@ -142,15 +164,14 @@ def permission_status(ax: AX, *, responsible: str | None, running_bundle_ids: se
             f"Screen Recording is not granted to {who}; screenshots and OCR are unavailable. "
             "macOS only notices a new grant after AXPilot restarts."
         )
-    denied = sorted(bundle for bundle, ok in automation.items() if not ok)
-    if denied:
-        notes.append("Automation (Apple events) is not allowed for: " + ", ".join(denied) + ".")
+    notes.extend(automation_notes(automation, unasked))
     return PermissionStatus(
         accessibility=accessibility,
         screen_recording=screen,
         automation=automation,
         responsible_app=responsible,
         notes=notes,
+        automation_unasked=sorted(unasked),
     )
 
 
