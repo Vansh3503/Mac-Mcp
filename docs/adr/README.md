@@ -8,7 +8,7 @@ and how we check that it still holds. The records follow a lightweight
 | ADR | Title | Status |
 |---|---|---|
 | [0001](0001-language-python-pyobjc.md) | Language: Python + PyObjC, with a frozen native launcher | Accepted |
-| [0002](0002-architecture-launcher-host-bridge.md) | Architecture: frozen launcher → Python host, plus a thin stdio bridge | Proposed (pending spike S1) |
+| [0002](0002-architecture-launcher-host-bridge.md) | Architecture: frozen launcher → Python host, plus a thin stdio bridge | Proposed (S1 passed on macOS 26 arm64; other versions pending) |
 | [0003](0003-minimum-macos-14.md) | Minimum macOS 14 Sonoma | Accepted |
 | [0004](0004-mcp-protocol-surface.md) | MCP protocol surface | Accepted |
 | [0005](0005-signing-and-distribution.md) | Signing and distribution without a paid Apple account | Accepted |

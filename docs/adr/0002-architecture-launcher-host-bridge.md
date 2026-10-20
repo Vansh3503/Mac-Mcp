@@ -1,6 +1,7 @@
 # ADR-0002: Architecture: frozen launcher → Python host, plus a thin stdio bridge
 
-- **Status:** Proposed — pending spike S1
+- **Status:** Proposed — spike S1 passed on macOS 26.6 arm64 (2026-10-20,
+  [results](../spikes/S1-launcher-tcc.md)); macOS 14, 15, 27 and Intel still to run
 - **Date:** 2026-10-19
 - **Deciders:** AXPilot maintainers
 - **Source:** [PLAN.md §4, ADR-2](../PLAN.md#4-key-decisions-adrs) and [§5](../PLAN.md#5-architecture)

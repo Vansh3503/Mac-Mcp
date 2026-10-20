@@ -235,6 +235,20 @@ Launcher and bridge:
 10. The bridge stand-in with Claude Desktop and Claude Code when AXPilot.app is missing: the server shows as
     connected, and a tool call shows "Run `axpilot setup` once".
 
+#### Log: first real-Mac session (2026-10-20, branch `feature/v1-mac-verification`)
+
+Machine: MacBook Pro M1 Pro, 16 GB, **macOS 26.6.2 (25G83)**, arm64; Command Line Tools 26.5 (Swift 6.3.2,
+no full Xcode); uv 0.11.26; Python 3.12.13 (project venv). The session ran in Claude Code inside the Claude
+desktop app (2.37337.1, Claude Code 2.1.295): in direct mode its versioned binary
+`~/Library/Application Support/Claude/claude-code/<version>/…/claude.app` is the responsible app, and it
+already had Accessibility and Screen Recording.
+
+| Item | Result | Commit |
+|---|---|---|
+| Baseline `uv run pytest -q` | 2 failures on this Mac: `tests/setup/test_runtime.py` could not hide Homebrew's `/opt/homebrew/bin/uv` (test hermeticity, not a product bug). After the fix: 3664 passed, 26 skipped. A third failure (launcher restart test) was the S1 script's `pkill -x AXPilot` hitting the test's launcher; it passes alone. | `5e87eb1` |
+| Launcher build | `launcher/build.sh` compiles here; cdhash arm64 `ebedf54c…`, x86_64 `600d0ea3…` (CI's macos-14: `ca3fde20…` / `560c01f5…`; different toolchain, as expected). `uv run pytest launcher/tests`: 40 passed, 1 skipped; `AXPILOT_LAUNCHER_E2E=1 … -k launchservices`: passed (launchd is the parent). | works as designed |
+| 9. Spike S1 | **GO on macOS 26 arm64** for A1–A5, B1–B6, D1, D4 (`docs/spikes/S1-launcher-tcc.md`). The prompts name AXPilot. `AXIsProcessTrusted()` updates only while the main run loop runs (AXPilot pumps it). System Settings once recorded Allowed then Denied 1.3 s apart; switching off and on fixed it. | works as designed |
+
 ### GitHub issues already created
 
 #1 Phase 0 epic (with spike sub-issues #2–#7: S1 launcher TCC go/no-go, S2 AX performance, S3 input strategies,
