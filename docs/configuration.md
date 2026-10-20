@@ -109,10 +109,11 @@ log_args = "redacted"     # none | redacted | full
 | `tls_cert`, `tls_key` | unset | PEM files for TLS |
 | `engine_timeout_s` | `20.0` | Deadline for one accessibility or input call made by a tool (1–300 s); slower calls fail with `TIMEOUT` |
 | `input_lock_timeout_s` | `5.0` | How long an input tool waits for another input action to finish before failing with `BUSY` (0.1–5 s) |
+| `token_store` | `"auto"` | Where the HTTP bearer token is kept: `keychain` (the macOS login keychain), `file` (`~/Library/Application Support/AXPilot/http-token`, mode `0600`), or `auto` (the keychain on a Mac, the file elsewhere) |
 
-The HTTP bearer token is generated on first use and stored in
-`~/Library/Application Support/AXPilot/http-token` (mode `0600`), not in this file. Keychain storage
-is planned.
+The HTTP bearer token is generated on first use and never stored in this file. With the keychain,
+a token from an older file is moved there (so configured clients keep working) and the file is
+removed; if the keychain is locked or unavailable, AXPilot warns and uses the file.
 
 ## `[tools]`
 

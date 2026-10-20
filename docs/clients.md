@@ -162,8 +162,12 @@ axpilot http --port 7788
 ```
 
 The endpoint is `http://127.0.0.1:7788/mcp`. It binds to localhost only and requires a bearer
-token, generated on first run and stored in `~/Library/Application Support/AXPilot/http-token`
-(readable only by you; `--show-token` prints it). Requests with another `Host` header, or from a
+token, generated on first run and kept in your login keychain (item
+`io.github.vansh3503.axpilot.http-token`; `--show-token` prints it, and
+`security find-generic-password -s io.github.vansh3503.axpilot.http-token -w` reads it). If the
+keychain can't be used, and on other systems, it is a file readable only by you,
+`~/Library/Application Support/AXPilot/http-token` (see `token_store` in the
+[configuration](configuration.md)). Requests with another `Host` header, or from a
 web page whose `Origin` you did not allow with `--allow-origin`, are refused, and there are no CORS
 headers. Remote access needs `--allow-remote` with TLS; an SSH tunnel or Tailscale is the safer
 choice. Defaults come from the `[server]` section of the configuration.

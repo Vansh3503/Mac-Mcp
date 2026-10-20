@@ -14,6 +14,10 @@ Pre-alpha. Nothing is published on PyPI yet.
 
 ### Added
 
+- The HTTP bearer token lives in the macOS login keychain (`[server] token_store`, `auto` by
+  default). A token from the old file moves there, so configured clients keep working; a locked
+  or unavailable keychain falls back to the private file with a warning. The token is written
+  through `security`'s standard input, never in a command line.
 - Confirmations through the MCP client in direct mode: a client that supports elicitation shows
   AXPilot's question in its own window (`[safety] elicitation`, on by default; off with `--yes`).
   On protocol 2026-07-28 the question ends the call with an `InputRequiredResult` and the

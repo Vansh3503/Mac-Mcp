@@ -343,7 +343,7 @@ def http(
     """Serve MCP over Streamable HTTP (loopback only, bearer token required).
 
     Options left out come from the [server] section of the configuration."""
-    from axpilot.host.http import MCP_PATH, check_bind, load_or_create_token, run_http, token_file  # noqa: PLC0415
+    from axpilot.host.http import MCP_PATH, check_bind, get_token, run_http  # noqa: PLC0415
 
     settings = _config().server
     address = bind or settings.http_host
@@ -352,12 +352,13 @@ def http(
     cert = tls_cert or (Path(settings.tls_cert).expanduser() if settings.tls_cert else None)
     key = tls_key or (Path(settings.tls_key).expanduser() if settings.tls_key else None)
     check_bind(address, allow_remote=remote, tls_cert=cert, tls_key=key)
-    token = load_or_create_token()
+    stored = get_token(settings.token_store)
+    token = stored.value
     ctx = _context(engine, fixture, yes=yes)
     scheme = "https" if cert else "http"
     shown = f"[{address}]" if ":" in address else address
     _err(f"AXPilot MCP over HTTP at {scheme}://{shown}:{listen_port}{MCP_PATH}")
-    _err(f"Bearer token: {token if show_token else f'in {token_file()}'}")
+    _err(f"Bearer token: {token if show_token else f'in {stored.location}'}")
     try:
         _run(
             lambda: _until_signalled(

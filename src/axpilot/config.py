@@ -63,6 +63,9 @@ class ServerConfig(_Section):
     """Deadline for one engine call made by a tool; slower calls fail with ``TIMEOUT``."""
     input_lock_timeout_s: float = Field(default=5.0, ge=0.1, le=5.0)
     """How long an input tool waits for the single input lock before failing with ``BUSY``."""
+    token_store: Literal["auto", "keychain", "file"] = "auto"  # noqa: S105 - a mode, not a secret
+    """Where the HTTP bearer token is kept: ``auto`` is the macOS keychain on a Mac and a ``0600``
+    file elsewhere."""
 
 
 class ToolsConfig(_Section):

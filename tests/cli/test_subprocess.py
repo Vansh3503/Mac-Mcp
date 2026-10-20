@@ -47,6 +47,7 @@ def env(tmp_path: Path, sock_dir: Path) -> dict[str, str]:
         AXPILOT_LOG_DIR=str(tmp_path / "logs"),
         AXPILOT_SOCKET=str(sock_dir / "axpilot.sock"),
         AXPILOT_APP_PATH=str(tmp_path / "AXPilot.app"),
+        AXPILOT_SERVER_TOKEN_STORE="file",  # never the real macOS keychain
         PYTHONUNBUFFERED="1",
     )
     return values

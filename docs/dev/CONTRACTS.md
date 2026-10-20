@@ -577,8 +577,11 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
   Streamable HTTP app at `/mcp` behind `AccessGuard`: a `Host` header other than the bound address and port, or
   an `Origin` not in `--allow-origin`, gets `403`; a missing or wrong bearer token gets `401` (constant-time
   comparison). No CORS headers. `check_bind` refuses non-loopback addresses unless `allow_remote` and a TLS
-  certificate and key are given (`BLOCKED_BY_POLICY`). The token lives in `<app support>/http-token` (`0600`,
-  at least 32 characters, created on first use; Keychain storage is a later macOS enhancement).
+  certificate and key are given (`BLOCKED_BY_POLICY`). `get_token(store="auto"|"keychain"|"file", *, path,
+  keychain) -> StoredToken(value, location)` keeps the token (≥ 32 characters, created on first use) in the macOS
+  login keychain (`axpilot/system/keychain.py`: `/usr/bin/security`, the secret only on stdin/stdout, every write
+  read back), moving a token from `<app support>/http-token` there; the `0600` file (`load_or_create_token`) is the
+  fallback when the keychain fails and the store off macOS. `[server] token_store` selects it.
 - `axpilot/cli.py` (Typer): `stdio [--direct] [--engine auto|macos|fake] [--fixture PATH] [--profile]
   [--naming] [--yes]` (in-process with `--direct`, `--engine fake` or `--fixture`, else the bridge),
   `http [--host] [--port] [--allow-remote --tls-cert --tls-key] [--allow-origin ...] [--show-token]`,

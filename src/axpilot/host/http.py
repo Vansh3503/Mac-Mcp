@@ -4,10 +4,11 @@ Locked down by default, because anything that can reach the port could drive the
 
 * binds to ``127.0.0.1``; another address is refused unless ``allow_remote`` is set *and* a TLS
   certificate and key are given (:func:`check_bind`);
-* every request needs ``Authorization: Bearer <token>``; the token is random, stored in
-  AXPilot's application-support folder with mode ``0600`` (:func:`load_or_create_token`) and
-  compared in constant time (``401`` otherwise). Keychain storage is a planned macOS-only
-  improvement;
+* every request needs ``Authorization: Bearer <token>``; the token is random and compared in
+  constant time (``401`` otherwise). :func:`get_token` keeps it in the macOS login keychain
+  (moving a token from the old file there), and in a ``0600`` file in AXPilot's
+  application-support folder elsewhere or when the keychain cannot be used
+  (:func:`load_or_create_token`);
 * the ``Host`` header must name the bound address and port and a browser ``Origin`` must be
   explicitly allowed (``403`` otherwise): this blocks DNS-rebinding and cross-site requests;
 * no CORS headers are ever sent.
@@ -21,11 +22,14 @@ import hmac
 import json
 import logging
 import os
+import re
 import secrets
 import stat
+import sys
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import anyio
 from starlette.datastructures import Headers
@@ -35,14 +39,19 @@ from axpilot import paths
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.server.app import build_server
 from axpilot.server.context import ServerContext
+from axpilot.system.keychain import Keychain
 
 __all__ = [
     "DEFAULT_PORT",
+    "KEYCHAIN_ACCOUNT",
+    "KEYCHAIN_SERVICE",
     "LOOPBACK_HOSTS",
     "MCP_PATH",
     "AccessGuard",
+    "StoredToken",
     "build_http_app",
     "check_bind",
+    "get_token",
     "load_or_create_token",
     "run_http",
     "token_file",
@@ -55,6 +64,9 @@ DEFAULT_PORT = 7788
 MCP_PATH = "/mcp"
 LOOPBACK_HOSTS: frozenset[str] = frozenset({"127.0.0.1", "localhost", "::1"})
 _TOKEN_MIN_CHARS = 32
+KEYCHAIN_SERVICE = "io.github.vansh3503.axpilot.http-token"
+KEYCHAIN_ACCOUNT = "axpilot"
+_KEYCHAIN_SAFE = re.compile(r"[A-Za-z0-9._-]+")
 
 
 # =========================================================================== token
@@ -91,6 +103,84 @@ def load_or_create_token(path: Path | None = None) -> str:
             f"Cannot read or create the HTTP token file {target}: {exc.strerror or exc}",
             hint="Check that AXPilot's application-support folder is writable.",
         ) from exc
+
+
+@dataclass(frozen=True, slots=True)
+class StoredToken:
+    """The HTTP bearer token and where it is kept (for messages: never print the token itself
+    unless the user asks)."""
+
+    value: str
+    location: str
+
+
+def _keychain_location() -> str:
+    return f"the macOS keychain (service {KEYCHAIN_SERVICE})"
+
+
+def _file_token(path: Path) -> str | None:
+    """A usable token from ``path`` without creating one (``None`` if there is none)."""
+    try:
+        token = path.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        _log.warning("Cannot read the HTTP token file %s: %s", path, exc.strerror or exc)
+        return None
+    return token if len(token) >= _TOKEN_MIN_CHARS else None
+
+
+def get_token(
+    store: Literal["auto", "keychain", "file"] = "auto",
+    *,
+    path: Path | None = None,
+    keychain: Keychain | None = None,
+) -> StoredToken:
+    """The HTTP bearer token, created on first use (``store``: ``[server] token_store``).
+
+    With the keychain (``keychain``, or ``auto`` on macOS) it lives in the login keychain: a token
+    found in the old file (``path``, default :func:`token_file`) is moved there and the file
+    removed, so configured clients keep working. When the keychain cannot be used (locked, no
+    ``security`` tool, a token with characters it cannot take) the ``0600`` file is used instead,
+    with a warning, as it always is with ``file`` and with ``auto`` elsewhere
+    (:func:`load_or_create_token`)."""
+    target = path or token_file()
+    if store == "file" or (store == "auto" and sys.platform != "darwin"):
+        return StoredToken(load_or_create_token(target), str(target))
+    chain = keychain or Keychain()
+    try:
+        stored = chain.read(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT)
+        if stored is not None and len(stored) >= _TOKEN_MIN_CHARS:
+            _remove_leftover(target, stored)
+            return StoredToken(stored, _keychain_location())
+        existing = _file_token(target)
+        if existing is not None and not _KEYCHAIN_SAFE.fullmatch(existing):
+            _log.warning("The HTTP token in %s cannot move to the keychain; keeping the file.", target)
+            return StoredToken(load_or_create_token(target), str(target))
+        token = existing or secrets.token_urlsafe(32)
+        chain.write(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT, token, label="AXPilot-HTTP-token")
+    except AXPilotError as err:
+        _log.warning(
+            "The macOS keychain cannot hold the HTTP token (%s); using %s instead.", err.message, target
+        )
+        return StoredToken(load_or_create_token(target), str(target))
+    _remove_leftover(target, token)
+    return StoredToken(token, _keychain_location())
+
+
+def _remove_leftover(path: Path, token: str) -> None:
+    """Delete the old token file once the keychain holds its token (best effort, A7). A file with
+    another token is left alone, with a warning: a client may still use it."""
+    leftover = _file_token(path)
+    if leftover is None and not path.exists():
+        return
+    if leftover is not None and not hmac.compare_digest(leftover, token):
+        _log.warning("%s holds an HTTP token that is no longer used (the keychain's is); delete it.", path)
+        return
+    try:
+        path.unlink(missing_ok=True)
+    except OSError as exc:
+        _log.warning("Could not remove the old HTTP token file %s: %s", path, exc.strerror or exc)
 
 
 # =========================================================================== binding

@@ -15,13 +15,17 @@ from starlette.testclient import TestClient
 
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.host.http import (
+    KEYCHAIN_ACCOUNT,
+    KEYCHAIN_SERVICE,
     MCP_PATH,
     AccessGuard,
     build_http_app,
     check_bind,
+    get_token,
     load_or_create_token,
     token_file,
 )
+from axpilot.system.keychain import Keychain
 from axpilot.testing import make_test_context
 
 TOKEN = "t" * 43
@@ -182,6 +186,111 @@ def test_an_unwritable_token_folder_is_reported(tmp_path: Path) -> None:
         assert caught.value.code is ErrorCode.COMMAND_FAILED
     finally:
         os.chmod(folder, 0o700)
+
+
+# =========================================================================== keychain
+class MemoryKeychain(Keychain):
+    """The keychain as a dict; ``error`` makes every call fail like a locked keychain."""
+
+    def __init__(self, items: dict[tuple[str, str], str] | None = None, error: bool = False) -> None:
+        super().__init__()
+        self.items = dict(items or {})
+        self.error = error
+        self.writes = 0
+
+    def _fail(self) -> None:
+        if self.error:
+            raise AXPilotError(ErrorCode.COMMAND_FAILED, "Reading the keychain failed (exit 51).")
+
+    def read(self, service: str, account: str) -> str | None:
+        self._fail()
+        return self.items.get((service, account))
+
+    def write(self, service: str, account: str, secret: str, *, label: str = "AXPilot") -> None:
+        self._fail()
+        self.writes += 1
+        self.items[(service, account)] = secret
+
+
+KEY = (KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT)
+
+
+def test_file_store_and_auto_off_macos_use_the_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    chain = MemoryKeychain()
+    path = tmp_path / "http-token"
+    stored = get_token("file", path=path, keychain=chain)
+    assert stored.location == str(path)
+    assert path.read_text(encoding="utf-8").strip() == stored.value
+    monkeypatch.setattr("sys.platform", "linux")
+    assert get_token("auto", path=path, keychain=chain).value == stored.value
+    assert chain.items == {}
+
+
+def test_a_new_token_goes_into_the_keychain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.platform", "darwin")
+    chain = MemoryKeychain()
+    path = tmp_path / "http-token"
+    stored = get_token("auto", path=path, keychain=chain)
+    assert len(stored.value) >= 32
+    assert chain.items == {KEY: stored.value}
+    assert "keychain" in stored.location
+    assert KEYCHAIN_SERVICE in stored.location
+    assert not path.exists()
+    again = get_token("auto", path=path, keychain=chain)
+    assert again.value == stored.value
+    assert chain.writes == 1
+
+
+def test_a_file_token_moves_into_the_keychain(tmp_path: Path) -> None:
+    path = tmp_path / "http-token"
+    path.write_text("A" * 43 + "\n", encoding="utf-8")
+    chain = MemoryKeychain()
+    stored = get_token("keychain", path=path, keychain=chain)
+    assert stored.value == "A" * 43  # configured clients keep working
+    assert chain.items == {KEY: "A" * 43}
+    assert not path.exists()
+
+
+def test_a_leftover_file_with_another_token_is_kept(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    path = tmp_path / "http-token"
+    path.write_text("B" * 43, encoding="utf-8")
+    chain = MemoryKeychain({KEY: "K" * 43})
+    assert get_token("keychain", path=path, keychain=chain).value == "K" * 43
+    assert path.exists()
+    assert "no longer used" in caplog.text
+    path.write_text("K" * 43, encoding="utf-8")  # the same token: a migration leftover
+    get_token("keychain", path=path, keychain=chain)
+    assert not path.exists()
+
+
+def test_a_short_keychain_token_is_replaced(tmp_path: Path) -> None:
+    chain = MemoryKeychain({KEY: "weak"})
+    stored = get_token("keychain", path=tmp_path / "http-token", keychain=chain)
+    assert stored.value != "weak"
+    assert chain.items[KEY] == stored.value
+
+
+def test_a_locked_keychain_falls_back_to_the_file(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    path = tmp_path / "http-token"
+    stored = get_token("keychain", path=path, keychain=MemoryKeychain(error=True))
+    assert stored.location == str(path)
+    assert path.read_text(encoding="utf-8").strip() == stored.value
+    assert "cannot hold the HTTP token" in caplog.text
+    assert stored.value not in caplog.text
+
+
+def test_a_file_token_the_keychain_cannot_take_stays_in_the_file(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = tmp_path / "http-token"
+    odd = "odd token with spaces and quotes '\" " + "x" * 30
+    path.write_text(odd, encoding="utf-8")
+    chain = MemoryKeychain()
+    stored = get_token("keychain", path=path, keychain=chain)
+    assert stored.value == odd.strip()
+    assert stored.location == str(path)
+    assert chain.items == {}
+    assert "cannot move to the keychain" in caplog.text
 
 
 # =========================================================================== binding

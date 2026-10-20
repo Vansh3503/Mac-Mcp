@@ -46,6 +46,7 @@ def isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
             "AXPILOT_APP_PATH",
         }:
             monkeypatch.delenv(name)
+    monkeypatch.setenv("AXPILOT_SERVER_TOKEN_STORE", "file")  # never the real macOS keychain
     monkeypatch.chdir(tmp_path)
     return tmp_path
 
