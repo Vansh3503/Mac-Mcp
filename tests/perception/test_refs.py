@@ -401,6 +401,30 @@ def test_recycled_row_with_the_same_handle_but_new_content_gets_new_refs(counter
         assert new[handle] not in old.values()
 
 
+def test_a_recycled_row_whose_name_field_changed_gets_new_refs(counter: RefCounter) -> None:
+    """Finder (macOS 26) reuses row elements while scrolling: the same handle, the same date and
+    size, another file name in the Name column's text field."""
+
+    def view(file_name: str) -> RawTree:
+        name = n("AXTextField", frame=(4, 102, 200, 16), h="name1", value=file_name)
+        date = n("AXStaticText", frame=(210, 102, 80, 16), h="date1", value="Today at 2:57 PM")
+        recycled = n(
+            "AXRow",
+            n("AXCell", name, frame=(0, 100, 205, 20), h="cell1"),
+            n("AXCell", date, frame=(205, 100, 95, 20), h="cell2"),
+            frame=(0, 100, 300, 20),
+            h="row1",
+        )
+        return tree(n("AXOutline", recycled, h="list", title="list view", frame=(0, 90, 400, 300)))
+
+    first = take(counter, view("file-008.txt"), mode="full")
+    second = take(counter, view("file-019.txt"), first, mode="full")
+    old, new = by_handle(first), by_handle(second)
+    assert new["list"] == old["list"]
+    for handle in ("row1", "cell1", "name1", "cell2", "date1"):
+        assert new[handle] not in old.values(), handle
+
+
 def test_numbers_are_unique_across_apps_and_windows_and_never_reused(counter: RefCounter) -> None:
     same_ui = (button("OK", 0, h="ok"), button("Cancel", 70, h="cancel"))
     notes = take(counter, tree(*same_ui, pid=1, window_id=10))

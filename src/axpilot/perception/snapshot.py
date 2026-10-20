@@ -132,7 +132,11 @@ def _own_label(node: RawNode) -> str | None:
 
 
 def _content_label(node: RawNode) -> str | None:
-    """Label an unnamed row/button/link/heading by the static text inside it."""
+    """Label an unnamed row/button/link/heading by the static text inside it.
+
+    Rows also use the values of their text fields (Finder's Name column is an editable field), so
+    a table view that recycles a row for another item gives it another name; never a secure one."""
+    fields = node.role == "AXRow"
     parts: list[str] = []
     visited = 0
     stack = list(reversed(node.children))
@@ -143,6 +147,11 @@ def _content_label(node: RawNode) -> str | None:
             continue
         if child.role == "AXStaticText":
             text = _own_label(child) or clean_text(stringify_value(child.value, NAME_MAX_CHARS * 2))
+            if text:
+                parts.append(text)
+            continue
+        if fields and child.role == "AXTextField":
+            text = None if child.secure else clean_text(stringify_value(child.value, NAME_MAX_CHARS * 2))
             if text:
                 parts.append(text)
             continue

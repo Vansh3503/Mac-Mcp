@@ -303,6 +303,26 @@ def test_unnamed_rows_and_links_are_labelled_by_their_text(node: NodeFactory) ->
     assert node_name(hidden_text) == "Go"
 
 
+def test_rows_are_labelled_by_their_text_fields_too(node: NodeFactory) -> None:
+    """Finder's list view (macOS 26): the Name column is an editable text field, the other
+    columns static text; every row of a folder made at once has the same date and size."""
+    finder_row = node(
+        "AXRow",
+        node("AXCell", node("AXTextField", value="file-001.txt")),
+        node("AXCell", node("AXStaticText", value="Today at 2:57 PM")),
+        node("AXCell", node("AXStaticText", value="Zero bytes")),
+    )
+    secure_row = node(
+        "AXRow",
+        node("AXCell", node("AXTextField", value="hunter2", secure=True)),
+        node("AXCell", node("AXStaticText", value="Account")),
+    )
+    button = node("AXButton", node("AXTextField", value="typed"), node("AXStaticText", value="Go"))
+    assert node_name(finder_row) == "file-001.txt — Today at 2:57 PM"
+    assert node_name(secure_row) == "Account"
+    assert node_name(button) == "Go"  # only rows take field values
+
+
 def test_text_inputs_are_not_labelled_by_their_content(node: NodeFactory) -> None:
     field = node("AXTextArea", node("AXStaticText", value="typed text"))
     assert node_name(field) is None
