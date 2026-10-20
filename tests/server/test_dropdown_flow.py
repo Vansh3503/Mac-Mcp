@@ -4,6 +4,7 @@ covered, cleanup that cannot finish, and windows that vanish while they are read
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 from typing import Any
 
@@ -200,6 +201,37 @@ async def test_a_list_that_stays_open_is_closed_with_a_warning() -> None:
     assert any("stayed open" in warning for warning in outcome.warnings)
     assert not visible(ctx, "sticky.list")
     assert fake(ctx).refresh_element(fake(ctx).resolve_ref("sticky")).value == "Blue"
+
+
+class Fading(FakeEngine):
+    """macOS 26: a menu still reports its frame for a moment after the pick while it fades out."""
+
+    fade = 0
+
+    def element_valid(self, handle: Any) -> bool:
+        return bool(self.fade and handle == self.resolve_ref("far.list")) or super().element_valid(handle)
+
+    def refresh_element(self, handle: Any) -> RawNode:
+        node = super().refresh_element(handle)
+        if self.fade and not node.visible and handle == self.resolve_ref("far.list"):
+            self.fade -= 1
+            return dataclasses.replace(node, visible=True)
+        return node
+
+
+async def test_a_menu_that_closes_by_itself_after_the_pick_is_left_alone() -> None:
+    """Every pick in TextEdit's format bar sent AXCancel and an extra Escape to the app and
+    warned that the menu "may still be open", because the check ran while it faded out."""
+    engine = Fading(desktop())
+    ctx = context(engine)
+    target = await target_of(ctx, "Far")
+    engine.fade = 2
+    outcome = await dropdown.choose_option(ctx, target, option="Pressed", index=None)
+    assert outcome.chosen == "Pressed"
+    assert engine.fade == 0  # it waited while the menu faded
+    assert not [w for w in outcome.warnings if "open" in w]
+    assert not engine.events_of("press_key")  # no Escape into the app
+    assert not [e for e in engine.events_of("perform_action") if e.get("action") == "AXCancel"]
 
 
 # =========================================================================== off screen and covered

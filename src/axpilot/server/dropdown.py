@@ -30,6 +30,7 @@ ladder is a different strategy, tried only when the previous one visibly did not
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -61,6 +62,8 @@ FILTER_WAIT_S = 1.5
 """How long a web combo box may take to update its list after typing."""
 POLL_S = 0.1
 CLEANUP_TIMEOUT_S = 2.0
+CLOSE_WAIT_S = 0.5
+"""How long a menu may take to close by itself after a pick (macOS fades it out) before AXCancel."""
 """Closing a menu or list after a failure never takes longer than this."""
 WEB_APP_KINDS = frozenset({"electron", "cef"})
 """App kinds whose whole window is web content."""
@@ -257,13 +260,22 @@ async def _press_option(ctx: ServerContext, target: Target, found: dd.OptionList
     return f"pick:{used}"
 
 
-async def _still_open(ctx: ServerContext, found: dd.OptionList) -> bool:
+async def _still_open(ctx: ServerContext, found: dd.OptionList, *, wait_s: float = 0.0) -> bool:
+    """Whether the options are still shown, giving them up to ``wait_s`` to close by themselves:
+    right after a pick a menu is still fading out (macOS 26), and AXCancel or Escape then would
+    only reach the app."""
     handle = found.container.handle
-    if handle is None or not await ctx.run_engine(ctx.engine.element_valid, handle):
-        return False
-    node = await ctx.run_engine(ctx.engine.refresh_element, handle)
-    frame = node.frame
-    return node.visible and (frame is None or (frame.w > 0 and frame.h > 0))
+    for _ in range(max(1, math.ceil(wait_s / POLL_S) + 1)):
+        if handle is None or not await ctx.run_engine(ctx.engine.element_valid, handle):
+            return False
+        node = await ctx.run_engine(ctx.engine.refresh_element, handle)
+        frame = node.frame
+        if not (node.visible and (frame is None or (frame.w > 0 and frame.h > 0))):
+            return False
+        if wait_s <= 0:
+            return True
+        await ctx.sleep(POLL_S)
+    return True
 
 
 async def _close(ctx: ServerContext, target: Target, found: dd.OptionList) -> str | None:
@@ -272,7 +284,7 @@ async def _close(ctx: ServerContext, target: Target, found: dd.OptionList) -> st
     with anyio.CancelScope(shield=True) as scope:
         scope.deadline = anyio.current_time() + CLEANUP_TIMEOUT_S
         try:
-            if not await _still_open(ctx, found):
+            if not await _still_open(ctx, found, wait_s=CLOSE_WAIT_S):
                 return None
             handle = found.container.handle
             if "AXCancel" in found.container.actions and handle is not None:
@@ -477,7 +489,7 @@ async def _verify(ctx: ServerContext, run: _Run, found: dd.OptionList, chosen: d
     strategy = {"window": "menu_window", "page": "listbox"}.get(found.where, "menu")
     outcome = DropdownOutcome(strategy, chosen.title, f"chose {quote(chosen.title, 60)}", attempts)
     await ctx.sleep(ctx.config.perception.settle_ms / 1000)
-    if await _still_open(ctx, found):
+    if await _still_open(ctx, found, wait_s=CLOSE_WAIT_S):
         warning = await _close(ctx, target, found)
         closed = f"The options of {target.describe()} stayed open after the choice; AXPilot closed them."
         outcome.warnings.append(warning or closed)
