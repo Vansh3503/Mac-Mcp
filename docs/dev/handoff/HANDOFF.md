@@ -4,8 +4,8 @@ Give this whole file to the next coding session (any account). It is self-contai
 every decision made so far, the exact current state, the rules the owner set, and the ordered remaining work.
 
 - **Repository:** `github.com/Vansh3503/Mac-Mcp` (private). Default branch `main`.
-- **Working branch:** `feature/axpilot-foundation`. PR #14 brought it into `main` up to `f6802e5`; the
-  later work (§5, "After PR #14") is on the branch only.
+- **Working branch:** `feature/axpilot-foundation`. Everything in §5 is on `main`: PR #14 (up to `f6802e5`)
+  and PR #16 (merge commit `5f0fa59`, the work listed under "After PR #14").
 - **Last verified work commit:** see `git log --oneline -20`; §5 lists what each commit did.
 - **Owner:** Vansh Malhotra (GitHub `Vansh3503`).
 
@@ -152,7 +152,7 @@ Not verified on a real Mac: everything in `engine/macos` (including the run-loop
 the real launcher, and every AppleScript the browser/scripting tools send. All of it is covered by Linux tests with
 fakes only.
 
-### After PR #14 (on `feature/axpilot-foundation` only, not on `main`)
+### After PR #14 (merged into `main` by PR #16, `5f0fa59`)
 
 | Commit | Issue | What |
 |---|---|---|
@@ -171,8 +171,10 @@ fakes only.
 | `1d968d9`, `b97ac5a`, `158445c` | #10 | `scripts/release.py` and `launcher.yml`, `release.yml`, `docs.yml` (none has run) |
 | `cb78eb1` | #10 | `.mcpb` feasibility: `docs/dev/mcpb-feasibility.md` |
 
-`main` therefore still lacks two safety fixes (`347cae8`, `9eceb42`) and the CI flake fix. Merging needs
-a pull request, which only the owner can ask for (§4).
+Verified before PR #16 merged, on `48bba59`: the full Linux suite with coverage gave **3439 passed, 51 skipped,
+94.34%** branch coverage, with `HOME` pointed at an empty folder (which stayed empty); CI was green on every
+job, including macOS 14 and 15, where the strict peer-uid test proved `LOCAL_PEERCRED` works. A deep fuzz
+run (`AXPILOT_FUZZ_EXAMPLES=200`) passed after `848db3c`.
 
 Release setup the owner must do once (details in `packaging/README.md`): build and pin the launcher
 (`launcher.yml`, then a filled row in `launcher/CDHASH.md`; `release.yml` refuses to run until then),
