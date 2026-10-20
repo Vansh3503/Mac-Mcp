@@ -24,6 +24,12 @@ Pre-alpha. Nothing is published on PyPI yet.
   that does not list the option is typed into to filter it (the text is put back on failure).
   `set_value` and `fill_form` choose pop-up options the same way. Snapshots taken while a menu is
   open list its items, so opening a menu with `perform_action` and clicking an item also works.
+- `axpilot stdio` completes the MCP handshake even when it cannot reach the AXPilot host
+  (AXPilot.app not installed, the host does not start, or it refused this client): it prints the
+  error on stderr, lists the usual tools and returns the error with its hint ("Run `axpilot setup`
+  once") from every tool call, so MCP clients show the reason instead of "server failed to start".
+- A CI job builds the Swift launcher (`launcher/build.sh`) on macOS and runs its contract tests
+  against the built bundle on every change; nothing is published.
 - An eval suite (`python -m axpilot.evals`): 43 tasks on the simulated desktop (input, controls,
   dropdowns, menus, windows, long lists, OCR, web pages, an Electron and a Java app, and safety
   requests that must not succeed), judged by state through read-only tools. A scripted agent replays each task's reference

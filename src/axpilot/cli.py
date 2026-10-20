@@ -287,7 +287,13 @@ def stdio(
     naming: NamingOption = None,
     yes: YesOption = False,
 ) -> None:
-    """Serve MCP over stdin/stdout (what MCP clients run)."""
+    """Serve MCP over stdin/stdout (what MCP clients run).
+
+    Without --direct or the fake engine this bridges to the AXPilot host, starting AXPilot.app if
+    needed. When the host cannot be reached (AXPilot.app not installed, the host does not come
+    up, or it refuses this client), the error goes to stderr and a stand-in still answers the MCP
+    handshake, listing the usual tools and returning the error from every tool call, so the client
+    shows the reason instead of "server failed to start"."""
     in_process = direct or engine is Engine.fake or fixture is not None
     if in_process:
         from axpilot.server.app import build_server  # noqa: PLC0415
@@ -303,13 +309,30 @@ def stdio(
             ctx.close()
         return
     from axpilot.bridge.launch import ensure_host_running, identify_parent  # noqa: PLC0415
+    from axpilot.bridge.offline import STAND_IN_ERRORS  # noqa: PLC0415
     from axpilot.bridge.protocol import Hello  # noqa: PLC0415
     from axpilot.bridge.stdio_pipe import run_bridge  # noqa: PLC0415
 
-    socket_path = ensure_host_running()
-    hello = Hello(client=identify_parent(), profile=profile, naming=naming)
-    code = _run(lambda: run_bridge(socket_path, hello))
+    try:
+        socket_path = ensure_host_running()
+        hello = Hello(client=identify_parent(), profile=profile, naming=naming)
+        code = _run(lambda: run_bridge(socket_path, hello))  # raises only before the session starts
+    except AXPilotError as err:
+        if err.code not in STAND_IN_ERRORS:
+            raise
+        _serve_stand_in(err, profile=profile, naming=naming)
+        return
     raise typer.Exit(code)
+
+
+def _serve_stand_in(err: AXPilotError, *, profile: str | None, naming: str | None) -> None:
+    """Report ``err`` on stderr, then answer the MCP session with it (see :mod:`axpilot.bridge.offline`)."""
+    from axpilot.bridge.offline import build_unavailable_server  # noqa: PLC0415
+
+    _report_error(err)
+    _err("axpilot: answering the MCP client anyway; every tool call returns this error.")
+    server = build_unavailable_server(err, _config(), profile=profile, naming=naming)
+    _run(server.run_stdio_async)
 
 
 @app.command()

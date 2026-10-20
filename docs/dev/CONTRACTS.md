@@ -475,7 +475,8 @@ class ServerContext:
 
 # axpilot/server/app.py
 def build_server(ctx: ServerContext, *, profile: str | None = None, naming: str | None = None,
-                 client_name: str | None = None) -> MCPServer
+                 client_name: str | None = None,
+                 server_factory: Callable[..., AXPilotServer] = AXPilotServer) -> AXPilotServer
 ```
 Every tool is registered through `axpilot/server/registry.py` (`ToolSpec`: name, toolset, factory(ctx)->async fn,
 title, description, read_only, destructive, idempotent, open_world, input_action, windows_mcp_name, confirm_text,
@@ -599,6 +600,14 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
   `HOST_UNAVAILABLE` when the host is unreachable or silent, then pumps stdin→socket and socket→stdout. When
   stdin ends it half-closes the socket and keeps forwarding until the host closes; returns `0`. Only the host's
   bytes are written to stdout.
+- `axpilot/bridge/offline.py`: the stand-in `axpilot stdio` serves when it cannot reach the host.
+  `build_unavailable_server(error, config, *, profile=None, naming=None) -> UnavailableServer` lists the tools
+  the host would offer (same names, descriptions and schemas, via `build_server(server_factory=...)`), puts the
+  error and its hint at the start of the instructions, and answers every listed tool with `error_result(error)`
+  (unknown names get the usual answers); it never calls its engine (an empty fake desktop) and audits nothing.
+  `STAND_IN_ERRORS` = `HOST_UNAVAILABLE`, `USER_DENIED`, `BUSY`, `NOT_SUPPORTED`: raised by
+  `ensure_host_running` or by `run_bridge` before the session starts, they are printed on stderr and the
+  stand-in serves stdin/stdout (exit `0` when stdin ends); other errors (an unknown profile) still exit.
 - `axpilot/bridge/launch.py`: `ensure_host_running(socket_path=None, *, timeout_s=10, ...) -> Path` returns at
   once if a host answers; on macOS runs `open -g -a <launcher>` and polls the socket; elsewhere (and when the
   launcher is missing) raises `HOST_UNAVAILABLE` with a hint to use `--direct` or `--engine fake`.

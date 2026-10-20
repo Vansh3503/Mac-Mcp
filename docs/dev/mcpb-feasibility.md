@@ -53,11 +53,13 @@ Sketch (not built):
 
 ## What blocks it today
 
-1. **First run.** Without `AXPilot.app`, the bridge exits with `HOST_UNAVAILABLE` ("Run `axpilot
-   setup` once") before the MCP handshake, which Claude Desktop shows as a server that failed to
-   start. A bundle needs the bridge to complete the handshake and return that message from every
-   tool call instead, or a first-run path that installs the launcher non-interactively and lets
-   macOS ask for permissions on first use.
+1. **First run.** *Partly solved:* without `AXPilot.app` the bridge used to exit with
+   `HOST_UNAVAILABLE` before the MCP handshake, which Claude Desktop shows as a server that failed
+   to start. It now completes the handshake with a stand-in that lists the usual tools and returns
+   the error and its hint ("Run `axpilot setup` once") from every tool call
+   (`axpilot/bridge/offline.py`). Still open: a first-run path that installs the launcher
+   non-interactively and lets macOS ask for permissions on first use, so a bundle needs no
+   terminal step at all.
 2. **No release yet.** The bundle pins an `axpilot` version from PyPI.
 3. **Unknowns that need a Mac with Claude Desktop:** the minimum Claude Desktop version that
    supports manifest 0.4 and the `uv` type; that `open -g -a` and the pairing dialog work when the
@@ -65,6 +67,5 @@ Sketch (not built):
 
 ## Next steps
 
-After S1 and the first release: make the bridge answer the handshake when the host is unavailable
-(item 1), build `packaging/mcpb/` with `mcpb validate` and `mcpb pack`, and test the install on
+After S1 and the first release: build `packaging/mcpb/` with `mcpb validate` and `mcpb pack`, and test the install on
 macOS 14 and 15. Until then, `axpilot connect claude-desktop` remains the documented path.

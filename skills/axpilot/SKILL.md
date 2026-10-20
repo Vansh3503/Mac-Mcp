@@ -101,6 +101,7 @@ Errors come back as `CODE: message` with a `Hint:`. Follow the hint. In particul
 | `BLOCKED_BY_POLICY` | The app, window or action is off limits by the person's settings. Don't try to get around it (coordinates, other tools, keyboard tricks). Explain what you couldn't do. |
 | `TOOL_DISABLED` | That tool isn't enabled. Use the tools you have, or tell the person what you'd need. |
 | `PERMISSION_*`, `LAUNCHER_CHANGED` | macOS permissions are missing. Tell the person which one (the hint names it) and suggest `axpilot doctor`. |
+| `HOST_UNAVAILABLE` | AXPilot is not set up or not running on this Mac (every tool returns it). Tell the person the hint (usually "run `axpilot setup` once") and stop; retrying won't help until they fix it and restart the client. |
 | `BUSY`, `RATE_LIMITED` | Slow down and retry shortly. Verify results between actions. |
 | `TIMEOUT` | Take a snapshot to see what actually happened before deciding to retry. |
 

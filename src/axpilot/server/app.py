@@ -15,7 +15,7 @@ from __future__ import annotations
 import importlib
 import logging
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from mcp.server import MCPServer
@@ -169,13 +169,16 @@ def build_server(
     profile: str | None = None,
     naming: str | None = None,
     client_name: str | None = None,
+    server_factory: Callable[..., AXPilotServer] = AXPilotServer,
 ) -> AXPilotServer:
     """Build the MCP server for ``ctx``.
 
     ``profile`` (default: the context's) selects the tools, together with the config's
     ``[tools] enable``/``disable``; ``naming`` (``default`` | ``windows-mcp``) the public tool
-    names; ``client_name`` labels audit records and confirmations. Raises ``INVALID_ARGUMENT``
-    for an unknown profile, tool name or naming.
+    names; ``client_name`` labels audit records and confirmations. ``server_factory`` makes the
+    server object (an :class:`AXPilotServer` subclass, such as the bridge's stand-in in
+    :mod:`axpilot.bridge.offline`). Raises ``INVALID_ARGUMENT`` for an unknown profile, tool name
+    or naming.
     """
     load_tool_modules()
     if profile is None:
@@ -186,7 +189,7 @@ def build_server(
     naming = naming or ctx.naming
     scoped = ctx.scoped(profile=profile, enabled=enabled, naming=naming, client_name=client_name)
     entries = apply_naming(specs_for(enabled), naming)
-    server = AXPilotServer(
+    server = server_factory(
         scoped,
         name=SERVER_NAME,
         instructions=instructions(naming, scoped.config.tools.prefix),
