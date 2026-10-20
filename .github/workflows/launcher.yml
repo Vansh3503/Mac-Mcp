@@ -37,10 +37,10 @@ jobs:
           case "$NUMBER" in
             ''|*[!0-9]*|0*) echo "::error::number must be a positive integer without leading zeros"; exit 1 ;;
           esac
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
           python-version: "3.12"
@@ -51,7 +51,7 @@ jobs:
           uv sync --locked
           uv run pytest launcher/tests -q -p no:cacheprovider
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: launcher/build/AXPilot.app.zip
       - name: Publish launcher-v${{ inputs.number }}
