@@ -21,6 +21,7 @@ from axpilot.setup import launcher
 from axpilot.setup.launcher import executable_path, install_launcher
 from axpilot.setup.runtime import write_manifest
 from axpilot.system.runner import CommandResult, CommandRunner
+from axpilot.testing.host import short_socket_dir
 
 ARM = "c" * 40
 
@@ -29,7 +30,12 @@ ARM = "c" * 40
 
 
 @pytest.fixture
-def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
+    with short_socket_dir() as sockets:  # tmp_path is too long for AF_UNIX on macOS
+        yield _isolate(tmp_path, monkeypatch, sockets / "host.sock")
+
+
+def _isolate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, socket_path: Path) -> Path:
     for name in list(os.environ):
         if name.startswith("AXPILOT_"):
             monkeypatch.delenv(name)
@@ -43,7 +49,7 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("AXPILOT_APP_PATH", str(tmp_path / "apps" / "AXPilot.app"))
     monkeypatch.setenv("AXPILOT_CONFIG_DIR", str(tmp_path / "config"))
     monkeypatch.setenv("AXPILOT_LOG_DIR", str(tmp_path / "logs"))
-    monkeypatch.setenv("AXPILOT_SOCKET", str(tmp_path / "host.sock"))
+    monkeypatch.setenv("AXPILOT_SOCKET", str(socket_path))
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     monkeypatch.setattr(clients_base, "SYSTEM_APPLICATIONS_DIR", tmp_path / "Applications")
     monkeypatch.setattr(launcher, "has_xattr", lambda path, name: False)
