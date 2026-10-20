@@ -939,7 +939,8 @@ class TestMacEngine:
 
         tree = engine.capture_tree(app="com.apple.finder", include_menus=True)
         assert tree.app.pid == finder.pid
-        assert tree.root.role in ("AXWindow", "AXApplication")
+        desktop = tree.root.role == "AXScrollArea" and tree.root.description == "desktop"
+        assert tree.root.role in ("AXWindow", "AXApplication") or desktop  # no Finder window open
         assert tree.node_count >= 1
         assert tree.menu_bar is not None
         assert tree.menu_bar.role == "AXMenuBar"
