@@ -408,6 +408,13 @@ async def test_kill_refusals_ask_nobody(monkeypatch: pytest.MonkeyPatch, pid: in
     assert set(signals) <= {0}  # at most an existence check, never a real signal
 
 
+async def test_a_pid_beyond_pid_t_is_an_invalid_argument() -> None:
+    # Found by tests/server/test_fuzz.py: os.kill raised OverflowError, which became INTERNAL.
+    async with connected_client(make_ctx()) as client:
+        result, error = await call(client, "processes", {"action": "kill", "pid": 2**31})
+    assert error == "INVALID_ARGUMENT", text_of(result)
+
+
 @pytest.mark.parametrize(
     ("registration", "args", "code"),
     [
