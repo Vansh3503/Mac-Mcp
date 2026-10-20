@@ -263,6 +263,9 @@ async def test_a_save_panel_goes_to_a_folder_then_saves(ctx: ServerContext, clie
         {"app": "TextEdit", "action": "accept", "path": "~/Desktop", "text": "Report"},
     )
     assert data["pressed"] == "Save"
+    removed = {item["role"] for item in data["diff"]["removed"]}
+    assert "sheet" in removed
+    assert "window" not in removed  # the diff compares like with like (both snapshots full)
     engine = engine_of(ctx)
     keys = [e["combo"] for e in engine.events_of("press_key")]
     assert keys[:2] == ["shift+cmd+g", "return"]
