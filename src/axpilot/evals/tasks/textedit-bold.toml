@@ -1,0 +1,21 @@
+id = "textedit-bold"
+title = "Turn on bold"
+goal = "In TextEdit, turn on Bold in the format bar."
+tags = ["textedit", "controls"]
+max_steps = 10
+
+[[check]]
+tool = "find"
+args = { app = "TextEdit", text = "Bold", role = "checkbox" }
+path = "matches.0.value"
+op = "equals"
+value = "1"
+
+[[solution]]
+tool = "find"
+args = { app = "TextEdit", text = "Bold", role = "checkbox" }
+save = { bold = "matches.0.ref" }
+
+[[solution]]
+tool = "set_value"
+args = { ref = "$bold", value = "on" }

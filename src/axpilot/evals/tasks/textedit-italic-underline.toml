@@ -1,0 +1,33 @@
+id = "textedit-italic-underline"
+title = "Italic and underline"
+goal = "In TextEdit, turn on both Italic and Underline in the format bar."
+tags = ["textedit", "controls"]
+max_steps = 12
+
+[[check]]
+tool = "find"
+args = { app = "TextEdit", text = "Italic", role = "checkbox" }
+path = "matches.0.value"
+op = "equals"
+value = "1"
+
+[[check]]
+tool = "find"
+args = { app = "TextEdit", text = "Underline", role = "checkbox" }
+path = "matches.0.value"
+op = "equals"
+value = "1"
+
+[[solution]]
+tool = "find"
+args = { app = "TextEdit", text = "Italic", role = "checkbox" }
+save = { italic = "matches.0.ref" }
+
+[[solution]]
+tool = "find"
+args = { app = "TextEdit", text = "Underline", role = "checkbox" }
+save = { underline = "matches.0.ref" }
+
+[[solution]]
+tool = "fill_form"
+args = { fields = [{ ref = "$italic", value = "on" }, { ref = "$underline", value = "on" }] }

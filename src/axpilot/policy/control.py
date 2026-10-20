@@ -10,7 +10,9 @@ A turn
 
 1. fails fast with ``PAUSED_BY_USER`` while AXPilot is paused (kill switch), and with
    ``NEEDS_USER`` while one of AXPilot's questions waits for the person
-   (:meth:`ControlState.asking_user`): an agent must never answer its own confirmation;
+   (:meth:`ControlState.asking_user`, or :meth:`ControlState.hold_question` for a question the
+   MCP client shows between two rounds of a call): an agent must never answer its own
+   confirmation;
 2. waits for the one input lock (input actions never interleave; observations do not take
    the lock) and fails with ``BUSY`` after ``timeout_s``;
 3. with yield-to-user on, fails with ``USER_ACTIVE`` if the user touched the mouse or
@@ -29,7 +31,8 @@ import contextlib
 import logging
 import math
 import threading
-from collections.abc import AsyncIterator, Iterator
+import time
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -72,12 +75,20 @@ class ControlState:
     :meth:`pause` and :meth:`resume`, which also stop the input action in progress.
     """
 
-    def __init__(self, engine: Engine, *, yield_to_user: bool = True, idle_threshold_s: float = 1.0) -> None:
+    def __init__(
+        self,
+        engine: Engine,
+        *,
+        yield_to_user: bool = True,
+        idle_threshold_s: float = 1.0,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self.engine = engine
         self.yield_to_user = yield_to_user
         self.idle_threshold_s = idle_threshold_s
         self.paused: bool = False
         self.pause_reason: str | None = None
+        self._clock = clock
         self._lock = anyio.Lock()
         self._state = threading.Lock()
         self._turns: set[_Turn] = set()
@@ -85,6 +96,26 @@ class ControlState:
         self._owner: int | None = None
         self._held = False
         self._questions = 0
+        self._held_questions: dict[str, float] = {}
+        self._listeners: list[Callable[[str, str | None], None]] = []
+
+    # -------------------------------------------------------------- listeners
+    def add_listener(self, listener: Callable[[str, str | None], None]) -> None:
+        """Call ``listener(event, detail)`` on ``"turn_start"`` and ``"turn_end"`` (detail: the
+        turn's label), ``"paused"`` (the reason) and ``"resumed"`` (``None``); the on-screen
+        indicator listens. A listener runs in the thread that caused the event and must return
+        quickly; its exceptions are logged, never raised. Thread-safe."""
+        with self._state:
+            self._listeners.append(listener)
+
+    def _notify(self, event: str, detail: str | None) -> None:
+        with self._state:
+            listeners = list(self._listeners)
+        for listener in listeners:
+            try:
+                listener(event, detail)
+            except Exception:  # a broken indicator never breaks input (QUALITY.md A7)
+                _log.warning("A control-state listener failed on %s", event, exc_info=True)
 
     # -------------------------------------------------------------- pause / resume
     def pause(self, reason: str = "kill switch") -> None:
@@ -95,19 +126,32 @@ class ControlState:
             turns = list(self._turns)
         for turn in turns:
             self._cancel(turn)
+        self._notify("paused", reason)
 
     def resume(self) -> None:
         """Allow input again. Thread-safe."""
         with self._state:
             self.paused = False
             self.pause_reason = None
+        self._notify("resumed", None)
+
+    def toggle_pause(self, reason: str = "kill switch") -> bool:
+        """Pause when running, resume when paused (the kill-switch hotkey); returns the new
+        ``paused`` state. Thread-safe."""
+        with self._state:
+            paused = self.paused
+        if paused:
+            self.resume()
+            return False
+        self.pause(reason)
+        return True
 
     def ensure_running(self) -> None:
         """Raise ``PAUSED_BY_USER`` if paused, or ``NEEDS_USER`` while a question to the user is
         open. Long actions call this between steps."""
         if self.paused:
             raise self._paused_error()
-        if self._questions:
+        if self.waiting_for_user:
             raise AXPilotError(
                 ErrorCode.NEEDS_USER,
                 "AXPilot is waiting for the person to answer one of its questions; other actions "
@@ -131,10 +175,35 @@ class ControlState:
             with self._state:
                 self._questions -= 1
 
+    def hold_question(self, key: str, ttl_s: float) -> None:
+        """Mark a question that the MCP client shows between two rounds of one call (MCP
+        elicitation through ``InputRequiredResult``) as open for at most ``ttl_s`` seconds.
+
+        It counts like :meth:`asking_user` until :meth:`release_question` is called with the same
+        ``key`` (the client's retry carries the answer) or the time runs out (the client gave up
+        without telling us). Thread-safe."""
+        with self._state:
+            self._held_questions[key] = self._clock() + max(ttl_s, 0.0)
+
+    def release_question(self, key: str) -> bool:
+        """Close a question opened with :meth:`hold_question`. Returns True if it was open (and
+        not expired). Thread-safe."""
+        with self._state:
+            deadline = self._held_questions.pop(key, None)
+        return deadline is not None and deadline > self._clock()
+
     @property
     def waiting_for_user(self) -> bool:
         """True while a question to the user is open."""
-        return self._questions > 0
+        if self._questions > 0:
+            return True
+        if not self._held_questions:
+            return False
+        now = self._clock()
+        with self._state:
+            for key in [k for k, deadline in self._held_questions.items() if deadline <= now]:
+                del self._held_questions[key]
+            return bool(self._held_questions)
 
     # ------------------------------------------------------------------- status
     @property
@@ -169,6 +238,7 @@ class ControlState:
         self._refuse_nesting()
         await self._acquire(timeout_s)
         self._held, self._holder, self._owner = True, label, anyio.get_current_task().id
+        started = False
         try:
             turn = self._begin(label)
             try:
@@ -178,6 +248,8 @@ class ControlState:
                     # happened meanwhile before the action starts.
                     await anyio.lowlevel.checkpoint_if_cancelled()
                     self.ensure_running()
+                    started = True
+                    self._notify("turn_start", label)
                     yield
             finally:
                 with self._state:
@@ -191,6 +263,8 @@ class ControlState:
         finally:
             self._held, self._holder, self._owner = False, None, None
             self._lock.release()
+            if started:
+                self._notify("turn_end", label)
 
     # ---------------------------------------------------------------- internals
     def _paused_error(self) -> AXPilotError:

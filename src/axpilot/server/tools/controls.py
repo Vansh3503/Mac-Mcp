@@ -399,14 +399,9 @@ def handle_dialog_tool(ctx: ServerContext) -> ToolFn:
                 f"No sheet or dialog is open in {tree.app.name}.",
                 hint="Take a snapshot to see what is on screen; the dialog may belong to another app.",
             )
-        if text is not None:
-            editable = [el for el in fields if el.role in FIELD_ROLES]
-            if not editable:
-                raise AXPilotError(ErrorCode.INVALID_ARGUMENT, "The dialog has no text field for text.")
-            field_target = await resolve_target(
-                ctx, ref=editable[0].ref, snapshot_id=snap.snapshot_id, x=None, y=None
-            )
-            await set_control(ctx, field_target, text)
+        editable = [el for el in fields if el.role in FIELD_ROLES]
+        if text is not None and not editable:
+            raise AXPilotError(ErrorCode.INVALID_ARGUMENT, "The dialog has no text field for text.")
         if action == "press":
             assert button is not None
             chosen: Element | None = buttons[match_option([el.name or "" for el in buttons], button)]
@@ -418,11 +413,17 @@ def handle_dialog_tool(ctx: ServerContext) -> ToolFn:
                 )
         else:
             chosen = _cancel_button(buttons)
+        # Ask before changing anything: an answer given through the client re-runs the call.
         if chosen is not None and DESTRUCTIVE_BUTTON_RE.search(chosen.name or ""):
             detail = "\n".join(texts[:6]) or None
             await ctx.confirm_action(
                 f"Press {quote(chosen.name or '', 60)} in {tree.app.name}'s dialog?", detail, destructive=True
             )
+        if text is not None:
+            field_target = await resolve_target(
+                ctx, ref=editable[0].ref, snapshot_id=snap.snapshot_id, x=None, y=None
+            )
+            await set_control(ctx, field_target, text)
         if chosen is None:  # cancel without a cancel button: Escape dismisses macOS dialogs
             await activate_app(ctx, tree.app)
             await require_keyboard(ctx)

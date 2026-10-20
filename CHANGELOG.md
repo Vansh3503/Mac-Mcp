@@ -14,6 +14,25 @@ Pre-alpha. Nothing is published on PyPI yet.
 
 ### Added
 
+- An eval suite (`python -m axpilot.evals`): 36 tasks on the simulated desktop (input, controls,
+  menus, windows, long lists, OCR, an Electron and a Java app, and safety requests that must not
+  succeed), judged by state through read-only tools. A scripted agent replays each task's reference
+  solution in CI; model-backed agents plug in as `module:factory` and get JSON and Markdown reports.
+- The kill switch and the on-screen indicator (macOS, real engine; not yet run on a Mac): ⌃⌥⌘.
+  (`[safety] kill_switch`) stops the input action in progress and pauses AXPilot, and pressing it
+  again resumes; a frame around the screen and a status pill show while AXPilot acts
+  (`[safety] indicator`), orange while paused. The hotkey is a Carbon hotkey (no permission
+  needed); the UI is best effort, so the server runs on without it if AppKit fails.
+- The HTTP bearer token lives in the macOS login keychain (`[server] token_store`, `auto` by
+  default). A token from the old file moves there, so configured clients keep working; a locked
+  or unavailable keychain falls back to the private file with a warning. The token is written
+  through `security`'s standard input, never in a command line.
+- Confirmations through the MCP client in direct mode: a client that supports elicitation shows
+  AXPilot's question in its own window (`[safety] elicitation`, on by default; off with `--yes`).
+  On protocol 2026-07-28 the question ends the call with an `InputRequiredResult` and the
+  client's retry carries the answer, which counts once, for the same call and question, within
+  the confirmation timeout. While the question is open every acting tool waits with
+  `NEEDS_USER`. Clients without elicitation keep the dialog or the safe "no".
 - Project plan ([docs/PLAN.md](docs/PLAN.md)) and architecture decision records for language,
   architecture, minimum macOS, MCP surface, signing and distribution, privacy, and the name
   ([docs/adr/](docs/adr/README.md)).
@@ -61,12 +80,14 @@ Pre-alpha. Nothing is published on PyPI yet.
   (`Desktop.connect()`). Scripts use the same tools, policy, confirmations, audit log and error
   codes as agents.
 - Examples: five automation scripts that run against the simulated desktop, and agent examples
-  for eleven frameworks (OpenAI Agents SDK, LangGraph, CrewAI, Google ADK, Pydantic AI,
-  LlamaIndex, smolagents, Microsoft Agent Framework, Claude Agent SDK, Vercel AI SDK, Mastra).
+  for thirteen frameworks (OpenAI Agents SDK, LangGraph, CrewAI, Google ADK, Pydantic AI,
+  LlamaIndex, smolagents, Microsoft Agent Framework, Claude Agent SDK, Agno, Strands Agents, Vercel AI
+  SDK, Mastra).
 - `select_option` (pop-ups, combo boxes, radio and tab groups, segmented controls, list rows by
   title or index) and `handle_dialog` (read a sheet or dialog; accept, cancel or press a button;
-  buttons that delete or discard ask first; in open and save panels, `path` goes to a folder or
-  file with Go to the folder first).
+  buttons that delete or discard ask first, before `text` is typed into the dialog, so a "no"
+  changes nothing; in open and save panels, `path` goes to a folder or file with Go to the folder
+  first).
 - Menu bar extras: `select_menu` with `extras: true` lists and chooses status items (Wi‑Fi,
   Battery, an app's icon; Control Center by default); a one-title path clicks the item. Menu
   titles match across hyphen variants ("wi-fi" finds "Wi‑Fi").

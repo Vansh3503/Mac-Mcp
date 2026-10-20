@@ -1,0 +1,21 @@
+id = "notes-open-note"
+title = "Open a note"
+goal = "Open the note called \"Trip ideas\" in Notes."
+tags = ["notes", "lists"]
+max_steps = 10
+
+[[check]]
+tool = "find"
+args = { app = "Notes", text = "Trip ideas", role = "row" }
+path = "matches.0.states"
+op = "contains"
+value = "selected"
+
+[[solution]]
+tool = "find"
+args = { app = "Notes", text = "Trip ideas", role = "row" }
+save = { note = "matches.0.ref" }
+
+[[solution]]
+tool = "click"
+args = { ref = "$note" }

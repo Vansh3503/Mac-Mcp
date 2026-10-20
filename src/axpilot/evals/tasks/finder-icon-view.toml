@@ -1,0 +1,21 @@
+id = "finder-icon-view"
+title = "Show files as icons"
+goal = "Switch the Finder window to icon view."
+tags = ["finder", "controls"]
+max_steps = 10
+
+[[check]]
+tool = "find"
+args = { app = "Finder", text = "as Icons", role = "radio" }
+path = "matches.0.states"
+op = "contains"
+value = "checked"
+
+[[solution]]
+tool = "find"
+args = { app = "Finder", text = "as Icons", role = "radio" }
+save = { icons = "matches.0.ref" }
+
+[[solution]]
+tool = "click"
+args = { ref = "$icons" }

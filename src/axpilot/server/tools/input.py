@@ -527,6 +527,20 @@ async def activate_app(ctx: ServerContext, app: AppInfo | None) -> None:
     await ctx.sleep(ctx.config.perception.settle_ms / 1000)
 
 
+async def ensure_frontmost(ctx: ServerContext, app: AppInfo | None) -> None:
+    """Keystrokes go to the frontmost app: send none unless ``app`` is in front (macOS may ignore
+    an activation request from a process in the background)."""
+    if app is None:
+        return
+    front = await ctx.run_engine(ctx.engine.frontmost_app)
+    if front is None or front.pid != app.pid:
+        raise AXPilotError(
+            ErrorCode.ELEMENT_NOT_ACTIONABLE,
+            f"Could not bring {app.name} to the front, so no keys were sent.",
+            hint="Activate it with the app tool (or click its window), then try again.",
+        )
+
+
 async def ensure_uncovered(ctx: ServerContext, target: Target) -> None:
     """A synthesized click lands on whatever is on top: make sure that is the target's app."""
     if target.app is None:
@@ -790,7 +804,10 @@ def _prefers_keystrokes(app: AppInfo | None) -> bool:
 
 
 async def _focus(ctx: ServerContext, target: Target) -> str:
-    """Give the field keyboard focus: AX focus, else a click on it."""
+    """Give the field keyboard focus: AX focus, else a click on it. Its app comes to the front
+    first in both cases: the keystrokes that follow go to the frontmost app, whatever element
+    of another app has accessibility focus."""
+    await activate_app(ctx, target.app)
     if target.handle is not None:
         try:
             await ctx.run_engine(ctx.engine.focus, target.handle)
@@ -799,7 +816,6 @@ async def _focus(ctx: ServerContext, target: Target) -> str:
             if err.code is not ErrorCode.ELEMENT_NOT_ACTIONABLE:
                 raise
     await ensure_uncovered(ctx, target)
-    await activate_app(ctx, target.app)
     await ctx.run_engine(ctx.engine.mouse_click, target.point)
     return "click_focus"
 
@@ -838,6 +854,7 @@ async def _type(
         attempts.append(await _focus(ctx, target))
     elif app is not None:
         await activate_app(ctx, app)
+    await ensure_frontmost(ctx, app)
     if clear:
         await require_keyboard(ctx)
         await _press(ctx, KeyCombo("a", frozenset({"cmd"})))

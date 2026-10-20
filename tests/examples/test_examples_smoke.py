@@ -39,6 +39,8 @@ def test_the_examples_exist() -> None:
             "smolagents",
             "ms_agent_framework",
             "claude_agent_sdk",
+            "agno",
+            "strands",
         )
     }
     assert {p.stem for p in TYPESCRIPT} == {"ai_sdk_example", "mastra_example"}

@@ -1,0 +1,16 @@
+id = "notes-new-note-shortcut"
+title = "New note with a shortcut"
+goal = "Create a new note in Notes using its keyboard shortcut."
+tags = ["notes", "keys"]
+max_steps = 8
+
+[[check]]
+tool = "snapshot"
+args = { app = "Notes" }
+path = "elements[role=row].name"
+op = "matches"
+value = "^New Note — "
+
+[[solution]]
+tool = "press_keys"
+args = { app = "Notes", keys = "cmd+n" }

@@ -1,0 +1,21 @@
+id = "notes-rewrite-body"
+title = "Rewrite a note"
+goal = "Replace the whole text of the open note in Notes with: Buy oat milk"
+tags = ["notes", "input"]
+max_steps = 10
+
+[[check]]
+tool = "find"
+args = { app = "Notes", text = "Note body", role = "textarea" }
+path = "matches.0.value"
+op = "equals"
+value = "Buy oat milk"
+
+[[solution]]
+tool = "find"
+args = { app = "Notes", text = "Note body", role = "textarea" }
+save = { body = "matches.0.ref" }
+
+[[solution]]
+tool = "type_text"
+args = { ref = "$body", text = "Buy oat milk", clear = true }

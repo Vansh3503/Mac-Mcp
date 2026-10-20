@@ -9,6 +9,7 @@ from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.system import processes
 from axpilot.system.processes import (
     MAX_LIMIT,
+    PID_MAX,
     PS_ARGV,
     ProcessInfo,
     check_kill_allowed,
@@ -154,6 +155,15 @@ def test_kill_refuses_our_parent(sent: list[tuple[int, int]]) -> None:
     assert sent == []
 
 
+@pytest.mark.parametrize("pid", [PID_MAX + 1, 2**63, 10**30])
+def test_kill_rejects_pids_beyond_pid_t(sent: list[tuple[int, int]], pid: int) -> None:
+    # os.kill raises OverflowError (not an OSError) for these, which became INTERNAL.
+    with pytest.raises(AXPilotError) as info:
+        kill_process(pid)
+    assert info.value.code is ErrorCode.INVALID_ARGUMENT
+    assert sent == []
+
+
 @pytest.mark.parametrize("pid", ["123", 12.0, True, None])
 def test_kill_rejects_non_integer_pids(sent: list[tuple[int, int]], pid: object) -> None:
     with pytest.raises(AXPilotError) as info:
@@ -196,6 +206,8 @@ def test_process_exists() -> None:
     assert process_exists(-1) is False
     assert process_exists(True) is False  # type: ignore[arg-type]
     assert process_exists(2**22 + 12345) is False
+    assert process_exists(PID_MAX + 1) is False
+    assert process_exists(2**63) is False
 
 
 @pytest.mark.parametrize("pid", [1, 0, -3, os.getpid(), os.getppid()])

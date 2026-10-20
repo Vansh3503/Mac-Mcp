@@ -1,0 +1,20 @@
+id = "window-minimize"
+title = "Minimize a window"
+goal = "Minimize the Finder window \"Downloads\" to the Dock."
+tags = ["windows"]
+max_steps = 8
+
+[[check]]
+tool = "list_windows"
+path = "windows[title=Downloads].minimized"
+op = "equals"
+value = true
+
+[[solution]]
+tool = "list_windows"
+args = { app = "Finder" }
+save = { window = "windows[title=Downloads].window_id" }
+
+[[solution]]
+tool = "window"
+args = { action = "minimize", window_id = "$window" }

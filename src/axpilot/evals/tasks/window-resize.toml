@@ -1,0 +1,26 @@
+id = "window-resize"
+title = "Resize a window"
+goal = "Resize the Notes window to 1000 by 700 points."
+tags = ["windows"]
+max_steps = 8
+
+[[check]]
+tool = "list_windows"
+path = "windows[title=Notes].frame.2"
+op = "equals"
+value = 1000
+
+[[check]]
+tool = "list_windows"
+path = "windows[title=Notes].frame.3"
+op = "equals"
+value = 700
+
+[[solution]]
+tool = "list_windows"
+args = { app = "Notes" }
+save = { window = "windows[title=Notes].window_id" }
+
+[[solution]]
+tool = "window"
+args = { action = "resize", window_id = "$window", width = 1000, height = 700 }

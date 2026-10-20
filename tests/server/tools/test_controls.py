@@ -325,10 +325,21 @@ async def test_press_by_title(client: Client) -> None:
         assert error == "INVALID_ARGUMENT", args
 
 
-def alert_desktop(tmp_path: Path, buttons: list[str], *, window_dialog: bool = False) -> FakeEngine:
-    """One app showing an alert: a sheet, or (``window_dialog``) a dialog window."""
+def alert_desktop(
+    tmp_path: Path, buttons: list[str], *, window_dialog: bool = False, field: bool = False
+) -> FakeEngine:
+    """One app showing an alert: a sheet, or (``window_dialog``) a dialog window, optionally
+    with a text field (``field``)."""
+    text_field = {
+        "id": "alert.field",
+        "role": "AXTextField",
+        "description": "Name",
+        "value": "draft",
+        "frame": [120, 150, 300, 24],
+    }
     contents = [
         {"role": "AXStaticText", "value": "Do you want to keep the changes?", "frame": [120, 120, 300, 20]},
+        *([text_field] if field else []),
         *(
             {
                 "id": f"alert.{n}",
@@ -370,6 +381,23 @@ async def test_destructive_buttons_ask_first(tmp_path: Path) -> None:
         data = await ok(client, "handle_dialog", {"action": "accept"})  # Save: no question
         assert data["pressed"] == "Save"
     assert len(recorder.requests) == 1
+
+
+async def test_a_destructive_press_asks_before_filling_the_text_field(tmp_path: Path) -> None:
+    # Nothing may change before the user answers: a "no" leaves the field as it was, and an answer
+    # given through the MCP client runs the call again from the start.
+    recorder = Recorder(answer=False)
+    engine = alert_desktop(tmp_path, ["Delete", "Cancel"], field=True)
+    ctx = make_ctx(engine=engine, confirm=recorder)
+    async with connected_client(ctx) as client:
+        _, error = await call(client, "handle_dialog", {"action": "press", "button": "Delete", "text": "x"})
+        assert error == "USER_DENIED"
+        assert engine.events_of("set_value") == []
+        assert engine.events_of("type_text") == []
+        recorder.answer = True
+        data = await ok(client, "handle_dialog", {"action": "press", "button": "Delete", "text": "final"})
+    assert data["pressed"] == "Delete"
+    assert [event["value"] for event in engine.events_of("set_value")] == ["final"]
 
 
 async def test_accept_picks_the_rightmost_button_without_a_known_title(tmp_path: Path) -> None:

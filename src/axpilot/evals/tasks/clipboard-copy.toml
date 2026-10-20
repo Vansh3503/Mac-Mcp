@@ -1,0 +1,16 @@
+id = "clipboard-copy"
+title = "Put text on the clipboard"
+goal = "Put the text \"Meeting moved to 3pm\" on the clipboard."
+tags = ["system"]
+max_steps = 5
+
+[[check]]
+tool = "clipboard"
+args = { action = "get" }
+path = "text"
+op = "equals"
+value = "Meeting moved to 3pm"
+
+[[solution]]
+tool = "clipboard"
+args = { action = "set", text = "Meeting moved to 3pm" }

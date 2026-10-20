@@ -477,3 +477,102 @@ async def test_a_question_opened_during_a_turn_stops_its_next_step() -> None:
             control.ensure_running()  # what long actions call between steps
     assert info.value.code is ErrorCode.NEEDS_USER
     assert not control.busy
+
+
+# --------------------------------------------------------------------------- held questions
+def test_a_held_question_blocks_actions_until_released() -> None:
+    now = [0.0]
+    control, _ = make(clock=lambda: now[0])
+    control.hold_question("q1", 30.0)
+    assert control.waiting_for_user
+    with pytest.raises(AXPilotError) as info:
+        control.ensure_running()
+    assert info.value.code is ErrorCode.NEEDS_USER
+    assert control.release_question("q1") is True
+    assert not control.waiting_for_user
+    control.ensure_running()
+    assert control.release_question("q1") is False  # already closed
+
+
+def test_a_held_question_expires() -> None:
+    now = [0.0]
+    control, _ = make(clock=lambda: now[0])
+    control.hold_question("q1", 30.0)
+    control.hold_question("q2", 60.0)
+    now[0] = 31.0
+    assert control.waiting_for_user  # q2 is still open
+    assert control.release_question("q1") is False  # expired, and already forgotten
+    now[0] = 61.0
+    assert not control.waiting_for_user
+    control.ensure_running()
+
+
+async def test_input_turns_wait_for_held_questions() -> None:
+    control, _ = make(yield_to_user=False)
+    control.hold_question("q", 30.0)
+    with pytest.raises(AXPilotError) as info:
+        async with control.input_turn(label="click"):
+            pass
+    assert info.value.code is ErrorCode.NEEDS_USER
+    control.release_question("q")
+    async with control.input_turn(label="click"):
+        pass
+
+
+# --------------------------------------------------------------------------- listeners
+async def test_listeners_hear_turns_pauses_and_resumes() -> None:
+    control, _ = make(yield_to_user=False)
+    events: list[tuple[str, str | None]] = []
+    control.add_listener(lambda event, detail: events.append((event, detail)))
+    async with control.input_turn(label="click"):
+        assert events == [("turn_start", "click")]
+    control.pause("test")
+    control.resume()
+    assert events == [("turn_start", "click"), ("turn_end", "click"), ("paused", "test"), ("resumed", None)]
+
+
+async def test_a_refused_turn_sends_no_events() -> None:
+    control, _ = make(yield_to_user=False)
+    events: list[str] = []
+    control.add_listener(lambda event, detail: events.append(event))
+    control.pause()
+    events.clear()
+    with pytest.raises(AXPilotError):
+        async with control.input_turn(label="click"):
+            pass
+    assert events == []
+
+
+async def test_a_failing_listener_never_breaks_input(caplog: pytest.LogCaptureFixture) -> None:
+    control, _ = make(yield_to_user=False)
+
+    def broken(event: str, detail: str | None) -> None:
+        raise RuntimeError("drawing failed")
+
+    control.add_listener(broken)
+    async with control.input_turn(label="click"):
+        pass
+    control.pause()
+    assert control.paused
+    assert "listener failed" in caplog.text
+
+
+def test_toggle_pause() -> None:
+    control, _ = make()
+    assert control.toggle_pause("hotkey") is True
+    assert control.paused
+    assert control.pause_reason == "hotkey"
+    assert control.toggle_pause("hotkey") is False
+    assert not control.paused
+
+
+async def test_a_turn_refused_for_user_activity_sends_no_events() -> None:
+    control, stub = make(idle_threshold_s=5.0)
+    stub.idle = 0.5  # the user just moved the mouse
+    events: list[str] = []
+    control.add_listener(lambda event, detail: events.append(event))
+    with pytest.raises(AXPilotError) as info:
+        async with control.input_turn(label="click"):
+            pass
+    assert info.value.code is ErrorCode.USER_ACTIVE
+    assert events == []

@@ -1,0 +1,24 @@
+id = "explore-app-kind"
+title = "Size up an unfamiliar app"
+goal = "Open IntelliJ IDEA and find out what kind of app it is (native, Electron, Java, ...) and how good its accessibility support is. Answer in one sentence."
+tags = ["compatibility", "observe", "answer"]
+max_steps = 8
+answer = "IntelliJ IDEA is a Java app with partial accessibility support."
+
+[[check]]
+kind = "answer"
+op = "contains"
+value = "java"
+
+[[check]]
+kind = "answer"
+op = "contains"
+value = "partial"
+
+[[solution]]
+tool = "app"
+args = { action = "launch", name = "IntelliJ IDEA" }
+
+[[solution]]
+tool = "explore"
+args = { app = "IntelliJ IDEA" }

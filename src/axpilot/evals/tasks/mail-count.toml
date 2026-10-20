@@ -1,0 +1,19 @@
+id = "mail-count"
+title = "Count the inbox"
+goal = "How many messages are in the Mail inbox? Open Mail if needed and answer with the number."
+tags = ["mail", "observe", "answer"]
+max_steps = 8
+answer = "The inbox has 150 messages."
+
+[[check]]
+kind = "answer"
+op = "contains"
+value = "150"
+
+[[solution]]
+tool = "app"
+args = { action = "launch", name = "Mail" }
+
+[[solution]]
+tool = "list_windows"
+args = { app = "Mail" }

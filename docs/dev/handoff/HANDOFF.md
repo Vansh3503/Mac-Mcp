@@ -4,8 +4,9 @@ Give this whole file to the next coding session (any account). It is self-contai
 every decision made so far, the exact current state, the rules the owner set, and the ordered remaining work.
 
 - **Repository:** `github.com/Vansh3503/Mac-Mcp` (private). Default branch `main`.
-- **Working branch:** `feature/axpilot-foundation` (all work is here, not merged).
-- **Last verified work commit:** see `git log --oneline -15`; build round 2 (Step 1) is complete (§5).
+- **Working branch:** `feature/axpilot-foundation`. PR #14 brought it into `main` up to `f6802e5`; the
+  later work (§5, "After PR #14") is on the branch only.
+- **Last verified work commit:** see `git log --oneline -20`; §5 lists what each commit did.
 - **Owner:** Vansh Malhotra (GitHub `Vansh3503`).
 
 ---
@@ -150,6 +151,33 @@ Not verified on a real Mac: everything in `engine/macos` (including the run-loop
 `ensure_host_running` (`open -g -a`), `LOCAL_PEERCRED`, parent-app identification, `python -m axpilot.host` under
 the real launcher, and every AppleScript the browser/scripting tools send. All of it is covered by Linux tests with
 fakes only.
+
+### After PR #14 (on `feature/axpilot-foundation` only, not on `main`)
+
+| Commit | Issue | What |
+|---|---|---|
+| `b195a51` | #9 | Confirmations through MCP elicitation in direct mode (`[safety] elicitation`) |
+| `f3bf77e` | #9 | HTTP bearer token in the macOS keychain (`[server] token_store`), file fallback |
+| `1a15b5f` | #9 | Kill-switch hotkey (⌃⌥⌘.) and on-screen indicator; pure logic in `host/`, AppKit in `host/ui/` (not run on a Mac) |
+| `31a4cfb` | #11 | Agno and Strands framework examples (13 in total; CI only checks that they parse) |
+| `347cae8` | (safety) | `type_text` activates the target's app before focusing it; keystrokes went to the frontmost app |
+| `f041fe4` | #11 | Eval suite: `python -m axpilot.evals`, 36 tasks on the simulated desktop, `docs/evals.md` |
+| `8674155` | (CI) | The macOS 14 flake on `main`'s CI run #5 (`test_runloop`: fixed sleeps) |
+| `2d98dfc` | #12 | Tool-argument fuzzing, `tests/server/test_fuzz.py` (`AXPILOT_FUZZ_EXAMPLES` for deep runs) |
+| `848db3c` | #12 | `processes kill` with a pid beyond `pid_t` was `INTERNAL` (found by the deep fuzz run) |
+| `9eceb42` | #12 | `type_text` sends no keys unless the target's app really is frontmost |
+| `79c49a7` | #12 | The peer-uid test is strict on Linux and macOS (it passed with `None`) |
+| `caad7d5` | #12 | Threat-model review: `docs/dev/threat-model-review.md` (fixed R1–R3, open gaps G1–G5) |
+| `1d968d9`, `b97ac5a`, `158445c` | #10 | `scripts/release.py` and `launcher.yml`, `release.yml`, `docs.yml` (none has run) |
+| `cb78eb1` | #10 | `.mcpb` feasibility: `docs/dev/mcpb-feasibility.md` |
+
+`main` therefore still lacks two safety fixes (`347cae8`, `9eceb42`) and the CI flake fix. Merging needs
+a pull request, which only the owner can ask for (§4).
+
+Release setup the owner must do once (details in `packaging/README.md`): build and pin the launcher
+(`launcher.yml`, then a filled row in `launcher/CDHASH.md`; `release.yml` refuses to run until then),
+a PyPI trusted publisher (workflow `release.yml`, environment `pypi`), and GitHub Pages with source
+"GitHub Actions" (a private repository needs a paid plan or must go public first).
 
 ### GitHub issues already created
 

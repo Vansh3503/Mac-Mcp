@@ -361,10 +361,17 @@ class DenyConfirmer:  # always False (headless default when no UI is available)
 ### `axpilot/policy/control.py`
 ```python
 class ControlState:
-    def __init__(self, engine: Engine, *, yield_to_user: bool = True, idle_threshold_s: float = 1.0) -> None
+    def __init__(self, engine: Engine, *, yield_to_user: bool = True, idle_threshold_s: float = 1.0,
+                 clock: Callable[[], float] = time.monotonic) -> None
     paused: bool; pause_reason: str | None
     def pause(self, reason: str = "kill switch") -> None
     def resume(self) -> None
+    def toggle_pause(self, reason: str = "kill switch") -> bool   # the kill switch; returns the new state
+    def add_listener(self, listener: Callable[[str, str | None], None]) -> None  # turn_start/turn_end/paused/resumed
+    def asking_user(self) -> ContextManager[None]       # a question is open: actions get NEEDS_USER
+    def hold_question(self, key: str, ttl_s: float) -> None   # same, for a question the MCP client shows
+    def release_question(self, key: str) -> bool         #   between two rounds of a call (until released/expired)
+    waiting_for_user: bool
     @asynccontextmanager
     async def input_turn(self, timeout_s: float = 5.0)   # serializes input (one virtual hand);
         # raises PAUSED_BY_USER if paused, USER_ACTIVE if engine.hid_idle_seconds() < threshold,
@@ -450,7 +457,15 @@ guard: it validates the call, applies the policy, then calls `confirm_action` on
 command, script or page and code in the question (`destructive=False` on harmless paths such as `shortcuts` list
 and `defaults` read, so only `[safety] confirm = "always"` asks there). A shared guard wraps
 each tool: tool-enabled check → rate limit (input tools) → policy → confirmation (destructive) →
-`control.input_turn()` (input tools) → engine call in a worker thread → audit. `AXPilotError` becomes
+`control.input_turn()` (input tools) → engine call in a worker thread → audit. Confirmations go through
+`ServerContext.ask_user`: in direct mode (`ctx.elicitation`, from `[safety] elicitation`, off with `--yes`) a client
+that declared form elicitation is asked first (`axpilot/server/elicit.py`): on protocol ≤ 2025-11-25 with an
+`elicitation/create` request during the call; on 2026-07-28 by raising `elicit.InputRequired`, which the guard
+returns as the round's `InputRequiredResult` (audited as `INPUT_REQUIRED`). The client's retry re-runs the call, and
+`ask_user` accepts the answer only if its sealed `request_state` names a nonce issued here and not yet used, younger
+than the confirmation timeout, for the same question digest; meanwhile `control.hold_question` blocks every acting
+tool (`NEEDS_USER`). Tools therefore ask before any side effect. Without the capability, or when the client fails
+the request, the context's `Confirmer` decides (`DenyConfirmer` when nobody can be asked). `AXPilotError` becomes
 `CallToolResult(is_error=True, content=[TextContent(text=err.to_text())], meta={"axpilot/error": err.to_dict()})`.
 Success returns `CallToolResult(content=[TextContent, (ImageContent)], structured_content=...)` with the
 return annotation `Annotated[CallToolResult, <PydanticOutputModel>]` so `outputSchema` is advertised.
@@ -542,6 +557,19 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
 - `axpilot/bridge/client.py`: `host_transport(socket_path=None, hello=None)`, an async context manager yielding
   MCP `(read_stream, write_stream)` to the host, for `mcp.Client(host_transport())` in-process (the SDK's
   `Desktop.connect()` and the tests).
+- `axpilot/input/hotkeys.py`: `parse_hotkey(text) -> Hotkey(key, key_code, modifiers)` (US-ANSI key code,
+  `carbon_modifiers`, `label` such as `⌃⌥⌘.`); a key needs cmd, ctrl or option, never fn (`INVALID_ARGUMENT`).
+  `[safety] kill_switch` is validated with it at config load.
+- `axpilot/host/killswitch.py` (pure): `KillSwitch(control, hotkey).pressed() -> bool` toggles
+  `ControlState.toggle_pause` (presses < 0.5 s apart count once; never raises). `Indicator(view, hotkey_label)`
+  listens to `ControlState.add_listener` events (`turn_start`/`turn_end`/`paused`/`resumed`) and its `tick()`
+  (main thread) shows "controlling" while a turn runs and 2 s after, "paused" while paused, else hides.
+- `axpilot/host/ui/` (PyObjC, macOS only, not yet run on a Mac): `start(control, *, kill_switch, indicator) ->
+  UI | None` starts `AppKitPump` (accessory `NSApplication`; `pump()` dispatches queued events, turns the run
+  loop and runs the ticks), registers `CarbonHotkey` (`RegisterEventHotKey` through ctypes) and the `Overlay`
+  (one click-through, all-Spaces window per screen, `NSWindowSharingNone`). Each part degrades to a warning;
+  `None` when nothing runs. The CLI starts it for `stdio --direct` and `host` with a non-fake engine on macOS
+  and passes `ui.pump` to `axpilot.runloop`.
 - `axpilot/host/daemon.py`: `async def serve(ctx, socket_path=None, *, pairing=None, pairing_confirmer=None,
   max_clients=8, task_status=...)` and the `Host` class behind it. The socket is created `0600` inside a `0700`
   folder; a live host on the path is `HOST_UNAVAILABLE`, a stale socket is removed, any other file in the way
@@ -564,8 +592,11 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
   Streamable HTTP app at `/mcp` behind `AccessGuard`: a `Host` header other than the bound address and port, or
   an `Origin` not in `--allow-origin`, gets `403`; a missing or wrong bearer token gets `401` (constant-time
   comparison). No CORS headers. `check_bind` refuses non-loopback addresses unless `allow_remote` and a TLS
-  certificate and key are given (`BLOCKED_BY_POLICY`). The token lives in `<app support>/http-token` (`0600`,
-  at least 32 characters, created on first use; Keychain storage is a later macOS enhancement).
+  certificate and key are given (`BLOCKED_BY_POLICY`). `get_token(store="auto"|"keychain"|"file", *, path,
+  keychain) -> StoredToken(value, location)` keeps the token (≥ 32 characters, created on first use) in the macOS
+  login keychain (`axpilot/system/keychain.py`: `/usr/bin/security`, the secret only on stdin/stdout, every write
+  read back), moving a token from `<app support>/http-token` there; the `0600` file (`load_or_create_token`) is the
+  fallback when the keychain fails and the store off macOS. `[server] token_store` selects it.
 - `axpilot/cli.py` (Typer): `stdio [--direct] [--engine auto|macos|fake] [--fixture PATH] [--profile]
   [--naming] [--yes]` (in-process with `--direct`, `--engine fake` or `--fixture`, else the bridge),
   `http [--host] [--port] [--allow-remote --tls-cert --tls-key] [--allow-origin ...] [--show-token]`,

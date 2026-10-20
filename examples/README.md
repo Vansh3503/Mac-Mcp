@@ -41,10 +41,13 @@ expects.
 | `smolagents_example.py` | Hugging Face smolagents |
 | `ms_agent_framework_example.py` | Microsoft Agent Framework |
 | `claude_agent_sdk_example.py` | Claude Agent SDK |
+| `agno_example.py` | Agno (`MCPTools`) |
+| `strands_example.py` | Strands Agents (`MCPClient`) |
 | `ts/ai_sdk_example.ts` | Vercel AI SDK (`@ai-sdk/mcp`) |
 | `ts/mastra_example.ts` | Mastra (`@mastra/mcp`) |
 
 The files end in `_example` so that running them does not shadow the framework's own package.
+`evals/openai_compatible_agent.py` is an agent for AXPilot's eval suite (see [docs/evals.md](../docs/evals.md)).
 These frameworks move quickly: the examples follow their documented MCP integrations at the time
 of writing, and CI only checks that they parse. If an import has moved, the framework's MCP guide
 has the current name.

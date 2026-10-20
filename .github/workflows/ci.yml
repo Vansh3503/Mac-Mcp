@@ -154,7 +154,8 @@ jobs:
           assert meta["Requires-Python"] == ">=3.11", meta["Requires-Python"]
           assert meta["License-Expression"] == "Apache-2.0", meta["License-Expression"]
           assert "mcp-name: io.github.vansh3503/axpilot" in meta.get_payload(), "README lost the MCP Registry marker"
-          for required in ("axpilot/__init__.py", "axpilot/engine/fixtures/demo_desktop.json"):
+          for required in ("axpilot/__init__.py", "axpilot/engine/fixtures/demo_desktop.json",
+                           "axpilot/evals/tasks/notes-search.toml"):
               assert required in names, f"wheel is missing {required}"
           assert not any(n.startswith("tests/") for n in names), "tests must not ship in the wheel"
 

@@ -13,7 +13,7 @@ Distribution metadata and installers for AXPilot. Background:
 |---|---|
 | [`server.json`](server.json) | MCP Registry entry (`io.github.vansh3503/axpilot`) |
 | [`install.sh`](install.sh) | One-line installer (`curl … \| sh`) |
-| `mcpb/` | *Planned (v0.3):* Claude Desktop extension bundle, only if the flow proves reliable |
+| `mcpb/` | *Planned (v0.3):* Claude Desktop extension bundle; see the [feasibility note](../docs/dev/mcpb-feasibility.md) |
 | `homebrew/` | *Planned:* Homebrew tap formula, after verifying brew leaves the launcher bundle untouched |
 
 ## `server.json`: MCP Registry
@@ -38,7 +38,7 @@ that clients run with `uvx axpilot stdio`.
   optional `AXPILOT_TOOLS_PROFILE` and `AXPILOT_SAFETY_CONFIRM` variables map onto
   `[tools] profile` and `[safety] confirm` (see [configuration](../docs/configuration.md)).
 
-Publishing (planned for `release.yml`, after the PyPI upload):
+Publishing (the `mcp-registry` job of `release.yml`, after the PyPI upload):
 
 ```sh
 mcp-publisher login github-oidc     # in GitHub Actions, with id-token: write
@@ -75,10 +75,33 @@ Rules for changes:
 - Check it with `sh -n packaging/install.sh && dash -n packaging/install.sh` and, if available,
   `shellcheck packaging/install.sh`. On a Mac, run `packaging/install.sh --dry-run`.
 
-## Release flow (planned)
+## Release flow
 
-1. `launcher.yml` (rare) publishes a `launcher-vN` asset; its cdhash goes into `launcher/CDHASH.md`.
-2. `release.yml` (tag `v*`) embeds that exact launcher, builds the `macosx_14_0_universal2` wheel
-   and the sdist, publishes to PyPI with trusted publishing, creates the GitHub release, publishes
-   `server.json` to the MCP Registry, bumps the Homebrew formula, and deploys the docs (including
-   `install.sh`).
+The workflows exist; none has run yet, because no launcher has been published.
+
+1. **`launcher.yml`** (manual, rare): builds `AXPilot.app` on a macOS runner, runs the launcher
+   tests, attests the build and publishes a `launcher-vN` release with `AXPilot.app.zip`,
+   `SHA256SUMS` and `BUILDINFO.txt`. The maintainer records those values in a new row of
+   `launcher/CDHASH.md`.
+2. **`release.yml`** (tag `v*` on `main`):
+   - `check`: `scripts/release.py check` (tag = `__version__`, a dated CHANGELOG section, a valid
+     `server.json`, and a filled launcher row; it fails while the row is pending);
+   - `build` (macOS): the sdist from sources, then the pinned launcher downloaded, its SHA-256s and
+     both cdhashes verified, unpacked into `src/axpilot/_launcher/` with a `CDHASH` file, and the
+     `macosx_14_0_universal2` wheel; a clean install of that wheel must carry the identical,
+     executable, validly signed launcher;
+   - `pypi`: trusted publishing with attestations (environment `pypi`);
+   - `github-release`: the CHANGELOG section as release notes;
+   - `mcp-registry` (not for pre-releases): `server.json` at the release version, published with
+     `mcp-publisher login github-oidc`;
+   - `docs` (not for pre-releases): `docs.yml` deploys the site to GitHub Pages with `install.sh` at
+     its root.
+3. The Homebrew formula is not automated: it comes only after a Mac shows that brew leaves the
+   launcher bundle untouched.
+
+Before tagging, bump `__version__`, move the Unreleased changelog entries under
+`## [X.Y.Z] - YYYY-MM-DD`, and run `uv run python scripts/release.py check vX.Y.Z`.
+
+One-time setup by the maintainer: a [trusted publisher](https://docs.pypi.org/trusted-publishers/)
+on PyPI for this repository (workflow `release.yml`, environment `pypi`), and GitHub Pages with
+source "GitHub Actions" (a private repository needs a paid plan for Pages, or goes public first).

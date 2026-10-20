@@ -18,10 +18,11 @@ from pathlib import Path
 from typing import Any, Literal
 
 import tomli_w
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from axpilot import paths
 from axpilot.errors import AXPilotError, ErrorCode
+from axpilot.input.hotkeys import DEFAULT_KILL_SWITCH, parse_hotkey
 
 Profile = Literal["minimal", "standard", "full", "computer"]
 Naming = Literal["default", "windows-mcp"]
@@ -63,6 +64,9 @@ class ServerConfig(_Section):
     """Deadline for one engine call made by a tool; slower calls fail with ``TIMEOUT``."""
     input_lock_timeout_s: float = Field(default=5.0, ge=0.1, le=5.0)
     """How long an input tool waits for the single input lock before failing with ``BUSY``."""
+    token_store: Literal["auto", "keychain", "file"] = "auto"  # noqa: S105 - a mode, not a secret
+    """Where the HTTP bearer token is kept: ``auto`` is the macOS keychain on a Mac and a ``0600``
+    file elsewhere."""
 
 
 class ToolsConfig(_Section):
@@ -91,6 +95,21 @@ class SafetyConfig(_Section):
     require_pairing: bool = True
     confirm_timeout_s: float = Field(default=120.0, ge=5.0, le=120.0)
     """How long a confirmation waits for the user; no answer in time counts as ``USER_DENIED``."""
+    elicitation: bool = True
+    """Direct mode: ask confirmations through the MCP client (elicitation) when it supports that."""
+    kill_switch: str = Field(default=DEFAULT_KILL_SWITCH, max_length=64)
+    """Global hotkey that pauses AXPilot (press again to resume); ``""`` turns it off."""
+
+    @field_validator("kill_switch")
+    @classmethod
+    def _valid_kill_switch(cls, value: str) -> str:
+        text = value.strip()
+        if text:
+            try:
+                parse_hotkey(text)
+            except AXPilotError as err:
+                raise ValueError(err.message) from None
+        return text
 
 
 class CaptureConfig(_Section):

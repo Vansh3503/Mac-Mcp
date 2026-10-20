@@ -1,0 +1,52 @@
+# Build the documentation site and deploy it to GitHub Pages, with the installer at /install.sh.
+# Runs from release.yml after each release, or by hand. Needs Pages enabled with source "GitHub
+# Actions" (Settings → Pages); CI's docs job checks every change with `mkdocs build --strict`.
+name: Docs
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build the site
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+      - name: Build with mkdocs --strict
+        env:
+          NO_MKDOCS_2_WARNING: "1"
+        run: uvx --with "mkdocs-material>=9.7,<10" mkdocs build --strict --site-dir site
+      - name: Serve the installer at /install.sh
+        run: |
+          sh -n packaging/install.sh
+          cp packaging/install.sh site/install.sh
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

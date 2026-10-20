@@ -1,0 +1,21 @@
+id = "login-trial-date"
+title = "Change a date"
+goal = "In Login Demo, change the \"Trial ends\" date to December 1, 2026."
+tags = ["forms", "controls"]
+max_steps = 10
+
+[[check]]
+tool = "find"
+args = { app = "Login Demo", text = "Trial ends", role = "date" }
+path = "matches.0.value"
+op = "contains"
+value = "2026-12-01"
+
+[[solution]]
+tool = "find"
+args = { app = "Login Demo", text = "Trial ends", role = "date" }
+save = { date = "matches.0.ref" }
+
+[[solution]]
+tool = "set_value"
+args = { ref = "$date", value = "2026-12-01" }

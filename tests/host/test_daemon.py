@@ -8,6 +8,7 @@ import json
 import os
 import socket
 import stat
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -294,9 +295,14 @@ async def test_invalid_json_inside_a_session_gets_a_json_rpc_error(sock_dir: Pat
 
 # =========================================================================== the socket
 def test_peer_uid_is_the_current_user() -> None:
+    # Linux (SO_PEERCRED) and macOS (LOCAL_PEERCRED) can name the peer, so None there would mean
+    # the same-user check silently does nothing.
     left, right = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
-        assert peer_uid(left) in (os.getuid(), None)
+        if sys.platform in ("linux", "darwin"):
+            assert peer_uid(left) == os.getuid()
+        else:
+            assert peer_uid(left) in (os.getuid(), None)
     finally:
         left.close()
         right.close()

@@ -1,0 +1,15 @@
+id = "textedit-new-document"
+title = "Open a new document"
+goal = "Create a new, empty TextEdit document."
+tags = ["textedit", "menus", "windows"]
+max_steps = 10
+
+[[check]]
+tool = "list_windows"
+args = { app = "TextEdit" }
+path = "windows[title=Untitled 2].window_id"
+op = "exists"
+
+[[solution]]
+tool = "select_menu"
+args = { app = "TextEdit", path = ["File", "New"] }

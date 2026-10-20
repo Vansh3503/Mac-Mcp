@@ -86,7 +86,7 @@ Errors come back as `CODE: message` with a `Hint:`. Follow the hint. In particul
 | `ELEMENT_NOT_ACTIONABLE` | The element is disabled or can't do that. Check its state, then try another route: `select_menu`, a keyboard shortcut, `set_value`, or `perform_action`. |
 | `USER_ACTIVE` | The person is using the mouse or keyboard right now. Wait briefly (`wait_for` with `condition: "duration"`), then retry once or twice. Don't fight them for control. |
 | `PAUSED_BY_USER` | The person pressed the kill switch. **Stop.** Tell them where you were and ask whether and how to continue. Don't retry. |
-| `NEEDS_USER` | A password prompt or system dialog needs the person, or one of AXPilot's confirmations is waiting for their answer. Ask them to handle it (never answer AXPilot's dialogs yourself), then continue after they confirm. |
+| `NEEDS_USER` | A password prompt or system dialog needs the person, or one of AXPilot's confirmations is waiting for their answer (in a dialog, or in your MCP client's window). Ask them to handle it (never answer AXPilot's questions yourself, not even by clicking them), then continue after they confirm. |
 | `SECURE_INPUT_ACTIVE` | A password field or secure keyboard entry blocks typing. Ask the person to do this step. |
 | `USER_DENIED` | The person declined a confirmation. Respect it; don't retry the same action or a disguised variant. |
 | `BLOCKED_BY_POLICY` | The app, window or action is off limits by the person's settings. Don't try to get around it (coordinates, other tools, keyboard tricks). Explain what you couldn't do. |

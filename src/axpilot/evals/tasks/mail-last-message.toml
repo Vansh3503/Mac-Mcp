@@ -1,0 +1,19 @@
+id = "mail-last-message"
+title = "Read to the end of a long list"
+goal = "Open Mail and tell me the subject of the very last (oldest) message in the inbox. The list is long: make sure you reach its end."
+tags = ["mail", "navigation", "answer"]
+max_steps = 12
+answer = "The oldest message is \"Team photo\" from Farid Haddad."
+
+[[check]]
+kind = "answer"
+op = "contains"
+value = "Team photo"
+
+[[solution]]
+tool = "app"
+args = { action = "launch", name = "Mail" }
+
+[[solution]]
+tool = "read"
+args = { app = "Mail", max_items = 500 }

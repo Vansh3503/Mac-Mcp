@@ -51,6 +51,7 @@ confirm = "destructive"   # never | destructive | always
 yield_to_user = true
 user_idle_threshold_s = 1.0
 indicator = true
+kill_switch = "ctrl+option+cmd+."   # "" turns the hotkey off
 deny_apps = [
   "com.apple.keychainaccess",
   "com.apple.Passwords",
@@ -70,6 +71,7 @@ allow_secure_fields = false
 max_actions_per_minute = 120
 require_pairing = true
 confirm_timeout_s = 120.0
+elicitation = true        # direct mode: ask in the MCP client when it supports that
 
 [capture]
 max_edge = 1280
@@ -108,10 +110,11 @@ log_args = "redacted"     # none | redacted | full
 | `tls_cert`, `tls_key` | unset | PEM files for TLS |
 | `engine_timeout_s` | `20.0` | Deadline for one accessibility or input call made by a tool (1–300 s); slower calls fail with `TIMEOUT` |
 | `input_lock_timeout_s` | `5.0` | How long an input tool waits for another input action to finish before failing with `BUSY` (0.1–5 s) |
+| `token_store` | `"auto"` | Where the HTTP bearer token is kept: `keychain` (the macOS login keychain), `file` (`~/Library/Application Support/AXPilot/http-token`, mode `0600`), or `auto` (the keychain on a Mac, the file elsewhere) |
 
-The HTTP bearer token is generated on first use and stored in
-`~/Library/Application Support/AXPilot/http-token` (mode `0600`), not in this file. Keychain storage
-is planned.
+The HTTP bearer token is generated on first use and never stored in this file. With the keychain,
+a token from an older file is moved there (so configured clients keep working) and the file is
+removed; if the keychain is locked or unavailable, AXPilot warns and uses the file.
 
 ## `[tools]`
 
@@ -132,7 +135,8 @@ Unknown tool or toolset names are an error (with a "did you mean" suggestion).
 | `confirm` | `"destructive"` | When to ask the human before running a tool: `never`, `destructive` (shell, AppleScript, JS eval, force quit, `defaults` write, process kill) or `always` |
 | `yield_to_user` | `true` | Pause input actions (`USER_ACTIVE`) while you are using the mouse or keyboard |
 | `user_idle_threshold_s` | `1.0` | Seconds of hardware inactivity required before AXPilot sends input (0–30) |
-| `indicator` | `true` | Show the on-screen "agent is controlling" indicator *(planned, v0.2)* |
+| `indicator` | `true` | Show a frame and a status pill on screen while AXPilot acts (orange while paused); macOS, real engine only *(not yet run on a Mac)* |
+| `kill_switch` | `"ctrl+option+cmd+."` | Global hotkey (⌃⌥⌘.) that stops the current action and pauses AXPilot; press it again to resume. Needs cmd, ctrl or option; `""` turns it off *(not yet run on a Mac)* |
 | `deny_apps` | password managers, Keychain Access | Apps that can't be observed, controlled or captured: bundle ids or names, case-insensitive, `*` as a wildcard (`"com.agilebits.*"`) |
 | `deny_windows` | System Settings → Privacy & Security | `"<bundle id>::<title substring>"` entries that block one window of an otherwise allowed app |
 | `allow_apps` | `[]` | If non-empty, **only** these apps can be observed or controlled |
@@ -140,6 +144,7 @@ Unknown tool or toolset names are an error (with a "did you mean" suggestion).
 | `max_actions_per_minute` | `120` | Input rate limit (1–10000); excess calls get `RATE_LIMITED` |
 | `require_pairing` | `true` | Ask before a new client app may connect to the host; the answer is remembered |
 | `confirm_timeout_s` | `120.0` | How long a confirmation waits for your answer (5–120 s); no answer counts as `USER_DENIED` |
+| `elicitation` | `true` | Direct mode (`axpilot stdio --direct`, `axpilot http`): ask confirmations in the MCP client's own window when the client supports elicitation. `--yes` turns it off |
 
 Setting `deny_apps` or `deny_windows` **replaces** the default list. Copy the defaults from the example
 above if you only want to add an entry.

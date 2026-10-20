@@ -37,6 +37,8 @@ _log = logging.getLogger(__name__)
 
 PS_ARGV: tuple[str, ...] = ("ps", "-axo", "pid=,ppid=,%cpu=,%mem=,comm=")
 MAX_LIMIT = 1000
+PID_MAX = 2**31 - 1
+"""The largest process id (``pid_t`` is a signed 32-bit integer on macOS and Linux)."""
 PS_TIMEOUT_S = 10.0
 _PS_MAX_OUTPUT = 2_000_000
 
@@ -129,6 +131,12 @@ def kill_process(pid: int, *, force: bool = False) -> str:
     if isinstance(pid, bool) or not isinstance(pid, int):
         raise AXPilotError(ErrorCode.INVALID_ARGUMENT, f"pid must be an integer, got {pid!r}.")
     check_kill_allowed(pid)
+    if pid > PID_MAX:
+        raise AXPilotError(
+            ErrorCode.INVALID_ARGUMENT,
+            f"No process with pid {pid}: process ids are at most {PID_MAX}.",
+            hint="Call `processes` to list current processes.",
+        )
     sig = signal.SIGKILL if force else signal.SIGTERM
     try:
         os.kill(pid, sig)
@@ -155,7 +163,7 @@ def kill_process(pid: int, *, force: bool = False) -> str:
 def process_exists(pid: int) -> bool:
     """True if a process with ``pid`` exists (signal 0: nothing is sent). A process of another
     user counts as existing."""
-    if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0:
+    if isinstance(pid, bool) or not isinstance(pid, int) or not 0 < pid <= PID_MAX:
         return False
     try:
         os.kill(pid, 0)

@@ -1,0 +1,15 @@
+id = "notes-count"
+title = "Count the notes"
+goal = "How many notes are in the Notes folder of the Notes app? Answer with the number."
+tags = ["notes", "observe", "answer"]
+max_steps = 8
+answer = "There are 14 notes in the Notes folder."
+
+[[check]]
+kind = "answer"
+op = "contains"
+value = "14"
+
+[[solution]]
+tool = "snapshot"
+args = { app = "Notes" }
