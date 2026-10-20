@@ -70,6 +70,9 @@ Pre-alpha. Nothing is published on PyPI yet.
 - Menu bar extras: `select_menu` with `extras: true` lists and chooses status items (Wi‑Fi,
   Battery, an app's icon; Control Center by default); a one-title path clicks the item. Menu
   titles match across hyphen variants ("wi-fi" finds "Wi‑Fi").
+- Date pickers: `set_value` takes ISO 8601 dates and times (`"2026-10-20"`, `"2026-10-20 14:30"`,
+  `"14:30"` for a time field), sends them as dates and checks what the picker shows; snapshots
+  show `AXDateTimeArea` pickers as `date` and time fields as `time`, in local time.
 - Portable input schemas that OpenAI, Gemini and Anthropic function calling all accept (no `null`
   unions or `$ref`s, `additionalProperties: false`, every parameter described), and an optional
   tool-name prefix (`[tools] prefix = "mac_"`).

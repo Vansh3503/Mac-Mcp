@@ -178,6 +178,7 @@ _SETTABLE_ROLES = frozenset(
         "AXRadioButton",
         "AXPopUpButton",
         "AXDateField",
+        "AXDateTimeArea",
         "AXTimeField",
     }
 )

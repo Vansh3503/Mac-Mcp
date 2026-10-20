@@ -1114,6 +1114,14 @@
           {"role": "AXImage", "description": "Login Demo logo", "frame": [1860, 160, 80, 80]},
           {"role": "AXStaticText", "value": "You are signed out.", "frame": [1800, 260, 200, 20]},
           {
+            "id": "login.trial-ends", "role": "AXDateTimeArea", "description": "Trial ends",
+            "value": "2026-11-01T00:00:00+00:00", "frame": [1700, 470, 160, 24]
+          },
+          {
+            "id": "login.reminder", "role": "AXTimeField", "description": "Reminder time",
+            "value": "2026-11-01T09:00:00+00:00", "frame": [1880, 470, 100, 24]
+          },
+          {
             "id": "login.open-sheet", "role": "AXButton", "title": "Sign In…", "frame": [1850, 300, 100, 28],
             "actions": ["AXPress"], "on_press": [{"show": "login.sheet"}, {"focus": "login.email"}]
           },

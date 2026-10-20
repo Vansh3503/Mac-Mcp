@@ -490,7 +490,8 @@ Set a control to a value, the way its role expects:
   it is already in that state.
 - slider / stepper: a number (clamped to the control's range; a warning says so).
 - disclosure triangle: "true" (expanded) or "false" (collapsed).
-- text field / search field / text area / combo box / date field: the new text (replaces it).
+- text field / search field / text area / combo box: the new text (replaces it).
+- date picker: an ISO 8601 date, "2026-10-20" or "2026-10-20 14:30"; a time field: "14:30".
 - pop-up button: the title of the option to choose.
 Params: ref, value (always a string), snapshot_id, report. The result says whether anything
 changed. Errors: ELEMENT_NOT_ACTIONABLE (read-only or disabled), INVALID_ARGUMENT (e.g. not a

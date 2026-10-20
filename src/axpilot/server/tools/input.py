@@ -22,6 +22,7 @@ turn (pause, yield-to-user, ``BUSY``). Each tool then:
 # No ``from __future__ import annotations`` here: the MCP SDK evaluates tool annotations.
 import contextlib
 import dataclasses
+import datetime
 import functools
 import math
 import re
@@ -33,6 +34,7 @@ from mcp_types import CallToolResult
 from pydantic import BaseModel, ConfigDict, Field
 
 from axpilot.errors import AXPilotError, ErrorCode
+from axpilot.input.dates import parse_date_input
 from axpilot.input.keys import parse_sequence
 from axpilot.models import (
     AppInfo,
@@ -96,6 +98,7 @@ keystrokes into them instead."""
 TOGGLE_ROLES = frozenset({"checkbox", "switch", "toggle", "radio"})
 NUMERIC_ROLES = frozenset({"slider", "stepper", "indicator"})
 TEXT_ROLES = frozenset({"field", "search", "secure", "textarea", "combobox", "date"})
+DATE_ROLES = frozenset({"date", "time"})
 DISCLOSURE_ROLES = frozenset({"disclosure"})
 _TRUE = frozenset({"true", "on", "yes", "1", "checked", "selected", "expanded"})
 _FALSE = frozenset({"false", "off", "no", "0", "unchecked", "deselected", "collapsed"})
@@ -1105,7 +1108,8 @@ Set a control to a value, the way its role expects:
   it is already in that state.
 - slider / stepper: a number (clamped to the control's range; a warning says so).
 - disclosure triangle: "true" (expanded) or "false" (collapsed).
-- text field / search field / text area / combo box / date field: the new text (replaces it).
+- text field / search field / text area / combo box: the new text (replaces it).
+- date picker: an ISO 8601 date, "2026-10-20" or "2026-10-20 14:30"; a time field: "14:30".
 - pop-up button: the title of the option to choose.
 Params: ref, value (always a string), snapshot_id, report. The result says whether anything
 changed. Errors: ELEMENT_NOT_ACTIONABLE (read-only or disabled), INVALID_ARGUMENT (e.g. not a
@@ -1157,6 +1161,30 @@ class _SetOutcome:
 async def _current(ctx: ServerContext, target: Target) -> Any:
     node = await ctx.run_engine(ctx.engine.refresh_element, target.handle)
     return node.expanded if target.el is not None and target.el.role in DISCLOSURE_ROLES else node.value
+
+
+async def _set_date(ctx: ServerContext, target: Target, value: str) -> _SetOutcome:
+    """Date pickers hold a date: send it as ISO 8601 and check what the picker shows after."""
+    el = target.el
+    assert el is not None
+    wanted = parse_date_input(value, el.value if isinstance(el.value, str) else None)
+    await ctx.run_engine(ctx.engine.set_value, target.handle, wanted)
+    after = await _current(ctx, target)
+    if not _same_moment(after, wanted, time_only=el.role == "time"):
+        raise _not_actionable(target, f"set {value!r} in", ["ax_value"], [f"it shows {after!r}"])
+    return _SetOutcome("ax_value", True, f"set to {quote(str(after), 60)}")
+
+
+def _same_moment(shown: Any, wanted: str, *, time_only: bool) -> bool:
+    """Pickers drop what they don't display: compare the date (and the minute for times)."""
+    try:
+        a = datetime.datetime.fromisoformat(str(shown)).astimezone()
+        b = datetime.datetime.fromisoformat(wanted).astimezone()
+    except ValueError:
+        return False
+    if time_only:
+        return (a.hour, a.minute) == (b.hour, b.minute)
+    return a.date() == b.date() and (a.hour, a.minute) in ((b.hour, b.minute), (0, 0))
 
 
 async def _set_toggle(ctx: ServerContext, target: Target, desired: bool) -> _SetOutcome:
@@ -1253,6 +1281,8 @@ async def set_control(ctx: ServerContext, target: Target, value: str) -> _SetOut
     role = el.role
     if role in TOGGLE_ROLES or role in DISCLOSURE_ROLES:
         return await _set_toggle(ctx, target, parse_bool(value))
+    if role in DATE_ROLES:
+        return await _set_date(ctx, target, value)
     if role in NUMERIC_ROLES:
         return await _set_number(ctx, target, parse_number(value))
     if role in TEXT_ROLES or role == "secure":

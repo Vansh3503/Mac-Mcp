@@ -167,6 +167,21 @@ async def test_coordinate_clicks_cannot_reach_a_deny_listed_window(
     assert "Privacy & Security" in text_of(result)
 
 
+async def test_date_pickers_take_iso_dates_and_times(ctx: ServerContext, client: Client) -> None:
+    refs = await refs_of(client, "Login Demo")
+    data = structured(
+        (await call(client, "set_value", {"ref": refs["Trial ends"], "value": "2026-12-24"}))[0]
+    )
+    assert data["message"].startswith('set to "2026-12-24T')
+    stored = engine_of(ctx).events_of("set_value")[-1]["value"]
+    assert stored.startswith("2026-12-24T")  # ISO 8601 with the local offset, as engines expect
+    data = structured((await call(client, "set_value", {"ref": refs["Reminder time"], "value": "18:45"}))[0])
+    assert "T18:45:00" in data["message"]
+    result, error = await call(client, "set_value", {"ref": refs["Trial ends"], "value": "next tuesday"})
+    assert error == "INVALID_ARGUMENT"
+    assert "ISO 8601" in text_of(result)
+
+
 async def test_keys_and_menus_cannot_reach_a_deny_listed_window(ctx: ServerContext, client: Client) -> None:
     for tool, args in (
         ("press_keys", {"keys": "tab space", "app": "System Settings"}),

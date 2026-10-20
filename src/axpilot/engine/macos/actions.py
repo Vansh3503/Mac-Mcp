@@ -13,10 +13,13 @@ snapshot shows what happened. Reads that time out raise ``TIMEOUT``.
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 import os
 import time
 from typing import Any
+
+import Foundation
 
 from axpilot.engine.macos import attributes as A
 from axpilot.engine.macos import helpers as h
@@ -32,6 +35,8 @@ TOGGLE_ROLES: frozenset[str] = frozenset({"AXCheckBox", "AXRadioButton", "AXDisc
 """Roles whose value is changed by pressing them (``AXValue`` is rarely settable)."""
 POPUP_ROLES: frozenset[str] = frozenset({"AXPopUpButton"})
 """Roles whose value is chosen from a menu."""
+DATE_ROLES: frozenset[str] = frozenset({"AXDateTimeArea", "AXDateField", "AXTimeField"})
+"""Date pickers: their value is an ``NSDate`` (the server sends ISO 8601 text)."""
 
 ARRAY_ATTRIBUTES: frozenset[str] = frozenset(
     {
@@ -292,8 +297,11 @@ def _set_ax_value(ax: AX, element: AXElement, role: str, value: str | float | bo
             f"The value of {describe(ax, element)} cannot be set.",
             hint="Use `click` or `type_text` instead.",
         )
-    current = A.node_value(ax, ax.get(element, A.VALUE), 100)
-    converted = h.coerce_value(current, value, role)
+    if role in DATE_ROLES:
+        converted: Any = _ns_date(value)
+    else:
+        current = A.node_value(ax, ax.get(element, A.VALUE), 100)
+        converted = h.coerce_value(current, value, role)
     try:
         ax.set(element, A.VALUE, converted)
     except AXCallError as exc:
@@ -301,6 +309,16 @@ def _set_ax_value(ax: AX, element: AXElement, role: str, value: str | float | bo
             _log.info("AXValue: the app did not reply in time; assuming the value was set")
             return
         raise
+
+
+def _ns_date(value: str | float | bool) -> Any:
+    try:
+        moment = dt.datetime.fromisoformat(str(value))
+    except ValueError as exc:
+        raise AXPilotError(
+            ErrorCode.INVALID_ARGUMENT, f"A date picker needs an ISO 8601 date, got {value!r}."
+        ) from exc
+    return Foundation.NSDate.dateWithTimeIntervalSince1970_(moment.timestamp())
 
 
 def _child_with_role(ax: AX, element: AXElement, role: str) -> AXElement | None:

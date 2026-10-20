@@ -180,8 +180,9 @@ def _finite(number: float) -> float | None:
 
 
 def _date_text(value: Any) -> str:
+    """ISO 8601 in local time, so the date part is the one the picker shows."""
     seconds = float(value.timeIntervalSince1970())
-    return dt.datetime.fromtimestamp(seconds, tz=dt.UTC).isoformat()
+    return dt.datetime.fromtimestamp(seconds, tz=dt.UTC).astimezone().isoformat()
 
 
 def node_value(ax: AX, value: Any, max_chars: int) -> Any:
