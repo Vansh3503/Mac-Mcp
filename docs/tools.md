@@ -599,11 +599,14 @@ Deal with the sheet, alert or dialog in front of an app: read it, or answer it.
 action: inspect (default: its title, text, fields and buttons), accept (press the default button:
 OK, Allow, Save…, else the rightmost one), cancel (press Cancel/Not Now/No, else press Escape), or
 press (the button titled button). text fills the dialog's first text field before pressing.
-Pressing a button that deletes, replaces or discards something asks the user first. Params: app
-(default: the frontmost app), action, button, text, report.
-Errors: ELEMENT_NOT_ACTIONABLE (no dialog is open), INVALID_ARGUMENT (no such button: the message
-lists them), USER_DENIED, BLOCKED_BY_POLICY (secure fields: the user types passwords), NEEDS_USER
-(system authentication dialogs), USER_ACTIVE, PAUSED_BY_USER.
+path (open/save panels, with accept or press) first goes to that folder or file with Go to the
+folder (Shift-Cmd-G), e.g. "~/Documents" or "~/Desktop/report.pdf"; for a save panel, give the
+folder as path and the file name as text. Pressing a button that deletes, replaces or discards
+something asks the user first. Params: app (default: the frontmost app), action, button, text,
+path, report.
+Errors: ELEMENT_NOT_ACTIONABLE (no dialog is open; the panel refused the path), INVALID_ARGUMENT
+(no such button: the message lists them), USER_DENIED, BLOCKED_BY_POLICY (secure fields: the user
+types passwords), NEEDS_USER (system authentication dialogs), USER_ACTIVE, PAUSED_BY_USER.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
@@ -611,6 +614,7 @@ lists them), USER_DENIED, BLOCKED_BY_POLICY (secure fields: the user types passw
 | `action` | `inspect` \| `accept` \| `cancel` \| `press` | `"inspect"` | inspect \| accept \| cancel \| press. |
 | `button` | string | optional | press: the button's title. |
 | `text` | string | optional | Text for the dialog's first text field. |
+| `path` | string | optional | Open/save panels: go to this folder or file first. |
 | `report` | `diff` \| `snapshot` \| `none` | `"diff"` | What to return after acting: "diff" (what changed, default), "snapshot" (the whole new snapshot) or "none" (fastest). |
 
 **Returns** (structured content): `ok`, `action`, `strategy`, `attempts`, `target`, `point`, `message`, `diff`, `snapshot`, `snapshot_id`, `found`, `kind`, `title`, `texts`, `buttons`, `fields`, `pressed`, and `warnings`.
@@ -1034,7 +1038,7 @@ Each server exposes one naming.
 | `Move` | `move_mouse` | `loc`, `label`, `drag`, `from_loc`, `duration` |
 | `SetValue` | `set_value` | `ref`, `value`, `snapshot_id`, `report` |
 | `SelectOption` | `select_option` | `ref`, `option`, `index`, `snapshot_id`, `report` |
-| `HandleDialog` | `handle_dialog` | `app`, `action`, `button`, `text`, `report` |
+| `HandleDialog` | `handle_dialog` | `app`, `action`, `button`, `text`, `path`, `report` |
 | `PerformAction` | `perform_action` | `ref`, `action`, `snapshot_id`, `report` |
 | `SelectMenu` | `select_menu` | `path`, `app`, `extras`, `depth`, `report` |
 | `MultiEdit` | `fill_form` | `locs`, `labels` |

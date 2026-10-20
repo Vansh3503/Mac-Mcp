@@ -257,8 +257,10 @@ so tests can assert on it. `hid_idle_seconds()` returns a settable attribute (de
 Demo fixture must contain at least: Finder (front), TextEdit (document window with text area, toolbar,
 format popup), Notes (list with rows, search field, New Note button), a login sheet with a secure field
 (app "Login Demo"), Terminal (window with text area), 1Password (to test deny lists), System Settings
-with a "Privacy & Security" window, Control Center with status items (Wi‑Fi, Battery, Clock), two
-displays.
+with a "Privacy & Security" window, Control Center with status items (Wi‑Fi, Battery, Clock), a TextEdit save panel (File › Save…; ⇧⌘G
+opens its "Go to the folder" field), two displays. Fake-only node keys `default` (the button Return
+presses from a one-line field of that sheet or window) and `keys` (shortcuts a visible element handles
+itself) model AppKit's default buttons and panel key equivalents.
 
 ---------------------------------------------------------------------------------------------------
 

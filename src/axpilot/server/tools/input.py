@@ -442,12 +442,13 @@ async def observe_after(
     if report == "none":
         return Observation()
     await ctx.sleep(ctx.config.perception.settle_ms / 1000)
+    mode = before.mode if before is not None else "interactive"  # compare like with like
     try:
-        after = await ctx.take_snapshot(app=_app_key(app), previous=before)
+        after = await ctx.take_snapshot(app=_app_key(app), previous=before, mode=mode)
     except AXPilotError as err:
         if err.code is ErrorCode.APP_NOT_FOUND and app is not None:
             try:  # the app quit or another app came forward: report the frontmost one
-                after = await ctx.take_snapshot(previous=before)
+                after = await ctx.take_snapshot(previous=before, mode=mode)
             except AXPilotError as again:
                 return Observation(warnings=[f"Could not observe the result: {again.message}"])
         else:

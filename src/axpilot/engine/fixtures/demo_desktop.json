@@ -537,6 +537,48 @@
             "actions": ["AXPress"]
           },
           {
+            "id": "textedit.save", "role": "AXSheet", "description": "Save", "visible": false,
+            "frame": [360, 168, 620, 300],
+            "keys": {"⇧⌘G": [{"show": "textedit.goto"}, {"focus": "textedit.goto.path"}]},
+            "children": [
+              {"role": "AXStaticText", "value": "Save As:", "frame": [380, 190, 80, 20]},
+              {
+                "id": "textedit.save.name", "role": "AXTextField", "description": "Save As", "value": "Untitled",
+                "frame": [470, 188, 300, 24]
+              },
+              {"role": "AXStaticText", "value": "Where:", "frame": [380, 226, 80, 20]},
+              {
+                "id": "textedit.save.where", "role": "AXPopUpButton", "description": "Where", "value": "Documents",
+                "options": ["Documents", "Desktop", "Downloads"], "frame": [470, 222, 300, 26],
+                "actions": ["AXPress", "AXShowMenu"]
+              },
+              {
+                "id": "textedit.goto", "role": "AXSheet", "description": "Go to the folder", "visible": false,
+                "frame": [420, 260, 500, 120],
+                "children": [
+                  {"role": "AXStaticText", "value": "Go to the folder:", "frame": [440, 276, 160, 20]},
+                  {
+                    "id": "textedit.goto.path", "role": "AXTextField", "description": "Go to the folder",
+                    "frame": [440, 300, 460, 24]
+                  },
+                  {
+                    "id": "textedit.goto.go", "role": "AXButton", "title": "Go", "default": true,
+                    "frame": [840, 336, 60, 28], "actions": ["AXPress"],
+                    "on_press": [{"hide": "textedit.goto"}, {"focus": "textedit.save.name"}]
+                  }
+                ]
+              },
+              {
+                "id": "textedit.save.cancel", "role": "AXButton", "title": "Cancel", "frame": [800, 430, 80, 28],
+                "actions": ["AXPress"], "on_press": {"hide": "textedit.save"}
+              },
+              {
+                "id": "textedit.save.ok", "role": "AXButton", "title": "Save", "default": true,
+                "frame": [890, 430, 80, 28], "actions": ["AXPress"], "on_press": {"hide": "textedit.save"}
+              }
+            ]
+          },
+          {
             "role": "AXToolbar", "description": "Format Bar", "frame": [260, 168, 820, 30],
             "children": [
               {
@@ -2913,7 +2955,10 @@
             },
             {"separator": true},
             {"title": "Close", "shortcut": "⌘W"},
-            {"title": "Save…", "shortcut": "⌘S"},
+            {
+              "title": "Save…", "shortcut": "⌘S",
+              "on_select": [{"show": "textedit.save"}, {"focus": "textedit.save.name"}]
+            },
             {"title": "Duplicate", "shortcut": "⇧⌘S"},
             {"title": "Rename…"},
             {"title": "Move To…"},

@@ -28,7 +28,11 @@ Tree nodes use the :mod:`axpilot.perception.serialize` format plus these fake-on
 * ``on_press``: effect(s) applied when the element is pressed (``AXPress`` or a click);
 * ``options``: the allowed values of a pop-up button or combo box;
 * ``settable``: overrides whether ``set_value`` works on the element;
-* ``min``/``max``/``step``: range of sliders and steppers.
+* ``min``/``max``/``step``: range of sliders and steppers;
+* ``default``: ``true`` on a window's or sheet's default button, which Return in a one-line text
+  field of that window or sheet presses (like AppKit's default button);
+* ``keys``: ``{"⇧⌘G": <effects>}``, shortcuts that the element handles itself while it is visible
+  in the front window (an open/save panel's "Go to the folder"); they win over menu shortcuts.
 
 Menu items (``title``, ``enabled``, ``checked``, ``shortcut`` in glyph form such as ``"⇧⌘S"``,
 ``children``) may add ``"separator": true``, ``"toggle": true`` (flip ``checked`` on select)
@@ -131,7 +135,9 @@ _WINDOW_KEYS = frozenset(
     {"window_id", "app", "title", "frame", "display_id", "open", "minimized", "fullscreen", "tree", "ocr"}
 )
 _DISPLAY_KEYS = frozenset({"display_id", "frame", "work_area", "scale", "main", "name"})
-_FAKE_NODE_KEYS = frozenset({"id", "on_press", "options", "settable", "min", "max", "step", "content_rows"})
+_FAKE_NODE_KEYS = frozenset(
+    {"id", "on_press", "options", "settable", "min", "max", "step", "content_rows", "default", "keys"}
+)
 _BUNDLE_KEYS = frozenset({"files", "plists"})
 _OCR_KEYS = frozenset({"text", "frame", "confidence"})
 _CONTENT_ROWS_KEYS = frozenset({"rows", "row_height", "points_per_line", "offset"})
@@ -503,6 +509,20 @@ def _parse_menu(data: Any, where: str) -> _MenuItem:
     )
 
 
+def _key_bindings(data: Any, where: str) -> dict[str, list[Effect]]:
+    """A node's ``keys``: shortcut (glyph form, e.g. ``"⇧⌘G"``) → effects."""
+    if data is None:
+        return {}
+    if not isinstance(data, Mapping):
+        raise _fixture_error(f"keys of {where} must map shortcuts to effects.")
+    bindings: dict[str, list[Effect]] = {}
+    for shortcut, effects in data.items():
+        if parse_shortcut(str(shortcut)) is None:
+            raise _fixture_error(f"keys of {where}: {shortcut!r} is not a shortcut.")
+        bindings[str(shortcut)] = list(_effects(effects, f"keys[{shortcut!r}] of {where}"))
+    return bindings
+
+
 def _walk_visible(root: RawNode) -> Iterator[RawNode]:
     """Pre-order traversal that skips invisible subtrees."""
     stack = [root]
@@ -817,6 +837,8 @@ class FakeEngine(Engine):
                 (f"on_press of {data.get('id') or node.role}", e)
                 for e in _effects(data.get("on_press"), "on_press")
             )
+            for shortcut, bound in _key_bindings(data.get("keys"), data.get("id") or node.role).items():
+                effects.extend((f"keys[{shortcut!r}] of {data.get('id') or node.role}", e) for e in bound)
 
         for window_id, definition in self._window_defs.items():
             tree = definition.get("tree")
@@ -2141,6 +2163,8 @@ class FakeEngine(Engine):
             app = self._frontmost
             if app is None:
                 return
+            if self._node_key(app, combo):
+                return
             found = self._shortcut_item(app, combo) if combo.modifiers - {"shift"} else None
             if found is not None:
                 path, item = found
@@ -2163,12 +2187,48 @@ class FakeEngine(Engine):
                 self._store_text(node, self._text_of(node)[:-1])
         elif key == "return" and node.role == "AXTextArea":
             self._insert(node, "\n")
+        elif key == "return" and not combo.modifiers:
+            default = self._default_button_for(node)
+            if default is not None:
+                self._press(default)
         elif key == "tab" and not combo.modifiers - {"shift"}:
             self._move_focus(node, backwards="shift" in combo.modifiers)
         elif key == "space" and not combo.modifiers:
             self._insert(node, " ")
         else:
             self._select_all.discard(node.handle)
+
+    def _node_key(self, app: _App, combo: KeyCombo) -> bool:
+        """Apply a ``keys`` binding of a visible element in the app's front window, if any."""
+        window = self._front_window_of(app)
+        if window is None:
+            return False
+        for node in _walk_visible(window.root):
+            bindings = self._behaviour.get(node.handle, {}).get("keys")
+            if not bindings:
+                continue
+            for shortcut, effects in _key_bindings(bindings, node.role).items():
+                bound = parse_shortcut(shortcut)
+                if bound is not None and (bound.key.casefold(), bound.modifiers) == (
+                    combo.key.casefold(),
+                    combo.modifiers,
+                ):
+                    self._apply_effects(effects, window)
+                    return True
+        return False
+
+    def _default_button_for(self, node: RawNode) -> RawNode | None:
+        """The visible default button of the innermost sheet or window around ``node``."""
+        container = self._parents.get(node.handle)
+        while container is not None:
+            if container.role in ("AXSheet", "AXWindow"):
+                for candidate in _walk_visible(container):
+                    if self._behaviour.get(candidate.handle, {}).get("default") and candidate.enabled:
+                        return candidate
+                if container.role == "AXWindow":
+                    return None
+            container = self._parents.get(container.handle) if container.handle is not None else None
+        return None
 
     def _move_focus(self, node: RawNode, *, backwards: bool) -> None:
         window = self._node_windows[node.handle]

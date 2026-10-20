@@ -1242,7 +1242,7 @@
    "readOnlyHint": false,
    "title": "Answer a dialog"
   },
-  "description": "Deal with the sheet, alert or dialog in front of an app: read it, or answer it.\naction: inspect (default: its title, text, fields and buttons), accept (press the default button:\nOK, Allow, Save…, else the rightmost one), cancel (press Cancel/Not Now/No, else press Escape), or\npress (the button titled button). text fills the dialog's first text field before pressing.\nPressing a button that deletes, replaces or discards something asks the user first. Params: app\n(default: the frontmost app), action, button, text, report.\nErrors: ELEMENT_NOT_ACTIONABLE (no dialog is open), INVALID_ARGUMENT (no such button: the message\nlists them), USER_DENIED, BLOCKED_BY_POLICY (secure fields: the user types passwords), NEEDS_USER\n(system authentication dialogs), USER_ACTIVE, PAUSED_BY_USER.",
+  "description": "Deal with the sheet, alert or dialog in front of an app: read it, or answer it.\naction: inspect (default: its title, text, fields and buttons), accept (press the default button:\nOK, Allow, Save…, else the rightmost one), cancel (press Cancel/Not Now/No, else press Escape), or\npress (the button titled button). text fills the dialog's first text field before pressing.\npath (open/save panels, with accept or press) first goes to that folder or file with Go to the\nfolder (Shift-Cmd-G), e.g. \"~/Documents\" or \"~/Desktop/report.pdf\"; for a save panel, give the\nfolder as path and the file name as text. Pressing a button that deletes, replaces or discards\nsomething asks the user first. Params: app (default: the frontmost app), action, button, text,\npath, report.\nErrors: ELEMENT_NOT_ACTIONABLE (no dialog is open; the panel refused the path), INVALID_ARGUMENT\n(no such button: the message lists them), USER_DENIED, BLOCKED_BY_POLICY (secure fields: the user\ntypes passwords), NEEDS_USER (system authentication dialogs), USER_ACTIVE, PAUSED_BY_USER.",
   "input_schema": {
    "additionalProperties": false,
    "properties": {
@@ -1265,6 +1265,11 @@
     "button": {
      "description": "press: the button's title.",
      "maxLength": 200,
+     "type": "string"
+    },
+    "path": {
+     "description": "Open/save panels: go to this folder or file first.",
+     "maxLength": 1024,
      "type": "string"
     },
     "report": {

@@ -38,6 +38,7 @@ from axpilot.server.tools.input import (
     activate_app,
     click_target,
     element_brief,
+    keystroke_target,
     observe_after,
     require_keyboard,
     resolve_target,
@@ -262,11 +263,14 @@ Deal with the sheet, alert or dialog in front of an app: read it, or answer it.
 action: inspect (default: its title, text, fields and buttons), accept (press the default button:
 OK, Allow, Save…, else the rightmost one), cancel (press Cancel/Not Now/No, else press Escape), or
 press (the button titled button). text fills the dialog's first text field before pressing.
-Pressing a button that deletes, replaces or discards something asks the user first. Params: app
-(default: the frontmost app), action, button, text, report.
-Errors: ELEMENT_NOT_ACTIONABLE (no dialog is open), INVALID_ARGUMENT (no such button: the message
-lists them), USER_DENIED, BLOCKED_BY_POLICY (secure fields: the user types passwords), NEEDS_USER
-(system authentication dialogs), USER_ACTIVE, PAUSED_BY_USER."""
+path (open/save panels, with accept or press) first goes to that folder or file with Go to the
+folder (Shift-Cmd-G), e.g. "~/Documents" or "~/Desktop/report.pdf"; for a save panel, give the
+folder as path and the file name as text. Pressing a button that deletes, replaces or discards
+something asks the user first. Params: app (default: the frontmost app), action, button, text,
+path, report.
+Errors: ELEMENT_NOT_ACTIONABLE (no dialog is open; the panel refused the path), INVALID_ARGUMENT
+(no such button: the message lists them), USER_DENIED, BLOCKED_BY_POLICY (secure fields: the user
+types passwords), NEEDS_USER (system authentication dialogs), USER_ACTIVE, PAUSED_BY_USER."""
 
 DialogAction = Literal["inspect", "accept", "cancel", "press"]
 
@@ -353,6 +357,10 @@ def handle_dialog_tool(ctx: ServerContext) -> ToolFn:
         text: Annotated[
             str | None, Field(description="Text for the dialog's first text field.", max_length=20_000)
         ] = None,
+        path: Annotated[
+            str | None,
+            Field(description="Open/save panels: go to this folder or file first.", max_length=1024),
+        ] = None,
         report: ReportArg = "diff",
     ) -> Annotated[CallToolResult, DialogResult]:
         if (button is not None) != (action == "press"):
@@ -361,11 +369,16 @@ def handle_dialog_tool(ctx: ServerContext) -> ToolFn:
             )
         if text is not None and action == "inspect":
             raise AXPilotError(ErrorCode.INVALID_ARGUMENT, "text goes with accept, cancel or press.")
-        tree = await ctx.capture_tree(app=app)
-        snap = ctx.build_snapshot(tree, mode="full")
-        dialog, kind = _dialog_of(snap, tree.root.subrole in DIALOG_SUBROLES)
+        if path is not None:
+            _check_path(path, action)
+        tree, snap, dialog, kind = await _read_dialog(ctx, app)
         texts, buttons, fields = _parts(snap, dialog)
         found = kind != "none"
+        if found and path is not None:
+            await _go_to_path(ctx, tree.app, path)
+            tree, snap, dialog, kind = await _read_dialog(ctx, tree.app.bundle_id or str(tree.app.pid))
+            texts, buttons, fields = _parts(snap, dialog)
+            found = kind != "none"
         info: dict[str, Any] = {
             "found": found,
             "kind": kind,
@@ -375,6 +388,7 @@ def handle_dialog_tool(ctx: ServerContext) -> ToolFn:
             "buttons": [_brief(el) for el in buttons],
             "fields": [_brief(el) for el in fields],
         }
+        went = f"went to {quote(path, 120)}, " if path is not None else ""
         if action == "inspect":
             summary = _summary(info, buttons, fields, tree.app.name)
             model = DialogResult(action="handle_dialog", snapshot_id=snap.snapshot_id, **info)
@@ -414,7 +428,7 @@ def handle_dialog_tool(ctx: ServerContext) -> ToolFn:
             await require_keyboard(ctx)
             await ctx.run_engine(ctx.engine.press_key, KeyCombo("escape"))
             observation = await observe_after(ctx, app=tree.app, before=snap, report=report)
-            return _answered(info, observation, "pressed Escape to cancel the dialog", "keys", None)
+            return _answered(info, observation, f"{went}pressed Escape to cancel the dialog", "keys", None)
         target: Target = await resolve_target(
             ctx, ref=chosen.ref, snapshot_id=snap.snapshot_id, x=None, y=None
         )
@@ -423,10 +437,81 @@ def handle_dialog_tool(ctx: ServerContext) -> ToolFn:
         used, _ = await click_target(ctx, target, button="left", count=1, modifiers=(), strategy="auto")
         observation = await observe_after(ctx, app=tree.app, before=snap, report=report)
         return _answered(
-            info, observation, f"pressed {quote(chosen.name or '', 60)} via {used}", used, chosen.name
+            info, observation, f"{went}pressed {quote(chosen.name or '', 60)} via {used}", used, chosen.name
         )
 
     return handle_dialog
+
+
+GO_TO_FOLDER = KeyCombo("g", frozenset({"cmd", "shift"}))
+"""Open and save panels: "Go to the folder"."""
+GO_TO_WAIT_S = 2.0
+"""How long the "Go to the folder" field may take to appear, or to go away after Return."""
+
+
+def _check_path(path: str, action: str) -> None:
+    if action not in ("accept", "press"):
+        raise AXPilotError(ErrorCode.INVALID_ARGUMENT, "path goes with action=accept or press.")
+    if not path.startswith(("/", "~")) or any(c in path for c in "\r\n"):
+        raise AXPilotError(
+            ErrorCode.INVALID_ARGUMENT,
+            f"path must be an absolute or ~ path on one line, got {quote(path, 80)}.",
+            hint='For example "~/Documents" or "/Users/me/Desktop/report.pdf".',
+        )
+
+
+async def _read_dialog(ctx: ServerContext, app: str | None) -> tuple[Any, Snapshot, Element | None, str]:
+    tree = await ctx.capture_tree(app=app)
+    snap = ctx.build_snapshot(tree, mode="full")
+    dialog, kind = _dialog_of(snap, tree.root.subrole in DIALOG_SUBROLES)
+    return tree, snap, dialog, kind
+
+
+async def _focused_field(ctx: ServerContext, app: Any) -> tuple[Snapshot, Element | None]:
+    snap = await ctx.take_snapshot(app=app.bundle_id or str(app.pid))
+    focused = snap.focused_element
+    return snap, focused if focused is not None and focused.role in FIELD_ROLES else None
+
+
+async def _go_to_path(ctx: ServerContext, app: Any, path: str) -> None:
+    """Type ``path`` into an open/save panel's "Go to the folder" field and confirm it."""
+    await activate_app(ctx, app)
+    front, _ = await keystroke_target(ctx)  # the keys go to the front app: apply the policy to it
+    if front is None or front.pid != app.pid:
+        raise AXPilotError(
+            ErrorCode.ELEMENT_NOT_ACTIONABLE,
+            f"Could not bring {app.name} to the front, so its panel can't be given a path.",
+        )
+    await require_keyboard(ctx)
+    _, before = await _focused_field(ctx, app)
+    await ctx.run_engine(ctx.engine.press_key, GO_TO_FOLDER)
+    deadline = ctx.clock() + GO_TO_WAIT_S
+    snap, field = await _focused_field(ctx, app)
+    while field is None or (before is not None and field.ref == before.ref):
+        if ctx.clock() >= deadline:
+            raise AXPilotError(
+                ErrorCode.ELEMENT_NOT_ACTIONABLE,
+                f'No "Go to the folder" field appeared in {app.name}; is this an open or save panel?',
+                hint="Inspect the dialog (handle_dialog) and use its own fields instead.",
+            )
+        await ctx.sleep(0.1)
+        snap, field = await _focused_field(ctx, app)
+    target = await resolve_target(ctx, ref=field.ref, snapshot_id=snap.snapshot_id, x=None, y=None)
+    await set_control(ctx, target, path)
+    await ctx.run_engine(ctx.engine.press_key, KeyCombo("return"))
+    deadline = ctx.clock() + GO_TO_WAIT_S
+    while True:
+        await ctx.sleep(ctx.config.perception.settle_ms / 1000)
+        _, still = await _focused_field(ctx, app)
+        if still is None or still.ref != field.ref:
+            return
+        if ctx.clock() >= deadline:
+            await ctx.run_engine(ctx.engine.press_key, KeyCombo("escape"))
+            raise AXPilotError(
+                ErrorCode.ELEMENT_NOT_ACTIONABLE,
+                f"{app.name}'s panel did not accept the path {quote(path, 120)}.",
+                hint="Check that the folder exists (spotlight_search finds files), then try again.",
+            )
 
 
 def _summary(info: dict[str, Any], buttons: list[Element], fields: list[Element], app: str) -> str:

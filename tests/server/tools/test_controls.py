@@ -16,6 +16,7 @@ from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.policy.confirm import ConfirmRequest
 from axpilot.server.context import ServerContext
 from axpilot.server.results import error_code_of, text_of
+from axpilot.server.tools import controls
 from axpilot.server.tools.controls import DESTRUCTIVE_BUTTON_RE, match_option
 from axpilot.testing import connected_client, make_test_context, structured
 from axpilot.testing.faulty_engine import Fault, FaultyEngine
@@ -247,6 +248,68 @@ async def test_handle_dialog_follows_the_policy() -> None:
             _, error = await call(client, "handle_dialog", {"app": "Login Demo", "action": action})
             assert error == "BLOCKED_BY_POLICY", action
     assert not engine_of(ctx).events_of("press")
+
+
+async def open_save_panel(client: Client) -> None:
+    await ok(client, "app", {"action": "activate", "name": "TextEdit"})
+    await ok(client, "select_menu", {"app": "TextEdit", "path": ["File", "Save…"]})
+
+
+async def test_a_save_panel_goes_to_a_folder_then_saves(ctx: ServerContext, client: Client) -> None:
+    await open_save_panel(client)
+    data = await ok(
+        client,
+        "handle_dialog",
+        {"app": "TextEdit", "action": "accept", "path": "~/Desktop", "text": "Report"},
+    )
+    assert data["pressed"] == "Save"
+    engine = engine_of(ctx)
+    keys = [e["combo"] for e in engine.events_of("press_key")]
+    assert keys[:2] == ["shift+cmd+g", "return"]
+    values = {e.get("handle"): e.get("value") for e in engine.events_of("set_value")}
+    assert values["textedit.goto.path"] == "~/Desktop"
+    assert values["textedit.save.name"] == "Report"
+    assert (await ok(client, "handle_dialog", {"app": "TextEdit"}))["found"] is False  # saved and closed
+
+
+async def test_a_path_needs_an_open_or_save_panel(ctx: ServerContext, client: Client) -> None:
+    await ok(client, "app", {"action": "activate", "name": "Login Demo"})
+    result, error = await call(
+        client, "handle_dialog", {"app": "Login Demo", "action": "accept", "path": "/tmp"}
+    )
+    assert error == "ELEMENT_NOT_ACTIONABLE"
+    assert "Go to the folder" in text_of(result)
+    assert not engine_of(ctx).events_of("press")  # nothing was accepted
+
+
+async def test_a_refused_path_closes_the_field_and_saves_nothing(
+    ctx: ServerContext, client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(controls, "GO_TO_WAIT_S", 0.2)
+    await open_save_panel(client)
+    engine = engine_of(ctx)
+    engine._behaviour["textedit.goto.go"]["on_press"] = []  # the panel keeps the field: no such folder
+    result, error = await call(
+        client, "handle_dialog", {"app": "TextEdit", "action": "accept", "path": "~/Nowhere"}
+    )
+    assert error == "ELEMENT_NOT_ACTIONABLE", text_of(result)
+    assert "did not accept" in text_of(result)
+    assert engine.events_of("press_key")[-1]["key"] == "escape"
+    assert not [e for e in engine.events_of("press") if e.get("name") == "Save"]
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        {"action": "inspect", "path": "/tmp"},
+        {"action": "cancel", "path": "/tmp"},
+        {"action": "accept", "path": "Documents"},
+        {"action": "accept", "path": "/tmp\n/etc"},
+    ],
+)
+async def test_path_arguments_are_checked(client: Client, args: dict[str, Any]) -> None:
+    _, error = await call(client, "handle_dialog", {"app": "TextEdit", **args})
+    assert error == "INVALID_ARGUMENT"
 
 
 async def test_press_by_title(client: Client) -> None:
