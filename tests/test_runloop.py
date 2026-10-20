@@ -7,6 +7,7 @@ import logging
 import sys
 import threading
 import types
+from collections.abc import Callable
 
 import anyio
 import pytest
@@ -19,19 +20,31 @@ INTERVAL = 0.01
 
 
 class FakePump:
-    """Counts calls; optionally raises on the n-th call."""
+    """Counts calls, then runs ``notify`` (if set); optionally raises on the n-th call."""
 
     def __init__(self, *, fail_on: int | None = None, error: BaseException | None = None) -> None:
         self.calls: list[float] = []
         self.fail_on = fail_on
         self.error = error or RuntimeError("the run loop is broken")
         self.threads: set[str] = set()
+        self.notify: Callable[[], None] | None = None
 
     def __call__(self, seconds: float) -> None:
         self.calls.append(seconds)
         self.threads.add(threading.current_thread().name)
+        if self.notify is not None:
+            self.notify()
         if self.fail_on is not None and len(self.calls) >= self.fail_on:
             raise self.error
+
+
+async def until_pumped(pump: FakePump, times: int) -> None:
+    """Wait for the pump's ``times``-th call instead of a fixed sleep (slow CI runners)."""
+    reached = anyio.Event()
+    pump.notify = lambda: reached.set() if len(pump.calls) >= times else None
+    if len(pump.calls) < times:
+        with anyio.fail_after(5):
+            await reached.wait()
 
 
 # --------------------------------------------------------------------------- main_thread_pump
@@ -78,7 +91,7 @@ async def test_the_pump_turns_while_main_runs_and_stops_after() -> None:
     pump = FakePump()
 
     async def main() -> str:
-        await anyio.sleep(0.1)
+        await until_pumped(pump, 3)
         return "done"
 
     assert await run_with_pump(main, pump, INTERVAL) == "done"
@@ -131,7 +144,8 @@ async def test_a_failing_pump_is_logged_once_and_main_still_finishes(
     pump = FakePump(fail_on=2)
 
     async def main() -> int:
-        await anyio.sleep(0.1)
+        await until_pumped(pump, 2)
+        await anyio.sleep(5 * INTERVAL)  # time for calls that must not happen
         return 7
 
     with caplog.at_level(logging.WARNING, logger="axpilot.runloop"):
@@ -170,9 +184,11 @@ async def test_stopping_twice_is_harmless() -> None:
 
 # --------------------------------------------------------------------------- wait_pumping
 def test_waiting_pumps_until_the_result_arrives() -> None:
+    third_call = threading.Event()
     pump = FakePump()
+    pump.notify = lambda: third_call.set() if len(pump.calls) >= 3 else None
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        future = pool.submit(lambda: (threading.Event().wait(0.1), 42)[1])
+        future = pool.submit(lambda: 42 if third_call.wait(5) else None)  # done only after 3 pumps
         assert wait_pumping(future, pump, INTERVAL) == 42
     assert len(pump.calls) >= 3
     assert pump.threads == {threading.current_thread().name}
