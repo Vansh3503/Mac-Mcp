@@ -13,10 +13,10 @@ on by default.
 
 <!-- mcp-name: io.github.vansh3503/axpilot -->
 
-> **Project status: pre-alpha (Phase 0/1).** AXPilot is under active development and is
-> **not yet published on PyPI**. The commands marked *coming with v0.1* below show the intended
-> experience; the [from-source path](#run-from-source-today) works today. Expect breaking changes
-> until 1.0. See the [roadmap](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/PLAN.md#15-roadmap-and-milestones-one-maintainer--ai-assistance).
+> **Project status: pre-alpha.** AXPilot is under active development and is **not yet published
+> on PyPI**: you [run it from source](#run-from-source-today). It is verified on macOS 26 on Apple
+> silicon; macOS 14 and 15 and Intel Macs are not tested yet. The commands marked *coming with
+> v0.1* show the intended experience. Expect breaking changes until 1.0. See the [roadmap](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/PLAN.md#15-roadmap-and-milestones-one-maintainer--ai-assistance).
 
 ## Why AXPilot
 
@@ -31,14 +31,15 @@ on by default.
 - **Works with any MCP client or agent framework.** Standard MCP over stdio or Streamable HTTP:
   Claude Desktop, Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI, OpenAI Agents SDK,
   LangGraph, Pydantic AI and more.
-- **Permissions that just work** *(planned for v0.2)*. A tiny frozen `AXPilot.app` launcher holds
-  the macOS permissions, so you grant Accessibility once and every client can use it, across updates.
+- **Permissions that just work.** A tiny frozen `AXPilot.app` launcher holds the macOS
+  permissions, so you grant Accessibility once, to AXPilot, and every client can use it, across updates.
 
 ## Features
 
-The feature set planned for 1.0; every tool below is implemented and tested against the simulated
-desktop, and is awaiting verification on real macOS. The
-[tool reference](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/tools.md) documents each one.
+The feature set planned for 1.0. Every tool below is implemented and tested against the simulated
+desktop. On a real Mac (macOS 26), the perception and input tools are verified, including
+dropdowns, menus and dialogs; the app, system, scripting and browser tools, the kill switch and the
+on-screen indicator are not yet. The [tool reference](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/tools.md) documents each one.
 
 | Area | What you get |
 |---|---|
@@ -68,10 +69,10 @@ desktop, and is awaiting verification on real macOS. The
         macOS permissions (Accessibility, Screen Recording) → AXPilot.app
 ```
 
-The launcher-and-bridge design is planned for v0.2 and is being validated by
-[spike S1](https://github.com/vansh3503/Mac-Mcp/tree/main/spikes/s1_launcher_tcc). Today, **direct
-mode** (`axpilot stdio --direct`) runs everything in one process; macOS then attributes permissions
-to whichever app started the server (your terminal, Claude, Cursor, …).
+[Spike S1](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/spikes/S1-launcher-tcc.md) confirmed
+this design on macOS 26 (Apple silicon): the permission prompts name AXPilot, and one grant covers
+every client. **Direct mode** (`axpilot stdio --direct`) runs everything in one process instead;
+macOS then attributes permissions to whichever app started the server (your terminal, Claude, Cursor, …).
 
 ## Install
 
@@ -79,18 +80,31 @@ to whichever app started the server (your terminal, Claude, Cursor, …).
 
 ### Run from source (today)
 
-You need [uv](https://docs.astral.sh/uv/).
+You need [uv](https://docs.astral.sh/uv/) and the Xcode Command Line Tools
+(`xcode-select --install`), which build the launcher.
 
 ```sh
 git clone https://github.com/vansh3503/Mac-Mcp.git axpilot
 cd axpilot
 uv sync
+launcher/build.sh                      # builds launcher/build/AXPilot.app
+uv run axpilot setup --dev-source .    # installs ~/Applications/AXPilot.app and its runtime
+uv run axpilot connect claude-desktop  # or claude-code, cursor, vscode, … (see --list)
+uv run axpilot doctor                  # checks the installation
+```
 
-# Try the simulated desktop (any OS, no permissions needed):
-uv run axpilot stdio --engine fake
+Restart your MCP client, then ask it to use AXPilot ("take a snapshot of Finder"):
 
-# On a Mac, drive the real desktop (grant Accessibility to your terminal first):
-uv run axpilot stdio --direct
+1. The first time a client connects, AXPilot asks you whether to allow it. Allow it.
+2. The first tool call makes macOS ask whether AXPilot may control your computer. Open System
+   Settings, switch on **AXPilot** under Accessibility, and ask again; no restart is needed.
+   Screenshots and OCR ask for Screen Recording the same way.
+
+Other ways to run it, without the launcher:
+
+```sh
+uv run axpilot stdio --engine fake   # the simulated desktop (any OS, no permissions needed)
+uv run axpilot stdio --direct        # direct mode: grant Accessibility to the app that starts it
 ```
 
 `axpilot stdio` speaks MCP on stdin/stdout, so it waits for a client. To poke at it by hand, use
@@ -110,30 +124,12 @@ Permissions explained: [docs/permissions.md](https://github.com/vansh3503/Mac-Mc
 
 ## Connect a client
 
-### Today, from source (direct mode)
+### Today, from source
 
-**Claude Desktop**: edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "axpilot": {
-      "command": "/Users/you/.local/bin/uv",
-      "args": ["--directory", "/Users/you/src/axpilot", "run", "axpilot", "stdio", "--direct"]
-    }
-  }
-}
-```
-
-Use **absolute paths**: Claude Desktop does not start from your shell, so it does not see your
-`PATH`. Find yours with `which uv` and `pwd` in the clone. In direct mode, grant Accessibility to
-**Claude** in System Settings, then restart Claude.
-
-**Claude Code**:
-
-```sh
-claude mcp add axpilot -- uv --directory /path/to/axpilot run axpilot stdio --direct
-```
+In the clone, `uv run axpilot connect <client>` writes the client's config for you (with a
+backup), pointing it at the checkout's `axpilot` by absolute path. Restart the client afterwards.
+For direct mode, or to write the config by hand, see
+[docs/clients.md](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/clients.md#from-source-today).
 
 ### After v0.1 is on PyPI
 

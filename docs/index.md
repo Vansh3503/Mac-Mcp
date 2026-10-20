@@ -4,9 +4,9 @@
 through the macOS Accessibility API first and screenshots second, with safety controls that are on
 by default.
 
-> **Status: pre-alpha (Phase 0/1).** AXPilot is not yet published on PyPI. These docs describe the
-> planned 1.0 behaviour and mark what is *planned*. You can run it from source today; see
-> [Install](install.md).
+> **Status: pre-alpha.** AXPilot is not yet published on PyPI. These docs describe the planned 1.0
+> behaviour and mark what is *planned*. You can run it from source today (verified on macOS 26 on
+> Apple silicon); see [Install](install.md).
 
 ## What it does
 
@@ -19,7 +19,7 @@ by default.
   first and returns a diff of what changed.
 - **Safety.** Profiles and toolsets, app and window deny-lists, protection for password fields,
   confirmations for destructive actions, a rate limit, an audit log, yield-to-user, client pairing,
-  and *(planned)* a kill switch and an on-screen indicator. **No telemetry.**
+  a kill switch and an on-screen indicator (not yet verified on a Mac). **No telemetry.**
 - **Any client, any framework.** Standard MCP over stdio or Streamable HTTP. Works
   with Claude Desktop, Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI, the OpenAI Agents SDK,
   LangGraph, Pydantic AI and anything else that speaks MCP.
@@ -44,9 +44,9 @@ by default.
 macOS checks privacy permissions against the app responsible for a process. Because the Python host
 runs as a child of the `AXPilot.app` launcher, you grant Accessibility **once, to AXPilot**, and
 every MCP client can use it. The launcher is tiny and never changes between AXPilot releases, so the
-grant survives updates. This design is planned for v0.2 and is being validated by spike S1; see
-[ADR-2](adr/0002-architecture-launcher-host-bridge.md). Until then, **direct mode**
-(`axpilot stdio --direct`) runs everything in one process.
+grant survives updates. Spike S1 confirmed this design on macOS 26 on Apple silicon; see
+[ADR-2](adr/0002-architecture-launcher-host-bridge.md). **Direct mode** (`axpilot stdio --direct`)
+runs everything in one process instead.
 
 ## Where to go next
 

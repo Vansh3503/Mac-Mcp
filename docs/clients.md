@@ -12,7 +12,11 @@ axpilot connect cursor --scope project      # project config instead of user con
 
 ## From source (today)
 
-Until AXPilot is on PyPI, point your client at a source checkout and run it in **direct mode**. Use
+Until AXPilot is on PyPI, run `uv run axpilot connect <client>` inside the clone after
+`launcher/build.sh` and `uv run axpilot setup --dev-source .` ([Install](install.md)): it writes the
+checkout's `axpilot` by absolute path, in launcher mode.
+
+To write the config by hand, or for **direct mode**, point your client at the checkout. Use
 absolute paths: GUI apps such as Claude Desktop don't start from your shell and don't see your
 `PATH`. Find the paths with `which uv` and, inside the clone, `pwd`.
 
