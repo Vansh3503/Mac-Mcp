@@ -541,21 +541,33 @@ async def ensure_frontmost(ctx: ServerContext, app: AppInfo | None) -> None:
         )
 
 
+UNCOVER_CHECKS = 20
+"""After activating a covered target's app, hit-test this often, 50 ms apart: the window server
+reorders windows after the app is already frontmost (about 200 ms later on macOS 26)."""
+
+
 async def ensure_uncovered(ctx: ServerContext, target: Target) -> None:
     """A synthesized click lands on whatever is on top: make sure that is the target's app."""
     if target.app is None:
         return
     under = await ctx.run_engine(ctx.engine.app_at_point, target.point)
-    if under is not None and under.pid != target.app.pid:
-        await activate_app(ctx, target.app)
+    if under is None or under.pid == target.app.pid:
+        return
+    await activate_app(ctx, target.app)
+    for check in range(UNCOVER_CHECKS):
+        if check:
+            await ctx.sleep(0.05)
         under = await ctx.run_engine(ctx.engine.app_at_point, target.point)
-        if under is not None and under.pid != target.app.pid:
-            raise AXPilotError(
-                ErrorCode.ELEMENT_NOT_ACTIONABLE,
-                f"{target.describe()} is covered by {under.name}.",
-                hint="Move or minimize the covering window (window tool), or act on the element by ref "
-                "with an accessibility action.",
-            )
+        if under is not None and under.pid == target.app.pid:
+            return
+    if under is None:  # still no window there after the checks: nothing covers it
+        return
+    raise AXPilotError(
+        ErrorCode.ELEMENT_NOT_ACTIONABLE,
+        f"{target.describe()} is covered by {under.name}.",
+        hint="Move or minimize the covering window (window tool), or act on the element by ref "
+        "with an accessibility action.",
+    )
 
 
 # --------------------------------------------------------------------------- click

@@ -153,6 +153,50 @@ async def test_a_covered_element_brings_its_app_forward_before_a_mouse_click(
     assert any(e.get("action") == "activate" for e in events(ctx, "app_control"))
 
 
+class LateReorder(FakeEngine):
+    """macOS 26: an activated app is frontmost at once, but the window server reorders its windows
+    about 200 ms later; until then hit tests still see the covering app, or briefly no window."""
+
+    stale: list[str | None]
+
+    def app_control(self, action: AppAction, app: str) -> AppInfo | None:
+        info = super().app_control(action, app)
+        self.reordering = True
+        return info
+
+    def app_at_point(self, point: Any) -> AppInfo | None:
+        if getattr(self, "reordering", False) and self.stale:
+            name = self.stale.pop(0)
+            return self.find_app(name) if name else None
+        return super().app_at_point(point)
+
+
+async def click_covered_bold(stale: list[str | None]) -> tuple[LateReorder, Any, str | None]:
+    engine = LateReorder.demo()
+    assert isinstance(engine, LateReorder)
+    engine.stale = stale
+    ctx = fast(make_test_context({"tools.profile": "full"}, engine=engine))
+    async with connected_client(ctx) as client:
+        refs = await refs_of(client, "TextEdit")
+        FakeEngine.app_control(engine, "activate", "Notes")  # Notes covers TextEdit now
+        result, error = await call(client, "click", {"ref": refs["Bold"], "strategy": "mouse"})
+    return engine, result, error
+
+
+async def test_a_mouse_click_waits_for_the_windows_to_reorder_after_activating() -> None:
+    engine, result, error = await click_covered_bold(["Notes", "Notes", None, "Notes"])
+    assert error is None, text_of(result)
+    assert not engine.stale  # the passing "no window" mid-reorder did not end the wait
+    assert engine.events_of("mouse_click")
+
+
+async def test_a_window_that_stays_on_top_still_refuses_the_mouse_click() -> None:
+    engine, result, error = await click_covered_bold(["Notes"] * 30)
+    assert error == "ELEMENT_NOT_ACTIONABLE"
+    assert "covered by Notes" in text_of(result)
+    assert not engine.events_of("mouse_click")
+
+
 async def test_coordinate_clicks_are_hit_tested_against_the_policy(
     ctx: ServerContext, client: Client
 ) -> None:
