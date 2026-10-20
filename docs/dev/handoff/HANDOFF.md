@@ -112,8 +112,26 @@ and cells; key sequences with `+`/`-`; app-kind fallback order.
 root-only), 0 failed; 94% branch coverage** (gate: `fail_under = 90` in `pyproject.toml`, enforced by CI's
 `pytest --cov`), run with `HOME` pointed at an empty folder, which stayed empty. `ruff check`,
 `ruff format --check` and `pyright --pythonpath .venv/bin/python` are clean; `docs/tools.md` is up to date.
-The full run takes about 5 minutes without coverage and 11–15 with it. CI itself has never run on GitHub (it
-triggers on `main` and pull requests only).
+The full run takes about 5 minutes without coverage and 11–15 with it. Re-run in the next session on `0319ee8`
+with the same result (3042 passed, 51 skipped, 94.00%; the empty `HOME` stayed empty).
+
+### CI on GitHub (first run, PR #14)
+
+CI ran for the first time on PR #14 (`feature/axpilot-foundation` → `main`, run 39363989629 on `0319ee8`):
+
+- **Green:** lint, typecheck, build (wheel + sdist, twine, wheel smoke test), and the Linux tests on Python 3.11,
+  3.12 and 3.13 with the 90% coverage gate.
+- **Docs failed:** `mkdocs build --strict` stopped on `docs/tools.md`: the `browser_read` parameter description
+  "Write links as [text](url)." became an unresolvable link. Fixed in `cef4ba9` (the generator escapes brackets in
+  table cells; test added).
+- **macOS 14 and macOS 15 (GitHub's arm64 runners), the first time any of the code ran on macOS:** 3035 passed,
+  56 skipped, and two failures, both in `tests/test_doctor.py` (`AF_UNIX path too long`: macOS's pytest
+  `tmp_path` is longer than the 104-byte socket path limit). A test-only problem, fixed in `bc6a8c4`
+  (`short_socket_dir()`, as the host tests already did). What this shows: PyObjC installs from `uv.lock` on both
+  versions, the package, CLI, SDK, host, bridge and HTTP transport work on macOS with the fake engine, and the
+  CLI's real subprocess tests pass there. What it does **not** show: nothing touched the real accessibility tree,
+  input or capture (the 15 `MacEngine` smoke tests need `AXPILOT_MACOS_TESTS=1` and Accessibility, which hosted
+  runners don't grant; spike S5, #6), and the launcher tests skip because no `AXPilot.app` is built in CI.
 
 ### Build round 2 (done, one commit per package)
 
