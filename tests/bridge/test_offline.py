@@ -26,7 +26,9 @@ SETUP = AXPilotError(
 
 
 @pytest.fixture
-def config(tmp_path: Path) -> Config:
+def config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Config:
+    monkeypatch.setenv("HOME", str(tmp_path))  # never read the real audit log of a Mac that ran AXPilot
+    monkeypatch.setenv("AXPILOT_LOG_DIR", str(tmp_path / "logs"))
     return load_config(tmp_path / "config.toml", env={}, overrides={})
 
 
