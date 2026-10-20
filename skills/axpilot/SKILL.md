@@ -43,6 +43,15 @@ is authoritative for its exact parameters.
   fields, buttons) and can accept, cancel or press a button by title. Read it before answering.
   In open and save panels, `path` goes to a folder or file first (`"~/Documents"`); for a save,
   pass the folder as `path` and the file name as `text`.
+- **Tricky controls:**
+  - Date pickers: `set_value` with an ISO date (`"2026-10-20"`, `"2026-10-20 14:30"`; `"14:30"`
+    for a time field).
+  - Tables: a column header's `value` says how the table is sorted (`ascending`/`descending`);
+    `click` a header to sort by it. To edit a cell, double-click it (`click` with `count: 2`),
+    then `type_text` without a ref, with `clear` and `submit`.
+  - Toolbars hide items behind a `»` button when the window is narrow: if an expected toolbar
+    item is missing, press that button and pick the item from its menu, or widen the window.
+  - Color wells can't be set directly: click one to open the Colors panel and use its controls.
 - **Keyboard shortcuts** with `press_keys` (`"cmd+n"`, `"cmd+shift+t"`, `["cmd+a", "delete"]`) are
   fast and dependable for well-known commands. Text goes through `type_text`, not `press_keys`.
 - **Prefer `type_text` with a ref** over clicking a field and typing. Use `clear` to replace

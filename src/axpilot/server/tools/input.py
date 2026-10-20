@@ -1111,6 +1111,7 @@ Set a control to a value, the way its role expects:
 - text field / search field / text area / combo box: the new text (replaces it).
 - date picker: an ISO 8601 date, "2026-10-20" or "2026-10-20 14:30"; a time field: "14:30".
 - pop-up button: the title of the option to choose.
+Color wells can't be set: click one to open the Colors panel.
 Params: ref, value (always a string), snapshot_id, report. The result says whether anything
 changed. Errors: ELEMENT_NOT_ACTIONABLE (read-only or disabled), INVALID_ARGUMENT (e.g. not a
 number for a slider), BLOCKED_BY_POLICY (secure fields), STALE_REF."""
@@ -1283,6 +1284,13 @@ async def set_control(ctx: ServerContext, target: Target, value: str) -> _SetOut
         return await _set_toggle(ctx, target, parse_bool(value))
     if role in DATE_ROLES:
         return await _set_date(ctx, target, value)
+    if role == "colorwell":
+        raise AXPilotError(
+            ErrorCode.ELEMENT_NOT_ACTIONABLE,
+            f"{target.describe()} is a color well; macOS does not let its color be set directly.",
+            hint="Click it to open the Colors panel, snapshot that panel and use its controls (the "
+            "sliders tab has a hex field), or pick a color from the app's own menus.",
+        )
     if role in NUMERIC_ROLES:
         return await _set_number(ctx, target, parse_number(value))
     if role in TEXT_ROLES or role == "secure":

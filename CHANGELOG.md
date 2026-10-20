@@ -73,6 +73,9 @@ Pre-alpha. Nothing is published on PyPI yet.
 - Date pickers: `set_value` takes ISO 8601 dates and times (`"2026-10-20"`, `"2026-10-20 14:30"`,
   `"14:30"` for a time field), sends them as dates and checks what the picker shows; snapshots
   show `AXDateTimeArea` pickers as `date` and time fields as `time`, in local time.
+- Table column headers show how the table is sorted (`value` "ascending"/"descending"); color wells
+  get a clear `ELEMENT_NOT_ACTIONABLE` that points to the Colors panel; the Agent Skill covers
+  editing table cells and toolbar items hidden behind `»`.
 - Portable input schemas that OpenAI, Gemini and Anthropic function calling all accept (no `null`
   unions or `$ref`s, `additionalProperties: false`, every parameter described), and an optional
   tool-name prefix (`[tools] prefix = "mac_"`).

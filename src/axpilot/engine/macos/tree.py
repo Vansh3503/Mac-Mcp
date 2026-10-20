@@ -199,9 +199,14 @@ class NodeReader:
             names.append(A.NUMBER_OF_CHARACTERS if role in LONG_TEXT_ROLES else A.VALUE)
         if read_children and not collection:
             names.append(A.CHILDREN)
+        sort_button = node.subrole == A.SORT_BUTTON_SUBROLE
+        if sort_button:
+            names.append(A.SORT_DIRECTION)
         values = self.ax.get_many(element, names) if names else {}
         if want_value:
             node.value = self._value(element, role, values)
+        if sort_button:  # a table column header: its value is how the column sorts
+            node.value = h.sort_direction(values.get(A.SORT_DIRECTION)) or node.value
         if collection:
             return self._collection_children(element, role)
         return self._elements(values.get(A.CHILDREN)), 0

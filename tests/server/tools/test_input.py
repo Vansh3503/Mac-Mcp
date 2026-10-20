@@ -56,6 +56,10 @@ async def call(client: Client, tool: str, args: dict[str, Any] | None = None) ->
     return result, error_code_of(result)
 
 
+async def elements_of(client: Client, app: str) -> list[dict[str, Any]]:
+    return structured(await client.call_tool("snapshot", {"app": app}))["elements"]
+
+
 async def refs_of(client: Client, app: str) -> dict[str, str]:
     """name → ref of the app's latest snapshot (the last element wins for duplicate names)."""
     result, error = await call(client, "snapshot", {"app": app})
@@ -180,6 +184,25 @@ async def test_date_pickers_take_iso_dates_and_times(ctx: ServerContext, client:
     result, error = await call(client, "set_value", {"ref": refs["Trial ends"], "value": "next tuesday"})
     assert error == "INVALID_ARGUMENT"
     assert "ISO 8601" in text_of(result)
+
+
+async def test_column_headers_show_and_change_the_sort(client: Client) -> None:
+    headers = {el["name"]: el for el in (await elements_of(client, "Finder")) if el["role"] == "button"}
+    assert headers["Name"].get("value") == "ascending"
+    assert headers["Date Modified"].get("value") is None
+    _, error = await call(client, "click", {"ref": headers["Date Modified"]["ref"]})
+    assert error is None
+    after = {el["name"]: el for el in (await elements_of(client, "Finder")) if el["role"] == "button"}
+    assert after["Date Modified"].get("value") == "descending"
+    assert after["Name"].get("value") is None
+
+
+async def test_color_wells_explain_how_to_change_them(ctx: ServerContext, client: Client) -> None:
+    refs = await refs_of(client, "TextEdit")
+    result, error = await call(client, "set_value", {"ref": refs["Text Color"], "value": "#ff0000"})
+    assert error == "ELEMENT_NOT_ACTIONABLE"
+    assert "Colors panel" in text_of(result)
+    assert not events(ctx, "set_value")
 
 
 async def test_keys_and_menus_cannot_reach_a_deny_listed_window(ctx: ServerContext, client: Client) -> None:

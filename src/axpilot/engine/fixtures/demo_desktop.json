@@ -313,20 +313,25 @@
                         "role": "AXGroup", "frame": [301, 142, 704, 24],
                         "children": [
                           {
-                            "role": "AXButton", "title": "Name", "frame": [301, 142, 300, 24],
+                            "id": "finder.sort.name", "role": "AXButton", "subrole": "AXSortButton",
+                            "title": "Name", "value": "ascending", "frame": [301, 142, 300, 24],
                             "actions": ["AXPress"]
                           },
                           {
-                            "role": "AXButton", "title": "Date Modified", "frame": [601, 142, 180, 24],
-                            "actions": ["AXPress"]
+                            "id": "finder.sort.date", "role": "AXButton", "subrole": "AXSortButton",
+                            "title": "Date Modified", "frame": [601, 142, 180, 24], "actions": ["AXPress"],
+                            "on_press": [
+                              {"set_value": {"id": "finder.sort.date", "value": "descending"}},
+                              {"set_value": {"id": "finder.sort.name", "value": null}}
+                            ]
                           },
                           {
-                            "role": "AXButton", "title": "Size", "frame": [781, 142, 100, 24],
-                            "actions": ["AXPress"]
+                            "role": "AXButton", "subrole": "AXSortButton", "title": "Size",
+                            "frame": [781, 142, 100, 24], "actions": ["AXPress"]
                           },
                           {
-                            "role": "AXButton", "title": "Kind", "frame": [881, 142, 124, 24],
-                            "actions": ["AXPress"]
+                            "role": "AXButton", "subrole": "AXSortButton", "title": "Kind",
+                            "frame": [881, 142, 124, 24], "actions": ["AXPress"]
                           }
                         ]
                       },

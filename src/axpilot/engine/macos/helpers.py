@@ -446,6 +446,15 @@ def _shortcut_key(cmd_char: str | None, glyph: int | None, virtual_key: int | No
     return None
 
 
+_SORT_DIRECTIONS = {"AXAscendingSortDirection": "ascending", "AXDescendingSortDirection": "descending"}
+
+
+def sort_direction(value: Any) -> str | None:
+    """A column header's ``AXSortDirection`` as ``"ascending"``/``"descending"`` (``None`` when
+    the table is not sorted by that column)."""
+    return _SORT_DIRECTIONS.get(str(value)) if value is not None else None
+
+
 def menu_shortcut(
     cmd_char: str | None,
     modifiers: int | None,

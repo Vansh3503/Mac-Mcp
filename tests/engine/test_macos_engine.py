@@ -199,6 +199,19 @@ def test_visibility_and_clipping() -> None:
 # ================================================================================= menus
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("AXAscendingSortDirection", "ascending"),
+        ("AXDescendingSortDirection", "descending"),
+        ("AXUnknownSortDirection", None),
+        (None, None),
+    ],
+)
+def test_sort_direction(raw: Any, expected: str | None) -> None:
+    assert h.sort_direction(raw) == expected
+
+
 def test_normalize_menu_title() -> None:
     assert h.normalize_menu_title("Save As…") == h.normalize_menu_title("save  as...")
     assert h.normalize_menu_title("New\u00a0Window") == "new window"
