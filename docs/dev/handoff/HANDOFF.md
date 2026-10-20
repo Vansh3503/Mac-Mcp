@@ -126,9 +126,10 @@ without coverage and 13 with it.
 | 1g SDK & examples | `c763685` | `Desktop` (portal thread) / `AsyncDesktop`; 5 scripts run with `--fake`; 11 framework examples (`*_example.py`) |
 | 1h integrate | see `git log` | golden files (`tests/server/golden`, `AXPILOT_UPDATE_GOLDEN=1`), `scripts/gen_tool_docs.py` → `docs/tools.md` with a freshness test, coverage gate |
 
-Not verified on a real Mac: everything in `engine/macos`, the dialog confirmer, `ensure_host_running` (`open -g -a`),
-`LOCAL_PEERCRED`, parent-app identification, and every AppleScript the browser/scripting tools send. All of it is
-covered by Linux tests with fakes only.
+Not verified on a real Mac: everything in `engine/macos` (including the run-loop pump), the dialog confirmer,
+`ensure_host_running` (`open -g -a`), `LOCAL_PEERCRED`, parent-app identification, `python -m axpilot.host` under
+the real launcher, and every AppleScript the browser/scripting tools send. All of it is covered by Linux tests with
+fakes only.
 
 ### GitHub issues already created
 
@@ -316,6 +317,13 @@ macOS engine review (M-findings; Linux tests cover the logic, a Mac must confirm
   `activateWithOptions:` from background processes; both now go out in the first attempt.
 - `a0a9bbb` M3: menu shortcuts that are whitespace characters (⌘Space, ⌘↩, ⌃⇥) were lost because the command
   character was stripped like a title.
+- `064196e` M4: the engine factory never checked for macOS 14 (ADR-0003); older systems now get `UNSUPPORTED_OS`.
+- The reviewer could not settle these without a Mac (add them to the Step 5 checks): whether ScreenCaptureKit and
+  `NSWorkspace` completion handlers fire without the run loop (believed yes: private queues); whether `AXPress` on
+  pop-up buttons and menu-bar items blocks for the full 1 s messaging timeout; whether clearing the NumericPad and
+  SecondaryFn flags on arrow/F-key events breaks ⇧/⌘-arrow shortcuts in some apps; how synthetic line scrolling
+  behaves with natural scrolling; whether Java/Qt apps accept 20-character Unicode key events; whether
+  `IsSecureEventInputEnabled` is safe off the main thread.
 
 Checked and found fine: the MCP surface (capabilities come from the SDK's subscription model; errors are
 `isError` results with a code and hint; unknown tools give `INVALID_ARGUMENT`), stderr excerpts ≤ 500 chars,
