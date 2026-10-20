@@ -13,6 +13,12 @@ on by default.
 
 <!-- mcp-name: io.github.vansh3503/axpilot -->
 
+<p align="center">
+  <img src="docs/assets/axpilot-demo.gif" width="900"
+       alt="Claude Code uses AXPilot to type a checklist in TextEdit, make its title bold and centred from the Format menu, and turn the other lines into a bulleted list">
+</p>
+<p align="center"><sub>A real recording on macOS 26: Claude Code (left) drives TextEdit (right) through AXPilot. Sped up in places; the speed is shown on screen.</sub></p>
+
 > **Project status: pre-alpha.** AXPilot is under active development and is **not yet published
 > on PyPI**: you [run it from source](#run-from-source-today). It is verified on macOS 26 on Apple
 > silicon; macOS 14 and 15 and Intel Macs are not tested yet. The commands marked *coming with
@@ -272,5 +278,9 @@ whose tool design and install experience set the bar for desktop MCP servers. Th
 authors of [PyObjC](https://github.com/ronaldoussoren/pyobjc), the
 [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) and the projects listed above.
 
-"Mac" and "macOS" are trademarks of Apple Inc. AXPilot is an independent project and is not
-affiliated with or endorsed by Apple.
+"Mac" and "macOS" are trademarks of Apple Inc. Claude and Claude Code are trademarks of Anthropic.
+Other product and framework names mentioned here (such as Cursor, VS Code, LangChain and CrewAI) are
+trademarks of their respective owners and are used only to describe compatibility. AXPilot is an
+independent project and is not affiliated with or endorsed by any of them.
+
+The demo video's voiceover was made with ElevenLabs and its music comes from the HeyGen audio library.
