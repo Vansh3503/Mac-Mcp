@@ -382,12 +382,17 @@ async def test_keystrokes_into_a_background_app_bring_it_to_the_front_first(
     # Keystrokes go to the frontmost app, whatever has accessibility focus elsewhere: typing into
     # Login Demo while Finder is in front must activate Login Demo before the first key.
     engine = engine_of(ctx)
-    assert engine.frontmost_app().name == "Finder"
+
+    def front() -> str | None:
+        app = engine.frontmost_app()
+        return app.name if app is not None else None
+
+    assert front() == "Finder"
     refs = await refs_of(client, "Login Demo")
     result, error = await call(client, "type_text", {"ref": refs["Email"], "text": "alex@example.com"})
     assert error is None, text_of(result)
     assert structured(result)["strategy"] == "keystrokes"
-    assert engine.frontmost_app().name == "Login Demo"
+    assert front() == "Login Demo"
     kinds = [kind for kind, _ in engine.events]
     assert kinds.index("app_control") < kinds.index("type_text")
     assert events(ctx, "type_text")[-1]["target"] == "login.email"
