@@ -647,6 +647,34 @@ class FakeClock:
         return self.now - self.last_hid
 
 
+def test_automation_notes_tell_denied_from_not_asked() -> None:
+    from axpilot.engine.macos.permissions import automation_notes
+
+    notes = automation_notes(
+        {"com.apple.finder": False, "com.apple.mail": False, "x": True}, ["com.apple.finder"]
+    )
+    assert notes == [
+        "Automation (Apple events) is denied for: com.apple.mail; allow it in System Settings → "
+        "Privacy & Security → Automation.",
+        "Automation (Apple events) has not been asked for yet for: com.apple.finder; macOS asks the "
+        "first time a tool needs it.",
+    ]
+    assert automation_notes({"x": True}, []) == []
+
+
+def test_waiting_for_a_tree_that_is_being_built() -> None:
+    """Chrome (macOS 26): one 150 ms pause after switching its tree on was not enough; the first
+    snapshot showed a lone group. Readings repeat until two agree, bounded."""
+    readings = iter([1, 3, 40, 200, 200, 999])
+    slept: list[float] = []
+    assert h.wait_until_stable(lambda: next(readings), slept.append, interval_s=0.15, polls=10) == 200
+    assert slept == [0.15] * 4
+    growing = iter(range(100))
+    slept.clear()
+    assert h.wait_until_stable(lambda: next(growing), slept.append, interval_s=0.15, polls=3) == 3
+    assert len(slept) == 3  # bounded even if it never settles
+
+
 def test_idle_estimator_ignores_our_own_events() -> None:
     clock = FakeClock()
     estimator = h.IdleEstimator(clock.idle, lambda: clock.now)
@@ -717,6 +745,70 @@ def test_resolve_languages() -> None:
     assert "xx" in error.message
     assert error.hint is not None
     assert "de-DE" in error.hint
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="MacEngine imports PyObjC")
+def test_a_missing_permission_asks_macos_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """macOS 26: nothing asked for Accessibility, so a new user's tools failed and AXPilot was not
+    even listed in System Settings. The first tool that finds it missing shows macOS's prompt."""
+    import threading
+    from types import SimpleNamespace
+
+    from axpilot.engine.macos import capture as capture_
+    from axpilot.engine.macos import engine as eng
+    from axpilot.engine.macos import permissions as perms
+
+    asked: list[str] = []
+    monkeypatch.setattr(perms, "request_accessibility", lambda: asked.append("ax") or False)
+    monkeypatch.setattr(perms, "request_screen_recording", lambda: asked.append("screen") or False)
+
+    def no_screen(*_: object, **__: object) -> None:
+        raise AXPilotError(
+            ErrorCode.PERMISSION_SCREEN_RECORDING, "Screen Recording permission is not granted."
+        )
+
+    monkeypatch.setattr(capture_, "take_screenshot", no_screen)
+    engine: Any = object.__new__(eng.MacEngine)  # only the parts the permission checks use
+    engine._ax = SimpleNamespace(is_trusted=lambda: False)
+    engine._trusted_until = 0.0
+    engine._asked, engine._ask_lock = set(), threading.Lock()
+    engine._responsible, engine._responsible_lock = "AXPilot", threading.Lock()
+    engine._displays = SimpleNamespace(get=lambda: None)
+    engine._apps = SimpleNamespace(bundle_id_of=lambda pid: None)
+    for _ in range(3):
+        expect(ErrorCode.PERMISSION_ACCESSIBILITY, engine._require_ax)
+        expect(ErrorCode.PERMISSION_SCREEN_RECORDING, eng.MacEngine.screenshot, engine)
+    assert asked == ["ax", "screen"]
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="WindowService imports PyObjC")
+def test_a_root_window_on_another_space_still_gets_its_window_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """macOS 26 with a full-screen app in front: the target app's AXWindows is empty (its windows
+    are on another Space), but its focused window reads, and CGWindowList (all windows) has it."""
+    import threading
+    from types import SimpleNamespace
+
+    from axpilot.engine.macos import windows as w
+    from axpilot.models import AppInfo
+
+    frame = Rect(296, 161, 920, 436)
+    root = w.AXWindow("root", "list200", frame, "AXStandardWindow", False, True, True, False, False)
+    service: Any = w.WindowService.__new__(w.WindowService)  # only the parts root_context needs
+    service._lock, service._cache = threading.Lock(), {}
+    service._ax = SimpleNamespace(application=lambda pid: "app", equal=lambda a, b: a is b)
+    service._apps = SimpleNamespace(frontmost_pid=lambda: 1)
+    service._displays = SimpleNamespace(get=lambda: [MAIN])
+    monkeypatch.setattr(service, "ax_windows", lambda element: [])
+    monkeypatch.setattr(service, "read_window", lambda element: root if element == "root" else None)
+    other_space = [
+        w.CGWindow(929, 42, "Finder", "Applications", frame, 0, 1.0, False),
+        w.CGWindow(2168, 42, "Finder", "list200", frame, 0, 1.0, False),
+    ]
+    monkeypatch.setattr(w, "cg_windows", lambda *, on_screen_only=True: [] if on_screen_only else other_space)
+    info, dialogs = service.root_context(AppInfo(name="Finder", pid=42), "root")
+    assert info is not None
+    assert (info.window_id, info.title, dialogs) == (2168, "list200", [])
+    assert service._cache[2168] == (42, "root")  # window_id lookups find it again
 
 
 # =========================================================================== hit testing
@@ -847,7 +939,8 @@ class TestMacEngine:
 
         tree = engine.capture_tree(app="com.apple.finder", include_menus=True)
         assert tree.app.pid == finder.pid
-        assert tree.root.role in ("AXWindow", "AXApplication")
+        desktop = tree.root.role == "AXScrollArea" and tree.root.description == "desktop"
+        assert tree.root.role in ("AXWindow", "AXApplication") or desktop  # no Finder window open
         assert tree.node_count >= 1
         assert tree.menu_bar is not None
         assert tree.menu_bar.role == "AXMenuBar"
@@ -897,6 +990,32 @@ class TestMacEngine:
             assert engine.clipboard_get().text == "AXPilot clipboard test ✓"
         finally:
             engine.clipboard_set(text=saved.text, image_png=saved.image_png, files=saved.files or None)
+
+    @pytest.mark.skipif(not MUTATE, reason="changes the clipboard; set AXPILOT_MACOS_TESTS_MUTATE=1")
+    def test_clipboard_save_and_restore_keep_every_type(self, engine: Any, tmp_path: Path) -> None:
+        """A paste must leave the clipboard exactly as it was: rich text keeps its RTF, and a
+        file reference to a deleted file (restoring it used to fail) comes back too."""
+        import importlib
+
+        AppKit: Any = importlib.import_module("AppKit")
+        users = engine.clipboard_save()
+        pasteboard = AppKit.NSPasteboard.generalPasteboard()
+        gone = tmp_path / "deleted.png"
+        gone.write_bytes(b"x")
+        rich = AppKit.NSPasteboardItem.alloc().init()
+        rich.setString_forType_("AXPilot ✓", AppKit.NSPasteboardTypeString)
+        rich.setData_forType_(b"{\\rtf1 AXPilot}", AppKit.NSPasteboardTypeRTF)
+        try:
+            pasteboard.clearContents()
+            assert pasteboard.writeObjects_([rich, AppKit.NSURL.fileURLWithPath_(str(gone))])
+            gone.unlink()
+            before = engine.clipboard_save()
+            engine.clipboard_set(text="pasted text")
+            engine.clipboard_restore(before)
+            assert engine.clipboard_save() == before
+            assert ("public.rtf", b"{\\rtf1 AXPilot}") in before[0]
+        finally:
+            engine.clipboard_restore(users)
 
 
 @pytest.mark.macos

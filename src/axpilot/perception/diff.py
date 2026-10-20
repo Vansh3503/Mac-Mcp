@@ -37,11 +37,13 @@ _COMPARED_FIELDS: tuple[str, ...] = ("name", "value", "enabled", "selected", "fo
 
 
 def element_changes(before: Element, after: Element) -> dict[str, tuple[Any, Any]]:
-    """Fields (name, value and states) that differ, as ``{field: (before, after)}`` in a fixed order."""
+    """Fields (name, value and states) that differ, as ``{field: (before, after)}`` in a fixed order.
+    A value whose shown part is the same but whose whole text differs is changed too (both sides
+    then read the same)."""
     changes: dict[str, tuple[Any, Any]] = {}
     for field in _COMPARED_FIELDS:
         old, new = getattr(before, field), getattr(after, field)
-        if old != new:
+        if old != new or (field == "value" and before.value_digest != after.value_digest):
             changes[field] = (old, new)
     return changes
 

@@ -1115,7 +1115,7 @@
    "readOnlyHint": false,
    "title": "Choose an option"
   },
-  "description": "Choose an option of a dropdown or choice control by its title (or 1-based index), in one call:\npop-up buttons, menu buttons (Format, Action…), combo boxes, web <select> elements and custom web\nor Electron pickers (React Select, MUI, Slack, VS Code): AXPilot opens the control, waits for its\nmenu or list, picks the option (typing to filter a web combo box when the option is not listed),\nand checks that the control took it; the menu is closed again if anything fails. Also radio groups,\ntab groups and segmented controls (presses the matching button) and lists, tables and outlines\n(selects the matching row).\nParams: ref (the control, from a snapshot), option (title: exact, then prefix, then substring) or\nindex; snapshot_id; report. Choosing the option that is already selected changes nothing.\nErrors: INVALID_ARGUMENT (no or several matching options: the message lists them), STALE_REF,\nELEMENT_NOT_ACTIONABLE (disabled control or option, nothing opened, or the control did not take\nthe option), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER.",
+  "description": "Choose an option of a dropdown or choice control by its title (or 1-based index), in one call:\npop-up buttons, menu buttons (Format, Action…), combo boxes, web <select> elements and custom web\nor Electron pickers (React Select, MUI, Slack, VS Code): AXPilot opens the control, waits for its\nmenu or list, picks the option (typing to filter a web combo box when the option is not listed),\nand checks that the control took it; the menu is closed again if anything fails. Also radio groups,\ntab groups and segmented controls (presses the matching button) and lists, tables and outlines\n(selects the matching row).\nParams: ref (the control, from a snapshot), option (title: exact, then unique prefix; never a word\ninside a longer title) or index; snapshot_id; report. Choosing the option that is already selected\nchanges nothing.\nErrors: INVALID_ARGUMENT (no or several matching options: the message lists them), STALE_REF,\nELEMENT_NOT_ACTIONABLE (disabled control or option, nothing opened, or the control did not take\nthe option), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER.",
   "input_schema": {
    "additionalProperties": false,
    "properties": {
@@ -1447,7 +1447,7 @@
    "readOnlyHint": false,
    "title": "Manage a window"
   },
-  "description": "Focus, move, resize, minimize, restore, zoom, toggle full screen or close a window.\nParams: action; window_id (from list_windows) or ref (any element of a snapshot: its window);\nx + y (move: the window's new top-left corner, screen points); width + height (resize).\nReturns the window afterwards (frame and state); close returns closed=true (the app may ask to save\nfirst). Errors: WINDOW_NOT_FOUND, STALE_REF, BLOCKED_BY_POLICY, INVALID_ARGUMENT.",
+  "description": "Focus, move, resize, minimize, zoom, enter full screen (fullscreen), restore (un-minimize and leave\nfull screen) or close a window.\nParams: action; window_id (from list_windows) or ref (any element of a snapshot: its window);\nx + y (move: the window's new top-left corner, screen points); width + height (resize).\nReturns the window afterwards (frame and state); close returns closed=true (the app may ask to save\nfirst). Errors: WINDOW_NOT_FOUND, STALE_REF, BLOCKED_BY_POLICY, INVALID_ARGUMENT.",
   "input_schema": {
    "additionalProperties": false,
    "properties": {

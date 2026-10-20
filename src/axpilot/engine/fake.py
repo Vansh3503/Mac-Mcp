@@ -2134,6 +2134,16 @@ class FakeEngine(Engine):
             node = self._node(handle)
             return self._copy_node(node, self._app_of(node))
 
+    def element_text(self, handle: Any, max_chars: int) -> str | None:
+        with self._lock:
+            self._require_accessibility()
+            if self._app_root(handle) is not None:
+                return None
+            node = self._node(handle)
+            if node.secure or node.value is None:
+                return None
+            return str(node.value)[:max_chars]
+
     def element_attributes(self, handle: Any) -> dict[str, Any]:
         with self._lock:
             self._require_accessibility()

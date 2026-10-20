@@ -3,6 +3,7 @@ results, the error matrix and fault injection."""
 
 from __future__ import annotations
 
+import dataclasses
 import itertools
 import json
 from collections.abc import AsyncIterator, Callable
@@ -289,6 +290,27 @@ async def test_read_collects_every_row_exactly_once(ctx: ServerContext, client: 
     assert "complete" in head
     # the final snapshot is stored: its refs work
     ctx.snapshots.get(data["snapshot_id"])
+
+
+class UnpairedWindow(HookedEngine):
+    """An engine that cannot identify the window it captured reports window_id 0 (macOS: the
+    app's windows are on another Space, e.g. behind a full-screen app)."""
+
+    def capture_tree(self, **kwargs: Any) -> Any:
+        tree = super().capture_tree(**kwargs)
+        if tree.window is not None:
+            tree = dataclasses.replace(tree, window=dataclasses.replace(tree.window, window_id=0))
+        return tree
+
+
+async def test_read_works_when_the_engine_cannot_identify_the_window() -> None:
+    engine = UnpairedWindow.demo()
+    assert isinstance(engine, UnpairedWindow)
+    engine.app_control("launch", "com.apple.mail")
+    async with connected_client(demo_ctx(engine)) as client:
+        data = await ok(client, "read", {"app": "Mail"})  # re-snapshots after every scroll
+    assert data["lines"] == mail_rows()
+    assert data["complete"] is True
 
 
 async def test_read_from_the_middle_goes_to_the_top_first() -> None:
@@ -615,6 +637,21 @@ def test_merge_counts_pages_without_any_overlap_as_possible_gaps() -> None:
     assert merge_items(pages) == (["a", "b", "x", "y"], 1)
 
 
+def test_a_header_shared_by_every_page_does_not_hide_a_gap() -> None:
+    """Finder's list view lists its column header as a row on every page (macOS 26)."""
+    header = ("e1", "Name Date Modified Size Kind")
+    overlapping = [
+        [header, ("e2", "file-001"), ("e3", "file-002")],
+        [header, ("e3", "file-002"), ("e4", "file-003")],
+    ]
+    skipped = [
+        [header, ("e2", "file-001"), ("e3", "file-002")],
+        [header, ("e9", "file-008"), ("e10", "file-009")],
+    ]
+    assert merge_items(overlapping) == ([header[1], "file-001", "file-002", "file-003"], 0)
+    assert merge_items(skipped) == ([header[1], "file-001", "file-002", "file-008", "file-009"], 1)
+
+
 @settings(max_examples=150, deadline=None)
 @given(
     total=st.integers(min_value=1, max_value=120),
@@ -922,3 +959,25 @@ async def test_engine_faults_while_scrolling(fault: Fault, code: str) -> None:
             assert (await ok(client, "scroll", {"app": "Mail"}))["moved"] is True
     finally:
         faulty.release()
+
+
+class CappedAttributes(HookedEngine):
+    """MacEngine cuts every value of element_attributes (the inspect dump) at 2000 characters."""
+
+    def element_attributes(self, handle: Any) -> dict[str, Any]:
+        attributes = super().element_attributes(handle)
+        if isinstance(attributes.get("AXValue"), str):
+            attributes["AXValue"] = attributes["AXValue"][:50] + "…"
+        return attributes
+
+
+async def test_read_gets_the_whole_text_of_a_text_area() -> None:
+    """TextEdit (macOS 26): read returned 72 of 300 lines, cut at 2000 characters, as complete."""
+    engine = CappedAttributes.demo()
+    assert isinstance(engine, CappedAttributes)
+    lines = [f"Line {number:03d} of the scroll test" for number in range(1, 301)]
+    engine.set_value(engine.resolve_ref("textedit.body"), "\n".join(lines))
+    async with connected_client(demo_ctx(engine)) as client:
+        data = await ok(client, "read", {"app": "TextEdit"})
+    assert data["lines"] == lines
+    assert data["complete"] is True

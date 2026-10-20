@@ -171,6 +171,8 @@ class MacEngine(Engine):
         self._lock = threading.Lock()
         self._responsible_lock = threading.Lock()
         self._trusted_until = 0.0
+        self._asked: set[str] = set()
+        self._ask_lock = threading.Lock()
         self._responsible: Any = _UNSET
         self._auth_pids: dict[int, bool] = {}
 
@@ -181,11 +183,25 @@ class MacEngine(Engine):
             return
         if not self._ax.is_trusted():
             who = self._responsible_app() or "the app that runs AXPilot"
+            self._ask_once("accessibility", perms.request_accessibility)
             raise AXPilotError(
                 ErrorCode.PERMISSION_ACCESSIBILITY,
                 f"Accessibility permission is not granted to {who}.",
             )
         self._trusted_until = now + TRUST_CACHE_S
+
+    def _ask_once(self, permission: str, request: Callable[[], bool]) -> None:
+        """Show macOS's own prompt for ``permission`` the first time a tool finds it missing: it
+        also lists AXPilot in System Settings, ready to be switched on. Without it a new user had
+        to add AXPilot.app there by hand (macOS 26). Once per process; macOS itself asks only once."""
+        with self._ask_lock:
+            if permission in self._asked:
+                return
+            self._asked.add(permission)
+        try:
+            request()
+        except Exception as exc:  # a missing prompt must not hide the real error (A8)
+            _log.warning("could not ask macOS for the %s permission: %s", permission, exc)
 
     def _responsible_app(self) -> str | None:
         with self._responsible_lock:
@@ -454,6 +470,11 @@ class MacEngine(Engine):
         self._require_ax()
         return actions_.element_attributes(self._ax, handle, self.max_value_chars)
 
+    @_guarded("Reading the text")
+    def element_text(self, handle: Any, max_chars: int) -> str | None:
+        self._require_ax()
+        return actions_.element_text(self._ax, handle, max_chars)
+
     # ================================================================== AX actions
     @_guarded("Performing the action")
     def perform_action(self, handle: Any, action: str) -> None:
@@ -677,17 +698,22 @@ class MacEngine(Engine):
         quality: int = 80,
         exclude_bundle_ids: Sequence[str] = (),
     ) -> Capture:
-        return capture_.take_screenshot(
-            self._displays.get(),
-            display_id=display_id,
-            window_id=window_id,
-            rect=rect,
-            max_edge=max_edge,
-            fmt=fmt,
-            quality=quality,
-            exclude_bundle_ids=exclude_bundle_ids,
-            bundle_of=self._apps.bundle_id_of,
-        )
+        try:
+            return capture_.take_screenshot(
+                self._displays.get(),
+                display_id=display_id,
+                window_id=window_id,
+                rect=rect,
+                max_edge=max_edge,
+                fmt=fmt,
+                quality=quality,
+                exclude_bundle_ids=exclude_bundle_ids,
+                bundle_of=self._apps.bundle_id_of,
+            )
+        except AXPilotError as exc:
+            if exc.code is ErrorCode.PERMISSION_SCREEN_RECORDING:
+                self._ask_once("screen recording", perms.request_screen_recording)
+            raise
 
     @_guarded("Recognizing text")
     def ocr(self, capture: Capture, languages: Sequence[str] | None = None) -> list[OcrLine]:
@@ -707,6 +733,14 @@ class MacEngine(Engine):
         files: Sequence[str] | None = None,
     ) -> None:
         clipboard_.write_clipboard(text=text, image_png=image_png, files=files)
+
+    @_guarded("Saving the clipboard")
+    def clipboard_save(self) -> Any:
+        return clipboard_.save_clipboard()
+
+    @_guarded("Restoring the clipboard")
+    def clipboard_restore(self, saved: Any) -> None:
+        clipboard_.restore_clipboard(saved)
 
     @_guarded("Posting a notification")
     def notify(self, title: str, message: str, subtitle: str | None = None) -> None:

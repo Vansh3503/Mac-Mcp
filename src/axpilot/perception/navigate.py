@@ -86,14 +86,20 @@ class _Index:
             found.extend(
                 el
                 for el in self.snap.all_elements
-                if el.parent_ref is None and el.role == "ocrtext" and _contains_center(container, el)
+                if el.parent_ref is None and el.role == "ocrtext" and _contains_center(self, container, el)
             )
         return found
 
 
-def _contains_center(container: Element, el: Element) -> bool:
+def _contains_center(index: _Index, container: Element, el: Element) -> bool:
+    """True if ``el``'s center lies in the visible part of ``container``: a document view's frame
+    spans its whole content (TextEdit's text area reaches far above its window, over the format
+    bar, on macOS 26)."""
     center = el.center
-    return container.frame is not None and center is not None and container.frame.contains(center)
+    if container.frame is None or center is None:
+        return False
+    area = _viewport(index, container)
+    return area is not None and area.contains(center)
 
 
 def ancestors(snap: Snapshot, el: Element) -> list[Element]:
@@ -129,19 +135,22 @@ def scroll_container_for(snap: Snapshot, el: Element | None) -> Element | None:
 
     * ``el`` itself if it is a container (scroll area, list, table, outline, web area, text
       area), else its nearest container ancestor;
-    * without such an ancestor (OCR text, flat trees), the smallest container whose frame
-      contains ``el``'s center;
+    * without such an ancestor (OCR text, flat trees), the smallest container whose visible
+      part contains ``el``'s center;
     * for ``el=None``, the largest container in the snapshot, preferring scrollable ones.
     """
     if el is None:
         return _largest_container(snap)
     if el.role in CONTAINER_ROLES:
         return el
-    for parent in _Index(snap).ancestors(el):
+    index = _Index(snap)
+    for parent in index.ancestors(el):
         if parent.role in CONTAINER_ROLES:
             return parent
     around = [
-        c for c in snap.all_elements if c.role in CONTAINER_ROLES and c is not el and _contains_center(c, el)
+        c
+        for c in snap.all_elements
+        if c.role in CONTAINER_ROLES and c is not el and _contains_center(index, c, el)
     ]
     best: Element | None = None
     for candidate in around:
@@ -209,6 +218,15 @@ def page_signature(snap: Snapshot, container: Element | None) -> str:
     origin_x = viewport.x if viewport is not None else 0.0
     origin_y = viewport.y if viewport is not None else 0.0
     items: list[Any] = [container.value if container is not None else None]
+    if container is not None and container.frame is not None:
+        # A document view (a text area, a table) spans its whole content: scrolling moves it, and a
+        # text area has no children whose positions would show that (seen in TextEdit, macOS 26).
+        items.append(
+            [
+                round((container.frame.x - origin_x) / SIGNATURE_GRID),
+                round((container.frame.y - origin_y) / SIGNATURE_GRID),
+            ]
+        )
     for el in index.descendants(container):
         if _visible_share(el, viewport) <= 0.0:
             continue

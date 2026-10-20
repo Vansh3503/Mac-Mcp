@@ -129,6 +129,9 @@ class PermissionStatus:
     responsible_app: str | None = None
     """Best-effort name of the app macOS attributes our permission checks to."""
     notes: list[str] = field(default_factory=list)
+    automation_unasked: list[str] = field(default_factory=list)
+    """Targets in ``automation`` (``False``) that macOS has not asked the user about yet: it asks
+    the first time a tool needs one. The others there were denied."""
 
 
 @dataclass(slots=True, eq=False)

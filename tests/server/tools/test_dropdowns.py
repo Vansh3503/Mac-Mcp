@@ -245,6 +245,24 @@ async def test_a_menu_button_runs_the_chosen_command(ctx: ServerContext, client:
     assert [event["title"] for event in chosen] == ["New Folder"]
 
 
+async def test_a_background_window_comes_forward_before_its_menu_opens(
+    ctx: ServerContext, client: Client
+) -> None:
+    """Finder (macOS 26) checks its Action menu's items against the key window: opened in a
+    background window, New Folder was disabled. The window is focused first, as a click would."""
+    ref = await control_ref(client, KINDS[2])
+    fake(ctx).app_control("activate", "Notes")  # Finder in the background
+    fake(ctx).events.clear()
+    await ok(client, "select_option", {"ref": ref, "option": "New Folder"})
+    kinds = [
+        kind
+        for kind, details in fake(ctx).events
+        if kind in ("window_control", "perform_action", "menu_choose")
+    ]
+    assert kinds[0] == "window_control"
+    assert fake(ctx).events_of("window_control")[0]["action"] == "focus"
+
+
 @pytest.mark.parametrize("kind", [k for k in KINDS if k.strategy == "menu"], ids=lambda k: k.id)
 async def test_index_chooses_by_position(ctx: ServerContext, client: Client, kind: Kind) -> None:
     ref = await control_ref(client, kind)

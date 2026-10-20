@@ -14,7 +14,7 @@ drives a real Mac.
    control's own menu, any other new menu (application level, context menus, ARIA menus), a new
    list of options in a web page, or a new window of the app holding a menu or list (Java and
    Qt pop-ups). See :mod:`axpilot.perception.dropdown`.
-3. **Pick** the option by title (exact, prefix, substring) or 1-based index. When a web text
+3. **Pick** the option by title (exact, then unique prefix) or 1-based index. When a web text
    combo box lists no match, the title is typed to filter the list (autocomplete), once.
 4. **Press** it: menu items with ``AXPress``; options in web content with a real click.
 5. **Verify**: a pop-up must show the chosen title (``ELEMENT_NOT_ACTIONABLE`` otherwise); a web
@@ -30,8 +30,10 @@ ladder is a different strategy, tried only when the previous one visibly did not
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 import anyio
 
@@ -44,6 +46,7 @@ from axpilot.perception.refs import HandleIndex
 from axpilot.server.context import ServerContext
 from axpilot.server.tools.input import (
     Target,
+    activate_app,
     click_target,
     ensure_frontmost,
     require_keyboard,
@@ -62,6 +65,10 @@ FILTER_WAIT_S = 1.5
 POLL_S = 0.1
 CLEANUP_TIMEOUT_S = 2.0
 """Closing a menu or list after a failure never takes longer than this."""
+CLOSE_WAIT_S = 0.5
+"""How long a menu may take to close after a pick, AXCancel or Escape (macOS fades it out)."""
+OPTION_CHECKS = 3
+"""How many options :func:`_still_open` looks at to tell whether a list is still shown."""
 WEB_APP_KINDS = frozenset({"electron", "cef"})
 """App kinds whose whole window is web content."""
 TEXT_COMBO_ROLES = frozenset({"AXComboBox", "AXTextField"})
@@ -140,7 +147,8 @@ def _locate(tree: RawTree, target: Target, baseline: _Baseline, web: bool) -> dd
         control, ancestors = found
         menu = dd.open_menu_of(control)
         if menu is not None:
-            return dd.OptionList(menu, dd.menu_options(menu), "menu", in_web=dd.in_web_content(ancestors))
+            options = dd.menu_options(menu)
+            return dd.OptionList(menu, options, "menu", in_web=dd.in_web_content(ancestors), control=control)
     menus = dd.new_menus(tree.root, baseline.visible)
     if menus:
         menu, ancestors = menus[0]
@@ -189,11 +197,28 @@ async def _wait_for_options(
 
 
 # --------------------------------------------------------------------------- acting
+async def _bring_forward(ctx: ServerContext, target: Target) -> None:
+    """Make the control's window the key window, as a user's click would: menus check their items
+    against it (Finder's Action menu opened in a background window showed New Folder disabled,
+    macOS 26)."""
+    window, app = target.window, target.app
+    front = await ctx.run_engine(ctx.engine.frontmost_app)
+    in_front = front is not None and app is not None and front.pid == app.pid
+    if in_front and (window is None or window.focused):
+        return
+    if window is not None and window.window_id:
+        await ctx.run_engine(ctx.engine.window_control, window.window_id, "focus", None)
+        await ctx.sleep(ctx.config.perception.settle_ms / 1000)
+    else:
+        await activate_app(ctx, app)
+
+
 async def _open(ctx: ServerContext, target: Target, web: bool) -> str:
     """Open the control; returns the rung used (``open:ax:AXPress``, ``open:mouse``)."""
     el = target.el
     assert el is not None
     if not web:
+        await _bring_forward(ctx, target)
         action = next((a for a in ("AXPress", "AXShowMenu") if a in el.actions), None)
         if action is not None and target.handle is not None:
             await ctx.run_engine(ctx.engine.perform_action, target.handle, action)
@@ -257,13 +282,52 @@ async def _press_option(ctx: ServerContext, target: Target, found: dd.OptionList
     return f"pick:{used}"
 
 
-async def _still_open(ctx: ServerContext, found: dd.OptionList) -> bool:
+async def _still_open(ctx: ServerContext, found: dd.OptionList, *, wait_s: float = 0.0) -> bool:
+    """Whether the options are still shown, giving them up to ``wait_s`` to close by themselves:
+    right after a pick a menu is still fading out (macOS 26), and AXCancel or Escape then would
+    only reach the app."""
+    for _ in range(max(1, math.ceil(wait_s / POLL_S) + 1)):
+        if not await _list_shown(ctx, found):
+            return False
+        if wait_s <= 0:
+            return True
+        await ctx.sleep(POLL_S)
+    return True
+
+
+async def _list_shown(ctx: ServerContext, found: dd.OptionList) -> bool:
+    control = found.control
+    if control is not None and control.expanded and control.handle is not None:
+        # Chrome (macOS 26) keeps a <select>'s options in an 80×6 pt strip, open or closed, and
+        # its popup outside the tree: the control's AXExpanded tells. Safari reports False
+        # everywhere, so it counts only if it read True while the list was open.
+        if not await ctx.run_engine(ctx.engine.element_valid, control.handle):
+            return False
+        return (await ctx.run_engine(ctx.engine.refresh_element, control.handle)).expanded is True
     handle = found.container.handle
-    if handle is None or not await ctx.run_engine(ctx.engine.element_valid, handle):
+    return handle is not None and await _shown(ctx, handle) and await _any_option_shown(ctx, found)
+
+
+async def _shown(ctx: ServerContext, handle: Any, min_height: float = 0.0) -> bool:
+    if not await ctx.run_engine(ctx.engine.element_valid, handle):
         return False
     node = await ctx.run_engine(ctx.engine.refresh_element, handle)
     frame = node.frame
-    return node.visible and (frame is None or (frame.w > 0 and frame.h > 0))
+    return node.visible and (frame is None or (frame.w > 0 and frame.h > max(0.0, min_height)))
+
+
+async def _any_option_shown(ctx: ServerContext, found: dd.OptionList) -> bool:
+    """A list whose options are gone is closed, even if its container stays. Safari (macOS 26)
+    keeps a hidden ARIA listbox and its options valid and visible, all collapsed into the list's
+    10 pt (its padding): an option counts while it keeps at least half the height it had."""
+    checked = [option.node for option in found.options[:OPTION_CHECKS] if option.node.handle is not None]
+    if not checked:
+        return True  # nothing to look at: trust the container
+    for node in checked:
+        before = node.frame.h if node.frame is not None else 0.0
+        if await _shown(ctx, node.handle, min_height=before / 2):
+            return True
+    return False
 
 
 async def _close(ctx: ServerContext, target: Target, found: dd.OptionList) -> str | None:
@@ -272,12 +336,12 @@ async def _close(ctx: ServerContext, target: Target, found: dd.OptionList) -> st
     with anyio.CancelScope(shield=True) as scope:
         scope.deadline = anyio.current_time() + CLEANUP_TIMEOUT_S
         try:
-            if not await _still_open(ctx, found):
+            if not await _still_open(ctx, found, wait_s=CLOSE_WAIT_S):
                 return None
             handle = found.container.handle
             if "AXCancel" in found.container.actions and handle is not None:
                 await ctx.run_engine(ctx.engine.perform_action, handle, "AXCancel")
-                if not await _still_open(ctx, found):
+                if not await _still_open(ctx, found, wait_s=CLOSE_WAIT_S):
                     return None
             front = await ctx.run_engine(ctx.engine.frontmost_app)
             if (
@@ -288,7 +352,7 @@ async def _close(ctx: ServerContext, target: Target, found: dd.OptionList) -> st
                 and not await ctx.run_engine(ctx.engine.secure_input_active)
             ):
                 await ctx.run_engine(ctx.engine.press_key, ESCAPE)
-                if not await _still_open(ctx, found):
+                if not await _still_open(ctx, found, wait_s=CLOSE_WAIT_S):
                     return None
         except AXPilotError as err:
             _log.warning("Could not close the options of %s: %s", target.describe(), err.message)
@@ -477,7 +541,7 @@ async def _verify(ctx: ServerContext, run: _Run, found: dd.OptionList, chosen: d
     strategy = {"window": "menu_window", "page": "listbox"}.get(found.where, "menu")
     outcome = DropdownOutcome(strategy, chosen.title, f"chose {quote(chosen.title, 60)}", attempts)
     await ctx.sleep(ctx.config.perception.settle_ms / 1000)
-    if await _still_open(ctx, found):
+    if await _still_open(ctx, found, wait_s=CLOSE_WAIT_S):
         warning = await _close(ctx, target, found)
         closed = f"The options of {target.describe()} stayed open after the choice; AXPilot closed them."
         outcome.warnings.append(warning or closed)

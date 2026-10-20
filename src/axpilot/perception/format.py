@@ -211,6 +211,8 @@ def _describe_change(after: Element, field: str, old: Any, new: Any) -> str:
     if field == "value":
         if after.checked is not None:
             return "checked" if after.checked else "unchecked"
+        if old == new:
+            return "value changed past the part shown (read shows all of it)"
         return f"value: {_quote_or_none(old)} → {_quote_or_none(new)}"
     if field == "enabled":
         return "enabled" if new else "disabled"

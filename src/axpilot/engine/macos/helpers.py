@@ -1155,6 +1155,21 @@ class KeyboardLayout:
 # ============================================================================ HID idle
 
 
+def wait_until_stable(
+    measure: Callable[[], int], sleep: Callable[[float], None], *, interval_s: float, polls: int
+) -> int:
+    """Measure until two readings in a row agree, at most ``polls`` times ``interval_s`` apart;
+    returns the last reading. Used after switching on Chromium's tree, which takes a while."""
+    last = measure()
+    for _ in range(polls):
+        sleep(interval_s)
+        now = measure()
+        if now == last:
+            return now
+        last = now
+    return last
+
+
 class IdleEstimator:
     """How long the *user* has been idle, even though our own events are hardware-level.
 

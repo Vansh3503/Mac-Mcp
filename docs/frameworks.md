@@ -62,22 +62,26 @@ import asyncio
 
 from langchain.agents import create_agent
 from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_mcp_adapters.tools import load_mcp_tools
 
 
 async def main() -> None:
     client = MultiServerMCPClient(
         {"axpilot": {"command": "axpilot", "args": ["stdio"], "transport": "stdio"}}
     )
-    tools = await client.get_tools()
-    agent = create_agent("<your-model>", tools)
-    result = await agent.ainvoke(
-        {"messages": [{"role": "user", "content": "What app is in front, and what is its window title?"}]}
-    )
-    print(result["messages"][-1].content)
+    async with client.session("axpilot") as session:
+        agent = create_agent("<your-model>", await load_mcp_tools(session))
+        result = await agent.ainvoke(
+            {"messages": [{"role": "user", "content": "What app is in front, and what is its window title?"}]}
+        )
+        print(result["messages"][-1].content)
 
 
 asyncio.run(main())
 ```
+
+Load the tools from one `client.session(...)`. `client.get_tools()` on its own starts a new AXPilot
+for every tool call, so a `click(ref=…)` never finds the snapshot it came from (`SNAPSHOT_NOT_FOUND`).
 
 ## Pydantic AI
 
@@ -123,6 +127,8 @@ asyncio.run(main())
 
 ## Agno
 
+Agno 3 builds its MCP connections with fastmcp: `pip install agno "fastmcp>=4,<5"`.
+
 ```python
 import asyncio
 
@@ -162,6 +168,9 @@ with mac:
   observe → act → verify loop. If your framework drops them, load the
   [Agent Skill](https://github.com/vansh3503/Mac-Mcp/blob/main/skills/axpilot/SKILL.md) into your
   system prompt instead (`axpilot skill install` copies it where your tool expects it).
+- **Keep one MCP session for the whole run.** Snapshots and their refs live in the session; a
+  framework that opens a new session per tool call (LangChain's `get_tools()` without a session)
+  loses them between `snapshot` and `click`.
 - **Pick a profile.** `minimal` keeps the tool list short for small or local models; `standard` is
   the default; `computer` exposes a single screenshot-and-coordinates tool for vision-first loops.
 - **Filter tools further** with `[tools] disable = [...]` in the config, or your framework's own

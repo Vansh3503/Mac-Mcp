@@ -25,6 +25,7 @@ stable across snapshots of a window.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import time
@@ -104,6 +105,12 @@ def clean_text(text: str | None) -> str | None:
 
 def stringify_value(value: Any, limit: int) -> str | None:
     """Render an ``AXValue`` as text (booleans as ``true``/``false``), truncated to ``limit``."""
+    text = value_text(value)
+    return truncate(text, limit) if text is not None else None
+
+
+def value_text(value: Any) -> str | None:
+    """An ``AXValue`` as text, whole (booleans as ``true``/``false``)."""
     if value is None:
         return None
     if isinstance(value, bool):
@@ -120,7 +127,7 @@ def stringify_value(value: Any, limit: int) -> str | None:
         text = json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
     else:
         text = str(value)
-    return truncate(text, limit)
+    return text
 
 
 def _own_label(node: RawNode) -> str | None:
@@ -132,7 +139,11 @@ def _own_label(node: RawNode) -> str | None:
 
 
 def _content_label(node: RawNode) -> str | None:
-    """Label an unnamed row/button/link/heading by the static text inside it."""
+    """Label an unnamed row/button/link/heading by the static text inside it.
+
+    Rows also use the values of their text fields (Finder's Name column is an editable field), so
+    a table view that recycles a row for another item gives it another name; never a secure one."""
+    fields = node.role == "AXRow"
     parts: list[str] = []
     visited = 0
     stack = list(reversed(node.children))
@@ -143,6 +154,11 @@ def _content_label(node: RawNode) -> str | None:
             continue
         if child.role == "AXStaticText":
             text = _own_label(child) or clean_text(stringify_value(child.value, NAME_MAX_CHARS * 2))
+            if text:
+                parts.append(text)
+            continue
+        if fields and child.role == "AXTextField":
+            text = None if child.secure else clean_text(stringify_value(child.value, NAME_MAX_CHARS * 2))
             if text:
                 parts.append(text)
             continue
@@ -347,9 +363,13 @@ class _Builder:
     def _make_element(self, node: RawNode, path: Path, scope: _Scope) -> Element:
         secure = node.secure or node.subrole == "AXSecureTextField"
         name = node_name(node)
-        value = None if secure else stringify_value(node.value, self._value_max)
+        whole = None if secure else value_text(node.value)
+        value = truncate(whole, self._value_max) if whole is not None else None
         if node.role == "AXStaticText" and _own_label(node) is None:
-            value = None  # static text without a title: its value already is the name
+            whole = value = None  # static text without a title: its value already is the name
+        digest = None
+        if whole is not None and value != whole:
+            digest = hashlib.blake2b(whole.encode("utf-8", "surrogatepass"), digest_size=8).hexdigest()
         return Element(
             ref=f"e{len(self.elements) + 1}",
             role=short_role(node.role, node.subrole),
@@ -377,6 +397,7 @@ class _Builder:
             ),
             handle=node.handle,
             parent_ref=scope.parent_ref,
+            value_digest=digest,
         )
 
     @staticmethod

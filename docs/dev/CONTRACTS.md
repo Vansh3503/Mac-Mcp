@@ -192,9 +192,12 @@ of nested ones, grouped by their nearest `AXList`/`AXMenu`/`AXTable`/`AXOutline`
 groups need two options), `options_in(root)` (a pop-up window's first menu, else its biggest list),
 `shows_choice(node, title)` (value, title or description equal or containing it), `text_near(root, control,
 title, levels=3)` (static text outside lists near the control), `fold(text)` and `match_option(names,
-option) -> int` (exact, then unique prefix, then unique substring, case-insensitive, "…"/"..." and a
-trailing "." ignored; `INVALID_ARGUMENT` listing the options). `Option(title, node)`;
-`OptionList(container, options, where: "menu"|"app_menu"|"page"|"window", in_web, window_id)`.
+option) -> int` (exact, the first of identical titles, then unique prefix, also after leading marks such
+as an emoji; case-insensitive, "…"/"..." and a trailing "." ignored; a word inside a longer title never
+matches; `INVALID_ARGUMENT` listing the options, or the titles that contain it). `Option(title, node)`;
+`OptionList(container, options, where: "menu"|"app_menu"|"page"|"window", in_web, window_id, control)`
+(`control`: for `menu`, the control whose child the list is; its `AXExpanded`, once True, tells whether the
+list is shown).
 
 ### `axpilot/perception/find.py`
 `def find_elements(snap: Snapshot, *, text: str | None = None, role: str | None = None,

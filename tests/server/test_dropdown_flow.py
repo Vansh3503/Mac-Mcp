@@ -4,6 +4,7 @@ covered, cleanup that cannot finish, and windows that vanish while they are read
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 from typing import Any
 
@@ -11,7 +12,7 @@ import pytest
 
 from axpilot.engine.fake import FakeEngine
 from axpilot.errors import AXPilotError, ErrorCode
-from axpilot.models import AppInfo, Point, RawNode, RawTree
+from axpilot.models import AppInfo, KeyCombo, Point, RawNode, RawTree
 from axpilot.perception import dropdown as dd
 from axpilot.server import dropdown
 from axpilot.server.context import ServerContext
@@ -200,6 +201,159 @@ async def test_a_list_that_stays_open_is_closed_with_a_warning() -> None:
     assert any("stayed open" in warning for warning in outcome.warnings)
     assert not visible(ctx, "sticky.list")
     assert fake(ctx).refresh_element(fake(ctx).resolve_ref("sticky")).value == "Blue"
+
+
+class Fading(FakeEngine):
+    """macOS 26: a menu still reports its frame for a moment after the pick while it fades out."""
+
+    fade = 0
+
+    def element_valid(self, handle: Any) -> bool:
+        return bool(self.fade and handle == self.resolve_ref("far.list")) or super().element_valid(handle)
+
+    def refresh_element(self, handle: Any) -> RawNode:
+        node = super().refresh_element(handle)
+        if self.fade and not node.visible and handle == self.resolve_ref("far.list"):
+            self.fade -= 1
+            return dataclasses.replace(node, visible=True)
+        return node
+
+
+async def test_a_menu_that_closes_by_itself_after_the_pick_is_left_alone() -> None:
+    """Every pick in TextEdit's format bar sent AXCancel and an extra Escape to the app and
+    warned that the menu "may still be open", because the check ran while it faded out."""
+    engine = Fading(desktop())
+    ctx = context(engine)
+    target = await target_of(ctx, "Far")
+    engine.fade = 2
+    outcome = await dropdown.choose_option(ctx, target, option="Pressed", index=None)
+    assert outcome.chosen == "Pressed"
+    assert engine.fade == 0  # it waited while the menu faded
+    assert not [w for w in outcome.warnings if "open" in w]
+    assert not engine.events_of("press_key")  # no Escape into the app
+    assert not [e for e in engine.events_of("perform_action") if e.get("action") == "AXCancel"]
+
+
+class Lingering(FakeEngine):
+    """Safari (macOS 26): a hidden ARIA listbox and its options stay valid and visible after the
+    pick, all collapsed into the list's 10 pt (its padding)."""
+
+    def _collapsed(self, handle: Any) -> bool:
+        ids = ("far.list", "far.a", "far.b", "far.c")
+        handles = {self.resolve_ref(i) for i in ids if self._lookup(i) is not None}
+        return handle in handles and not super().refresh_element(self.resolve_ref("far.list")).visible
+
+    def element_valid(self, handle: Any) -> bool:
+        return self._collapsed(handle) or super().element_valid(handle)
+
+    def refresh_element(self, handle: Any) -> RawNode:
+        node = super().refresh_element(handle)
+        if self._collapsed(handle):
+            frame = super().refresh_element(self.resolve_ref("far.list")).frame
+            assert frame is not None
+            return dataclasses.replace(node, visible=True, frame=dataclasses.replace(frame, h=10))
+        return node
+
+
+async def test_a_list_whose_options_are_gone_counts_as_closed() -> None:
+    engine = Lingering(desktop())
+    ctx = context(engine)
+    target = await target_of(ctx, "Far")
+    outcome = await dropdown.choose_option(ctx, target, option="Pressed", index=None)
+    assert outcome.chosen == "Pressed"
+    assert not [w for w in outcome.warnings if "open" in w]
+    assert not engine.events_of("press_key")
+
+
+def select_desktop() -> dict[str, Any]:
+    """Chrome (macOS 26): a <select>'s options sit in an 80×6 pt strip under it, open or closed."""
+    data = desktop()
+    strip = [300, 450, 80, 6]  # the top of the control, as in Chrome
+
+    def item(handle: str, title: str, **extra: Any) -> dict[str, Any]:
+        pick = {"set_value": {"id": "fruit", "value": title}}
+        return {
+            "id": handle,
+            "role": "AXMenuItem",
+            "value": title,
+            "frame": strip,
+            "actions": ["AXPress"],
+            "on_press": pick,
+            **extra,
+        }
+
+    data["windows"][0]["tree"]["children"][0]["children"].append(
+        {
+            "id": "fruit",
+            "role": "AXPopUpButton",
+            "description": "Fruit",
+            "value": "Apple",
+            "frame": [300, 450, 80, 24],
+            "actions": ["AXPress"],
+            "children": [
+                {
+                    "id": "fruit.menu",
+                    "role": "AXMenu",
+                    "frame": strip,
+                    "children": [
+                        item("fruit.a", "Apple"),
+                        item("fruit.b", "Banana"),
+                        item("fruit.d", "Durian", enabled=False),
+                    ],
+                }
+            ],
+        }
+    )
+    return data
+
+
+class ChromeSelect(FakeEngine):
+    """Its popup is a native menu outside the tree: open from a click until Escape, also after an
+    option is pressed by AX; only the control's AXExpanded shows it. The strip stays shown."""
+
+    def _in_strip(self, handle: Any) -> bool:
+        return handle in {self.resolve_ref(i) for i in ("fruit.menu", "fruit.a", "fruit.b", "fruit.d")}
+
+    def element_valid(self, handle: Any) -> bool:
+        return self._in_strip(handle) or super().element_valid(handle)
+
+    def refresh_element(self, handle: Any) -> RawNode:
+        node = super().refresh_element(handle)
+        return dataclasses.replace(node, visible=True) if self._in_strip(handle) else node
+
+    def _press(self, node: RawNode, *, modifiers: frozenset[str] = frozenset()) -> None:
+        super()._press(node, modifiers=modifiers)
+        if node.handle == self.resolve_ref("fruit"):
+            node.expanded = True
+
+    def press_key(self, combo: KeyCombo) -> None:
+        super().press_key(combo)
+        if combo.key == "escape":
+            fruit = self._lookup("fruit")
+            assert fruit is not None
+            fruit.expanded = False
+
+
+async def test_a_select_whose_popup_stays_open_is_closed_and_seen_closed() -> None:
+    engine = ChromeSelect(select_desktop())
+    ctx = context(engine)
+    target = await target_of(ctx, "Fruit")
+    outcome = await dropdown.choose_option(ctx, target, option="Banana", index=None)
+    assert outcome.chosen == "Banana"
+    assert outcome.warnings == [
+        f"The options of {target.describe()} stayed open after the choice; AXPilot closed them."
+    ]
+    assert engine.refresh_element(target.handle).expanded is False
+
+
+async def test_a_select_whose_choice_fails_is_closed() -> None:
+    engine = ChromeSelect(select_desktop())
+    ctx = context(engine)
+    target = await target_of(ctx, "Fruit")
+    with pytest.raises(AXPilotError) as caught:
+        await dropdown.choose_option(ctx, target, option="Durian", index=None)
+    assert "disabled" in caught.value.message
+    assert engine.refresh_element(target.handle).expanded is False
 
 
 # =========================================================================== off screen and covered

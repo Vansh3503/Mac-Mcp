@@ -10,6 +10,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from axpilot.engine.fake import FakeEngine
+from axpilot.models import AppInfo, RawNode, RawTree, Rect, WindowInfo
 from axpilot.perception import build_snapshot
 from axpilot.perception.model import Snapshot
 from axpilot.perception.navigate import (
@@ -241,3 +242,42 @@ def test_collect_items_of_a_text_area_have_no_refs() -> None:
     snap = build_snapshot(engine.capture_tree(app="TextEdit"), snapshot_id="s_text", mode="full")
     area = next(el for el in snap.all_elements if el.role == "textarea")
     assert collect_items(snap, area) == [(None, "one"), (None, "two")]
+
+
+def test_a_scrolled_text_area_has_another_signature() -> None:
+    """TextEdit (macOS 26): the text area is the scroll area's document view, as tall as the
+    text; scrolling moves its frame, and it has no children whose positions would change."""
+
+    def page(text_top: float, sid: str) -> tuple[Snapshot, str]:
+        area = RawNode(role="AXTextArea", frame=Rect(0, text_top, 400, 3000), value="Line 001…", actions=())
+        scroll = RawNode(role="AXScrollArea", frame=Rect(0, 90, 400, 300), children=[area])
+        root = RawNode(role="AXWindow", title="Doc", frame=Rect(0, 60, 400, 340), children=[scroll])
+        app = AppInfo(name="TextEdit", pid=7, bundle_id="com.apple.TextEdit")
+        window = WindowInfo(window_id=3, pid=7, app="TextEdit", title="Doc", frame=Rect(0, 60, 400, 340))
+        snap = build_snapshot(RawTree(app=app, window=window, root=root), snapshot_id=sid, mode="full")
+        text = next(el for el in snap.all_elements if el.role == "textarea")
+        return snap, page_signature(snap, text)
+
+    _, top = page(90, "s_top")
+    _, again = page(90, "s_again")
+    _, scrolled = page(-410, "s_down")
+    assert top == again
+    assert scrolled != top
+
+
+def test_a_toolbar_button_over_a_scrolled_text_area_is_not_inside_it() -> None:
+    """TextEdit (macOS 26): the text area's frame spans the whole document, far above the window
+    and over the format bar. A format bar button was taken to be in the text area, clipped to
+    its viewport and refused as "scrolled out of view", even for AXPress."""
+    bold = RawNode(role="AXCheckBox", description="bold", frame=Rect(190, 141, 20, 20), actions=("AXPress",))
+    bar = RawNode(role="AXGroup", frame=Rect(181, 131, 586, 38), children=[bold])
+    text = RawNode(role="AXTextArea", frame=Rect(181, -3617, 586, 4200), value="Line 001", actions=())
+    scroll = RawNode(role="AXScrollArea", frame=Rect(181, 169, 586, 414), children=[text])
+    root = RawNode(role="AXWindow", title="Untitled", frame=Rect(181, 101, 586, 488), children=[bar, scroll])
+    app = AppInfo(name="TextEdit", pid=7, bundle_id="com.apple.TextEdit")
+    window = WindowInfo(
+        window_id=3, pid=7, app="TextEdit", title="Untitled", frame=root.frame or Rect(0, 0, 1, 1)
+    )
+    snap = build_snapshot(RawTree(app=app, window=window, root=root), snapshot_id="s_bar", mode="interactive")
+    button = next(el for el in snap.all_elements if el.name == "bold")
+    assert scroll_container_for(snap, button) is None

@@ -111,6 +111,8 @@ def test_find_uv_prefers_uv_variable(
     env: Path, tmp_path: Path, make_executable: Callable[[Path], Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     assert find_uv() is None
+    homebrew = make_executable(tmp_path / "homebrew" / "bin" / "uv")  # the env fixture's SYSTEM_UV_PATHS
+    assert find_uv() == homebrew
     fallback = make_executable(env / ".cargo" / "bin" / "uv")
     assert find_uv() == fallback
     explicit = make_executable(tmp_path / "custom" / "uv")
@@ -128,8 +130,9 @@ def test_creates_runtime_with_uv(env: Path, uv: Path, runner: Any) -> None:
     python = root / "bin" / "python"
     assert [call.argv for call in runner.calls] == [
         [str(uv), "venv", "--python", PY_TAG, str(root)],
-        [str(uv), "pip", "install", "--python", str(python), "axpilot==0.3.0"],
+        [str(uv), "pip", "install", "--compile-bytecode", "--python", str(python), "axpilot==0.3.0"],
         [str(python), "-I", "-c", runtime._VERSION_PROBE],
+        [str(python), "-I", "-c", runtime.WARM_UP],
     ]
     assert all(call.cwd == str(root.parent) for call in runner.calls)
     assert result.created
@@ -145,7 +148,7 @@ def test_reuses_a_healthy_runtime(env: Path, uv: Path, runner: Any) -> None:
     runner.calls.clear()
     result = ensure_runtime(runner, version="0.3.0")
     assert not result.created
-    assert runner.kinds() == ["install", "probe"]
+    assert runner.kinds() == ["install", "probe", "warm_up"]
 
 
 def test_local_source_is_reinstalled(env: Path, uv: Path, runner: Any, tmp_path: Path) -> None:
@@ -217,6 +220,13 @@ def test_runtime_that_cannot_import_axpilot(env: Path, uv: Path, runner: Any) ->
     runner.failures["probe"] = (1, "ModuleNotFoundError: No module named 'axpilot'")
     with pytest.raises(AXPilotError, match="cannot import axpilot"):
         ensure_runtime(runner, version="0.3.0")
+
+
+def test_runtime_that_cannot_load_the_host(env: Path, uv: Path, runner: Any) -> None:
+    runner.failures["warm_up"] = (1, "ImportError: dlopen(_AppKit.cpython-312-darwin.so): image not found")
+    with pytest.raises(AXPilotError, match="Loading the AXPilot host") as caught:
+        ensure_runtime(runner, version="0.3.0")
+    assert caught.value.code is ErrorCode.COMMAND_FAILED
 
 
 def test_wrong_installed_version(env: Path, uv: Path, runner: Any) -> None:

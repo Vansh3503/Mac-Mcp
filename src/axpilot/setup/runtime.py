@@ -61,10 +61,18 @@ HOST_ARGS: tuple[str, ...] = ("-m", "axpilot.host")
 VENV_TIMEOUT_S = 300.0
 INSTALL_TIMEOUT_S = 900.0
 CHECK_TIMEOUT_S = 60.0
+WARM_UP_TIMEOUT_S = 300.0
 
 Installer = Literal["uv", "venv"]
 
 _VERSION_PROBE = "import axpilot, sys; sys.stdout.write(axpilot.__version__)"
+WARM_UP = (
+    "import axpilot.host.daemon, axpilot.host.ui.app, axpilot.engine.macos.engine; "
+    "from axpilot.server.app import load_tool_modules; load_tool_modules()"
+)
+"""What the host loads when it starts. macOS checks every new native library on its first load:
+in a fresh runtime that took 13 s (macOS 26, M1 Pro; 1.4 s afterwards), longer than a client's
+bridge waits for the host, so setup loads them once."""
 _DEV_VERSION_RE = re.compile(r"\.dev\d*|\+")
 
 
@@ -306,6 +314,10 @@ def install_spec(version: str = axpilot.__version__, source: Path | None = None)
     return f"axpilot=={version}"
 
 
+#: Homebrew's uv on Apple silicon and Intel; tests replace this to stay hermetic.
+SYSTEM_UV_PATHS: tuple[Path, ...] = (Path("/opt/homebrew/bin/uv"), Path("/usr/local/bin/uv"))
+
+
 def find_uv() -> Path | None:
     """Locate the ``uv`` executable: ``$UV`` (set by uv itself), ``PATH``, then usual folders."""
     candidates: list[Path] = []
@@ -314,12 +326,7 @@ def find_uv() -> Path | None:
     if found := shutil.which("uv"):
         candidates.append(Path(found))
     home = Path.home()
-    candidates += [
-        home / ".local" / "bin" / "uv",
-        home / ".cargo" / "bin" / "uv",
-        Path("/opt/homebrew/bin/uv"),
-        Path("/usr/local/bin/uv"),
-    ]
+    candidates += [home / ".local" / "bin" / "uv", home / ".cargo" / "bin" / "uv", *SYSTEM_UV_PATHS]
     for candidate in candidates:
         if candidate.is_file() and os.access(candidate, os.X_OK):
             return candidate.absolute()
@@ -399,9 +406,10 @@ def ensure_runtime(
     """Create or update the runtime virtual environment and install AXPilot into it.
 
     With uv (``uv`` or :func:`find_uv`; skipped if ``use_uv`` is false): ``uv venv --python
-    <major.minor>`` and ``uv pip install --python <runtime>/bin/python <spec>``. Otherwise
+    <major.minor>`` and ``uv pip install --compile-bytecode --python <runtime>/bin/python <spec>``. Otherwise
     ``<base_python> -m venv`` and ``pip install``. A healthy existing environment is reused; a
-    broken one is recreated. Installing a local ``source`` always reinstalls the package.
+    broken one is recreated. Installing a local ``source`` always reinstalls the package. Finally
+    the runtime loads the host once (:data:`WARM_UP`).
 
     Raises ``INVALID_ARGUMENT`` for a bad ``source``/``version``, ``COMMAND_FAILED``/``TIMEOUT``
     if a command fails, and ``COMMAND_FAILED`` if the installed version is not the requested one.
@@ -432,7 +440,9 @@ def ensure_runtime(
         )
 
     if uv_path is not None:
-        install = [str(uv_path), "pip", "install", "--python", str(python), spec]
+        # uv skips bytecode by default (pip compiles it); without it, the host's first start took 21 s
+        # (macOS 26), longer than the bridge waits for it.
+        install = [str(uv_path), "pip", "install", "--compile-bytecode", "--python", str(python), spec]
         if local:
             install += ["--reinstall-package", "axpilot"]
     else:
@@ -471,4 +481,12 @@ def ensure_runtime(
             f"The runtime has axpilot {installed}, but {version} was requested.",
             hint="Run `axpilot setup` again; if it keeps failing, delete the runtime folder first.",
         )
+    _run(
+        runner,
+        [str(python), "-I", "-c", WARM_UP],
+        what="Loading the AXPilot host in the runtime",
+        timeout_s=WARM_UP_TIMEOUT_S,
+        cwd=root.parent,
+        log=commands,
+    )
     return RuntimeInstall(root, python, installer, spec, installed, created, tuple(commands))

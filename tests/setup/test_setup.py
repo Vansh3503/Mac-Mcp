@@ -103,7 +103,7 @@ def test_full_setup_on_macos(env: Path, runner: Any, checkout: Path, make_app: C
     assert manifest["args"] == ["-m", "axpilot.host"]
     assert launcher.is_installed()
     assert login_item_installed()
-    assert runner.kinds() == ["venv", "install", "probe", "open"]
+    assert runner.kinds() == ["venv", "install", "probe", "warm_up", "open"]
     assert "Created" in report.steps[1].detail
 
 
@@ -145,6 +145,30 @@ def test_missing_launcher_is_reported(
     assert steps["manifest"].ok
     assert not steps["launcher"].ok
     assert "direct mode" in steps["launcher"].detail
+
+
+def test_a_checkout_installs_its_own_launcher_build(
+    env: Path, runner: Any, checkout: Path, make_app: Callable[..., Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A development install bundles no launcher; `launcher/build.sh` left one in the checkout."""
+    monkeypatch.setattr(launcher, "bundled_app", lambda: None)
+    built = make_app("checkout/launcher/build")
+    report = mac_setup(runner, checkout, None)
+    steps = {step.name: step for step in report.steps}
+    assert steps["launcher"].ok, steps["launcher"].detail
+    installed = paths.launcher_app_path() / "Contents" / "MacOS" / "AXPilot"
+    assert installed.read_bytes() == (built / "Contents" / "MacOS" / "AXPilot").read_bytes()
+
+
+def test_a_bundled_launcher_wins_over_a_checkout_build(
+    env: Path, runner: Any, checkout: Path, make_app: Callable[..., Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundled = make_app("bundle", binary=b"\xcf\xfa\xed\xfe bundled")
+    make_app("checkout/launcher/build", binary=b"\xcf\xfa\xed\xfe local build")
+    monkeypatch.setattr(launcher, "bundled_app", lambda: bundled)
+    assert mac_setup(runner, checkout, None).ok
+    installed = paths.launcher_app_path() / "Contents" / "MacOS" / "AXPilot"
+    assert installed.read_bytes() == b"\xcf\xfa\xed\xfe bundled"
 
 
 def test_quarantined_launcher_adds_a_step(

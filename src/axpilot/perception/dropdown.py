@@ -12,7 +12,7 @@ what appeared, in this order:
 
 "Appeared" means visible now and not visible before opening: :func:`visible_handles` of the
 tree captured before is the baseline. Options are titled by :func:`option_title` and matched by
-:func:`match_option` (exact, then unique prefix, then unique substring; case-insensitive).
+:func:`match_option` (exact, then unique prefix; case-insensitive; never a word inside a title).
 """
 
 from __future__ import annotations
@@ -83,15 +83,26 @@ def fold(text: str | None) -> str:
     return cleaned.rstrip("…").rstrip(".").strip().casefold()
 
 
+def _unmarked(name: str) -> str:
+    """``name`` from its first letter or digit: an emoji flag, bullet or check mark before it dropped."""
+    return next((name[i:] for i, char in enumerate(name) if char.isalnum()), "")
+
+
 def match_option(names: Sequence[str], option: str) -> int:
-    """Index of the name matching ``option``: exact (case-insensitive), then unique prefix, then
-    unique substring. Raises ``INVALID_ARGUMENT`` (listing the choices) otherwise."""
+    """Index of the name matching ``option`` (case-insensitive): the exact title (the first if the
+    same title is listed twice, as TextEdit lists recent fonts again), else the only title that
+    starts with it, also after leading marks such as an emoji flag. A word inside a longer title
+    never matches ("Bold" is not "Arial Rounded MT Bold"); the error names those titles. Raises
+    ``INVALID_ARGUMENT`` (listing the choices) otherwise."""
     wanted = fold(option)
     folded = [fold(name) for name in names]
+    exact = [i for i, name in enumerate(folded) if name == wanted]
+    if exact and len({names[i] for i in exact}) == 1:
+        return exact[0]
     for matches in (
-        [i for i, name in enumerate(folded) if name == wanted],
+        exact,
         [i for i, name in enumerate(folded) if wanted and name.startswith(wanted)],
-        [i for i, name in enumerate(folded) if wanted and wanted in name],
+        [i for i, name in enumerate(folded) if wanted and _unmarked(name).startswith(wanted)],
     ):
         if len(matches) == 1:
             return matches[0]
@@ -103,6 +114,15 @@ def match_option(names: Sequence[str], option: str) -> int:
                 hint="Use more of the option's title, or its index (1-based).",
                 details={"options": [names[i] for i in matches[:MAX_LISTED]]},
             )
+    inside = [names[i] for i, name in enumerate(folded) if wanted and wanted in name][:MAX_LISTED]
+    if inside:
+        shown = ", ".join(quote(name, 40) for name in inside)
+        raise AXPilotError(
+            ErrorCode.INVALID_ARGUMENT,
+            f"No option is or starts with {option!r}; it is part of {shown}.",
+            hint="Pass the full title of the option you mean (or its index, 1-based).",
+            details={"options": inside},
+        )
     shown = ", ".join(quote(name, 40) for name in names[:MAX_LISTED]) or "none"
     raise AXPilotError(
         ErrorCode.INVALID_ARGUMENT,
@@ -140,6 +160,8 @@ class OptionList:
     """The container lies in web content (an ``AXWebArea``): options are clicked like a user would."""
     window_id: int | None = None
     """``window``: the id of the window that holds the list."""
+    control: RawNode | None = None
+    """``menu``: the control that shows the list as its child."""
 
     def titles(self) -> list[str]:
         return [option.title for option in self.options]

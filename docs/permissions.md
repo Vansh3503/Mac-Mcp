@@ -17,7 +17,7 @@ Later toolsets (calendars, reminders, contacts; post-1.0) will ask for their own
 macOS checks a permission against the **responsible app** of the process making the call, which is
 usually the app that started it, not `python`. That is why AXPilot has two modes.
 
-### Launcher mode *(planned for v0.2)*
+### Launcher mode
 
 `axpilot setup` installs a tiny app, `~/Applications/AXPilot.app`. Clients start the `axpilot stdio`
 bridge, which needs no permissions and talks to the AXPilot host over a local socket. The host runs
@@ -28,12 +28,13 @@ as a child of `AXPilot.app`, so macOS holds **AXPilot** responsible:
 - the grant survives AXPilot updates, because the launcher's bytes don't change between releases;
 - you never have to grant permissions to a terminal or to an AI client.
 
-This depends on macOS letting a child process use its parent app's grants, which spike S1 is
-verifying on macOS 14, 15, 26 and 27 ([ADR-2](adr/0002-architecture-launcher-host-bridge.md)).
+This depends on macOS letting a child process use its parent app's grants. Spike S1 confirmed it
+on macOS 26 on Apple silicon ([results](spikes/S1-launcher-tcc.md)); macOS 14, 15 and 27 are still
+to be tested ([ADR-2](adr/0002-architecture-launcher-host-bridge.md)).
 
 ### Direct mode
 
-`axpilot stdio --direct` (the only mode today) runs everything inside the process the client starts.
+`axpilot stdio --direct` runs everything inside the process the client starts.
 macOS then holds **that client** responsible:
 
 | Started from | Grant the permission to |
@@ -45,16 +46,16 @@ macOS then holds **that client** responsible:
 | A script or agent framework | Whatever app started the script (usually your terminal or IDE) |
 
 Granting Accessibility to a terminal or an IDE lets **everything you run from it** control your Mac,
-not just AXPilot. Prefer launcher mode once it ships, and remove the grant when you no longer need it.
+not just AXPilot. Prefer launcher mode, and remove the grant when you no longer need it.
 
 ## Granting Accessibility
 
-1. Open **System Settings → Privacy & Security → Accessibility**. (`axpilot setup` and
-   `axpilot doctor` will open the right pane for you; *planned*.)
+1. The first time a tool needs Accessibility, AXPilot asks macOS to show its prompt, which can
+   open the pane for you. Otherwise open **System Settings → Privacy & Security → Accessibility**.
 2. Turn on **AXPilot** (launcher mode) or the app from the table above (direct mode). If it isn't
    listed, click **+** and choose it from `~/Applications` or `/Applications`.
-3. **Restart** that app. macOS applies a new grant to new processes only. In launcher mode, AXPilot
-   restarts its host for you *(planned)*.
+3. In direct mode, **restart** that app: macOS applies a new grant to new processes only. In
+   launcher mode, AXPilot sees the new grant without a restart.
 
 Don't add `python` itself. The interpreters uv manages are symlinks, a grant to an interpreter path
 breaks when the interpreter changes, and it would apply to every Python script on your Mac.

@@ -133,6 +133,13 @@ class Engine(abc.ABC):
     def element_attributes(self, handle: Any) -> dict[str, Any]:
         """Every readable attribute of the element as JSON-safe values (for ``inspect``)."""
 
+    def element_text(self, handle: Any, max_chars: int) -> str | None:
+        """The element's whole text value (``AXValue``), up to ``max_chars``; ``None`` without one
+        (and for secure fields). Snapshots and :meth:`element_attributes` may cut values short;
+        ``read`` needs all of it. The default reads :meth:`element_attributes`."""
+        value = self.element_attributes(handle).get("AXValue")
+        return None if value is None else str(value)[:max_chars]
+
     # -------------------------------------------------------------- AX actions
     @abc.abstractmethod
     def perform_action(self, handle: Any, action: str) -> None:
@@ -281,6 +288,17 @@ class Engine(abc.ABC):
         image_png: bytes | None = None,
         files: Sequence[str] | None = None,
     ) -> None: ...
+
+    def clipboard_save(self) -> Any:
+        """An opaque copy of the clipboard for :meth:`clipboard_restore`, around a temporary use
+        such as pasting. The default keeps what :meth:`clipboard_get` returns; an engine that can
+        should keep every item and type exactly (rich text, file references, private types)."""
+        return self.clipboard_get()
+
+    def clipboard_restore(self, saved: Any) -> None:
+        """Put back what :meth:`clipboard_save` returned."""
+        content: ClipboardContent = saved
+        self.clipboard_set(text=content.text, image_png=content.image_png, files=content.files or None)
 
     @abc.abstractmethod
     def notify(self, title: str, message: str, subtitle: str | None = None) -> None: ...

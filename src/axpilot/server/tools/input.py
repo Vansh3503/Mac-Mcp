@@ -39,7 +39,6 @@ from axpilot.input.keys import parse_sequence
 from axpilot.models import (
     AppInfo,
     Capture,
-    ClipboardContent,
     KeyCombo,
     MenuNode,
     MouseButton,
@@ -51,7 +50,7 @@ from axpilot.perception.appkind import detect_app_kind
 from axpilot.perception.diff import diff_snapshots
 from axpilot.perception.format import diff_payload, format_diff, format_snapshot, quote, snapshot_payload
 from axpilot.perception.model import Element, Snapshot
-from axpilot.perception.navigate import scroll_container_for, viewport_of
+from axpilot.perception.navigate import descendants, scroll_container_for, viewport_of
 from axpilot.perception.refs import ROW_AX_ROLES
 from axpilot.perception.resolve import live_handle
 from axpilot.perception.vision import is_vision_element
@@ -98,6 +97,8 @@ keystrokes into them instead."""
 TOGGLE_ROLES = frozenset({"checkbox", "switch", "toggle", "radio"})
 NUMERIC_ROLES = frozenset({"slider", "stepper", "indicator"})
 TEXT_ROLES = frozenset({"field", "search", "secure", "textarea", "combobox", "date"})
+TYPED_ROLES = frozenset({"field", "search", "secure", "textarea"})
+"""Plain text inputs: ``set_value`` enters their text like ``type_text`` (combo boxes choose)."""
 DATE_ROLES = frozenset({"date", "time"})
 DISCLOSURE_ROLES = frozenset({"disclosure"})
 _TRUE = frozenset({"true", "on", "yes", "1", "checked", "selected", "expanded"})
@@ -527,6 +528,20 @@ async def activate_app(ctx: ServerContext, app: AppInfo | None) -> None:
     await ctx.sleep(ctx.config.perception.settle_ms / 1000)
 
 
+def grab_row_by_its_content(target: Target) -> None:
+    """Point a drag that starts on a list row at the row's first text or image: Finder (macOS 26)
+    drags a file only from its name or icon; elsewhere in the row a drag draws a selection."""
+    el, snap = target.el, target.snap
+    if el is None or snap is None or el.ax_role not in ROW_AX_ROLES:
+        return
+    for child in descendants(snap, el):
+        if child.role in ("field", "text", "image"):
+            visible = _visible_rect(snap, child)
+            if visible is not None and visible.area > 0:
+                target.point = visible.center
+                return
+
+
 async def ensure_frontmost(ctx: ServerContext, app: AppInfo | None) -> None:
     """Keystrokes go to the frontmost app: send none unless ``app`` is in front (macOS may ignore
     an activation request from a process in the background)."""
@@ -541,21 +556,47 @@ async def ensure_frontmost(ctx: ServerContext, app: AppInfo | None) -> None:
         )
 
 
+UNCOVER_CHECKS = 20
+"""After activating a covered target's app, hit-test this often, 50 ms apart: the window server
+reorders windows after the app is already frontmost (about 200 ms later on macOS 26)."""
+
+
+async def _full_screen_cover(ctx: ServerContext, app: AppInfo, point: Point) -> bool:
+    """Whether a full-screen window of ``app`` on the current Space contains ``point``."""
+    windows = await ctx.run_engine(ctx.engine.list_windows, _app_key(app) or app.name)
+    return any(w.pid == app.pid and w.fullscreen and w.frame.contains(point) for w in windows)
+
+
 async def ensure_uncovered(ctx: ServerContext, target: Target) -> None:
-    """A synthesized click lands on whatever is on top: make sure that is the target's app."""
+    """A synthesized click lands on whatever is on top: make sure that is the target's app.
+
+    A full-screen app in front means a switch to another Space: the hit test names the target
+    before events reach it (a click sent then went to the full-screen app, macOS 26), so this also
+    waits until the full-screen window has left the current Space."""
     if target.app is None:
         return
     under = await ctx.run_engine(ctx.engine.app_at_point, target.point)
-    if under is not None and under.pid != target.app.pid:
-        await activate_app(ctx, target.app)
+    if under is None or under.pid == target.app.pid:
+        return
+    cover = under if await _full_screen_cover(ctx, under, target.point) else None
+    await activate_app(ctx, target.app)
+    for check in range(UNCOVER_CHECKS):
+        if check:
+            await ctx.sleep(0.05)
         under = await ctx.run_engine(ctx.engine.app_at_point, target.point)
-        if under is not None and under.pid != target.app.pid:
-            raise AXPilotError(
-                ErrorCode.ELEMENT_NOT_ACTIONABLE,
-                f"{target.describe()} is covered by {under.name}.",
-                hint="Move or minimize the covering window (window tool), or act on the element by ref "
-                "with an accessibility action.",
-            )
+        in_front = under is not None and under.pid == target.app.pid
+        if in_front and (cover is None or not await _full_screen_cover(ctx, cover, target.point)):
+            return
+    if under is None and cover is None:  # still no window there after the checks: nothing covers it
+        return
+    blocker = under if under is not None and under.pid != target.app.pid else cover
+    assert blocker is not None  # otherwise the target came forward and the loop returned
+    raise AXPilotError(
+        ErrorCode.ELEMENT_NOT_ACTIONABLE,
+        f"{target.describe()} is covered by {blocker.name}.",
+        hint="Move or minimize the covering window (window tool), or act on the element by ref "
+        "with an accessibility action.",
+    )
 
 
 # --------------------------------------------------------------------------- click
@@ -774,24 +815,21 @@ async def _press(ctx: ServerContext, combo: KeyCombo) -> None:
     await ctx.run_engine(ctx.engine.press_key, combo)
 
 
-async def _paste(ctx: ServerContext, text: str) -> None:
-    """Paste ``text`` with ⌘V, restoring the previous clipboard afterwards (even on failure)."""
+async def _paste(ctx: ServerContext, text: str, warnings: list[str]) -> None:
+    """Paste ``text`` with ⌘V, restoring the previous clipboard afterwards (even on failure).
+    A restore that fails is logged and added to ``warnings``."""
     await require_keyboard(ctx)
-    saved: ClipboardContent = await ctx.run_engine(ctx.engine.clipboard_get)
+    saved = await ctx.run_engine(ctx.engine.clipboard_save)
     try:
         await ctx.run_engine(functools.partial(ctx.engine.clipboard_set, text=text))
         await _press(ctx, KeyCombo("v", frozenset({"cmd"})))
         await ctx.sleep(PASTE_SETTLE_S)
     finally:
-        with contextlib.suppress(AXPilotError):
-            await ctx.run_engine(
-                functools.partial(
-                    ctx.engine.clipboard_set,
-                    text=saved.text,
-                    image_png=saved.image_png,
-                    files=saved.files or None,
-                )
-            )
+        try:
+            await ctx.run_engine(ctx.engine.clipboard_restore, saved)
+        except AXPilotError as exc:
+            ctx.logger.warning("could not restore the clipboard after pasting: %s", exc)
+            warnings.append("The clipboard could not be restored after pasting; it holds the typed text.")
 
 
 def _prefers_keystrokes(app: AppInfo | None) -> bool:
@@ -841,6 +879,7 @@ async def _type(
     clear: bool,
     strategy: TypeStrategy,
     app: AppInfo | None,
+    warnings: list[str],
 ) -> tuple[str, list[str]]:
     attempts: list[str] = []
     ax_first = strategy == "ax_value" or (strategy == "auto" and not _prefers_keystrokes(app))
@@ -863,7 +902,7 @@ async def _type(
         return "clear", attempts
     if strategy == "paste" or (strategy == "auto" and len(text) > PASTE_THRESHOLD):
         attempts.append("paste")
-        await _paste(ctx, text)
+        await _paste(ctx, text, warnings)
         return "paste", attempts
     attempts.append("keystrokes")
     await type_keystrokes(ctx, text)
@@ -920,7 +959,9 @@ def type_text_tool(ctx: ServerContext) -> ToolFn:
             warnings.append(
                 f"{target.describe()} is not a text field; the keystrokes went to whatever it focuses."
             )
-        used, attempts = await _type(ctx, target, text, clear=clear, strategy=strategy, app=app)
+        used, attempts = await _type(
+            ctx, target, text, clear=clear, strategy=strategy, app=app, warnings=warnings
+        )
         if submit:
             await require_keyboard(ctx)
             await _press(ctx, KeyCombo("return"))
@@ -1050,6 +1091,7 @@ def drag_tool(ctx: ServerContext) -> ToolFn:
             ctx, ref=to_ref, snapshot_id=snapshot_id, x=to_x, y=to_y,
             space=coordinate_space, screenshot_id=screenshot_id,
         )  # fmt: skip
+        grab_row_by_its_content(start)
         before = await snapshot_before(ctx, start, report)
         await ensure_uncovered(ctx, start)
         await activate_app(ctx, start.app)
@@ -1168,6 +1210,17 @@ def parse_number(value: str) -> float:
     return number
 
 
+def _as_number(value: Any) -> float | None:
+    """A control's current value as a number, ``None`` when it is not one (nothing to check)."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
 @dataclass
 class _SetOutcome:
     strategy: str
@@ -1252,14 +1305,20 @@ async def _set_number(ctx: ServerContext, target: Target, wanted: float) -> _Set
     if clamped != wanted:
         warnings.append(f"{wanted:g} is outside the range {low:g}…{high:g}; used {clamped:g}.")
     value: float | int = int(clamped) if clamped.is_integer() else clamped
+    steppable = target.el is not None and {"AXIncrement", "AXDecrement"} <= set(target.el.actions)
     try:
         await ctx.run_engine(ctx.engine.set_value, target.handle, value)
-        return _SetOutcome("ax_value", True, f"set to {value:g}", warnings)
     except AXPilotError as err:
-        if err.code is not ErrorCode.ELEMENT_NOT_ACTIONABLE or target.el is None:
+        if err.code is not ErrorCode.ELEMENT_NOT_ACTIONABLE or not steppable:
             raise
-        if not {"AXIncrement", "AXDecrement"} <= set(target.el.actions):
-            raise
+    else:
+        # Safari (macOS 26) accepts an AXValue for a range input without moving it: check
+        now = _as_number(await _current(ctx, target))
+        if now is None or math.isclose(now, clamped, abs_tol=1e-6):
+            return _SetOutcome("ax_value", True, f"set to {value:g}", warnings)
+        if not steppable:
+            warnings.append(f"{target.describe()} shows {now:g} after setting it to {value:g}.")
+            return _SetOutcome("ax_value", False, f"set to {value:g}, but it shows {now:g}", warnings)
     return await _step_to(ctx, target, clamped, warnings)
 
 
@@ -1317,6 +1376,20 @@ async def set_control(ctx: ServerContext, target: Target, value: str) -> _SetOut
         return _SetOutcome(chosen.strategy or "none", chosen.changed, chosen.message, chosen.warnings)
     if role in TEXT_ROLES or role == "secure":
         ctx.policy.check_secure_target(el.secure)
+    if role in TYPED_ROLES:
+        # type_text's ladder: web views (Safari, macOS 26) accept an AXValue change for a text
+        # field without changing the page, so they get keystrokes; native fields keep AXValue
+        warnings: list[str] = []
+        used, _ = await _type(
+            ctx, target, value, clear=True, strategy="auto", app=target.app, warnings=warnings
+        )
+        if el.secure:
+            return _SetOutcome(used, True, "set (secure field)", warnings)
+        after = await _current(ctx, target)
+        if after is not None and str(after) != value:
+            warnings.append(f"{target.describe()} shows {quote(str(after), 60)} after setting it.")
+        shown = quote(str(after) if after is not None else value, 60)
+        return _SetOutcome(used, True, f"set to {shown}", warnings)
     await ctx.run_engine(ctx.engine.set_value, target.handle, value)
     if el.secure:
         return _SetOutcome("ax_value", True, "set (secure field)")

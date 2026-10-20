@@ -61,6 +61,20 @@ def test_value_change_is_reported_with_before_and_after() -> None:
     assert format_diff(diff).splitlines()[1] == '~ e1 field value: "a" → "ab"'
 
 
+def test_a_change_past_the_shown_part_of_a_long_value_is_reported() -> None:
+    """TextEdit (macOS 26): an edit at line 200 of a long document gave "no visible change"."""
+    text = "line\n" * 300
+    area = lambda value: n("AXTextArea", value=value, frame=(0, 0, 400, 300))  # noqa: E731
+    before, after = snapshot(area(text)), snapshot(area(text + "one more line"))
+    assert before.all_elements[0].value == after.all_elements[0].value  # the shown part is the same
+    diff = diff_snapshots(before, after)
+    assert not diff.is_empty()
+    assert "value changed past the part shown" in format_diff(diff)
+    same = snapshot(area(text))
+    assert diff_snapshots(before, same).is_empty()
+    assert snapshot(area("short")).all_elements[0].value_digest is None  # only cut values get one
+
+
 def test_added_and_removed_elements() -> None:
     before = snapshot(n("AXButton", title="Old", frame=(0, 0, 50, 20)), field("x", name="Name"))
     after = snapshot(field("x", name="Name"), n("AXButton", title="Save", frame=(0, 40, 50, 20)))

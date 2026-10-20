@@ -67,6 +67,9 @@ class Element:
     handle: Any = field(repr=False)
     """Engine handle used to act on the element. Never serialized."""
     parent_ref: str | None
+    value_digest: str | None = field(default=None, repr=False)
+    """Digest of the whole value when ``value`` was cut, so a diff sees edits past the cut (a long
+    text area). Never serialized."""
 
     @property
     def center(self) -> Point | None:

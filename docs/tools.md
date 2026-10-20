@@ -518,8 +518,9 @@ menu or list, picks the option (typing to filter a web combo box when the option
 and checks that the control took it; the menu is closed again if anything fails. Also radio groups,
 tab groups and segmented controls (presses the matching button) and lists, tables and outlines
 (selects the matching row).
-Params: ref (the control, from a snapshot), option (title: exact, then prefix, then substring) or
-index; snapshot_id; report. Choosing the option that is already selected changes nothing.
+Params: ref (the control, from a snapshot), option (title: exact, then unique prefix; never a word
+inside a longer title) or index; snapshot_id; report. Choosing the option that is already selected
+changes nothing.
 Errors: INVALID_ARGUMENT (no or several matching options: the message lists them), STALE_REF,
 ELEMENT_NOT_ACTIONABLE (disabled control or option, nothing opened, or the control did not take
 the option), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER.
@@ -650,7 +651,8 @@ Errors: APP_NOT_FOUND, BLOCKED_BY_POLICY (protected apps), USER_DENIED, INVALID_
 
 Profiles: `standard`, `full` · Windows-MCP: `Window`
 
-Focus, move, resize, minimize, restore, zoom, toggle full screen or close a window.
+Focus, move, resize, minimize, zoom, enter full screen (fullscreen), restore (un-minimize and leave
+full screen) or close a window.
 Params: action; window_id (from list_windows) or ref (any element of a snapshot: its window);
 x + y (move: the window's new top-left corner, screen points); width + height (resize).
 Returns the window afterwards (frame and state); close returns closed=true (the app may ask to save

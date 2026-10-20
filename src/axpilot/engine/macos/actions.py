@@ -156,6 +156,21 @@ def refresh_element(reader: NodeReader, handle: Any, focused: AXElement | None =
         raise _fail(reader.ax, exc, element, "Reading the element") from exc
 
 
+def element_text(ax: AX, handle: Any, max_chars: int) -> str | None:
+    """The element's whole ``AXValue`` as text, up to ``max_chars`` (``inspect`` and snapshots cut
+    values much shorter). ``None`` without a text value, and always for secure fields."""
+    element = require_element(ax, handle)
+    try:
+        if A.text(ax.get(element, A.SUBROLE)) == A.SECURE_SUBROLE:
+            return None
+        value = ax.get(element, A.VALUE)
+    except AXCallError as exc:
+        raise _fail(ax, exc, element, "Reading the text") from exc
+    if isinstance(value, Foundation.NSAttributedString):
+        value = value.string()
+    return str(value)[:max_chars] if isinstance(value, str) else None
+
+
 def element_attributes(ax: AX, handle: Any, max_chars: int = 2000) -> dict[str, Any]:
     """Every readable attribute as JSON-safe values, for ``inspect``.
 

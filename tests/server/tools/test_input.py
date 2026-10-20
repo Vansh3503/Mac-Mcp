@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from collections.abc import AsyncIterator
 from typing import Any
@@ -12,7 +13,7 @@ from mcp import Client
 
 from axpilot.engine.fake import FakeEngine
 from axpilot.errors import ErrorCode
-from axpilot.models import AppAction, AppInfo
+from axpilot.models import AppAction, AppInfo, Rect, WindowInfo
 from axpilot.server.context import ServerContext
 from axpilot.server.results import error_code_of, text_of
 from axpilot.testing import connected_client, make_test_context, structured
@@ -151,6 +152,101 @@ async def test_a_covered_element_brings_its_app_forward_before_a_mouse_click(
     result, error = await call(client, "click", {"ref": refs["Bold"], "strategy": "mouse"})
     assert error is None, text_of(result)
     assert any(e.get("action") == "activate" for e in events(ctx, "app_control"))
+
+
+class LateReorder(FakeEngine):
+    """macOS 26: an activated app is frontmost at once, but the window server reorders its windows
+    about 200 ms later; until then hit tests still see the covering app, or briefly no window."""
+
+    stale: list[str | None]
+
+    def app_control(self, action: AppAction, app: str) -> AppInfo | None:
+        info = super().app_control(action, app)
+        self.reordering = True
+        return info
+
+    def app_at_point(self, point: Any) -> AppInfo | None:
+        if getattr(self, "reordering", False) and self.stale:
+            name = self.stale.pop(0)
+            return self.find_app(name) if name else None
+        return super().app_at_point(point)
+
+
+async def click_covered_bold(stale: list[str | None]) -> tuple[LateReorder, Any, str | None]:
+    engine = LateReorder.demo()
+    assert isinstance(engine, LateReorder)
+    engine.stale = stale
+    ctx = fast(make_test_context({"tools.profile": "full"}, engine=engine))
+    async with connected_client(ctx) as client:
+        refs = await refs_of(client, "TextEdit")
+        FakeEngine.app_control(engine, "activate", "Notes")  # Notes covers TextEdit now
+        result, error = await call(client, "click", {"ref": refs["Bold"], "strategy": "mouse"})
+    return engine, result, error
+
+
+async def test_a_mouse_click_waits_for_the_windows_to_reorder_after_activating() -> None:
+    engine, result, error = await click_covered_bold(["Notes", "Notes", None, "Notes"])
+    assert error is None, text_of(result)
+    assert not engine.stale  # the passing "no window" mid-reorder did not end the wait
+    assert engine.events_of("mouse_click")
+
+
+async def test_a_window_that_stays_on_top_still_refuses_the_mouse_click() -> None:
+    engine, result, error = await click_covered_bold(["Notes"] * 30)
+    assert error == "ELEMENT_NOT_ACTIONABLE"
+    assert "covered by Notes" in text_of(result)
+    assert not engine.events_of("mouse_click")
+
+
+class SpaceSwitch(FakeEngine):
+    """macOS 26: a full-screen app (Notes here) covers the target; after the target's app is
+    activated the hit test names it at once, but the full-screen window stays on the current
+    Space for a while, and a click sent then still reaches the full-screen app."""
+
+    leaves_after: int = 0
+    activated = False
+
+    def app_control(self, action: AppAction, app: str) -> AppInfo | None:
+        info = super().app_control(action, app)
+        self.activated = True
+        return info
+
+    def list_windows(self, app: str | None = None) -> list[WindowInfo]:
+        listed = not self.activated or self.leaves_after > 0
+        if self.activated and self.leaves_after > 0:
+            self.leaves_after -= 1
+        screen = Rect(0, 0, 10_000, 10_000)
+        return [
+            dataclasses.replace(w, fullscreen=True, frame=screen) if w.app == "Notes" else w
+            for w in super().list_windows(app)
+            if w.app != "Notes" or listed
+        ]
+
+
+async def click_behind_a_full_screen_app(leaves_after: int) -> tuple[SpaceSwitch, Any, str | None]:
+    engine = SpaceSwitch.demo()
+    assert isinstance(engine, SpaceSwitch)
+    ctx = fast(make_test_context({"tools.profile": "full"}, engine=engine))
+    async with connected_client(ctx) as client:
+        refs = await refs_of(client, "TextEdit")
+        FakeEngine.app_control(engine, "activate", "Notes")  # full screen, in front of TextEdit
+        engine.leaves_after = leaves_after
+        result, error = await call(client, "click", {"ref": refs["Bold"], "strategy": "mouse"})
+    return engine, result, error
+
+
+async def test_a_mouse_click_waits_until_a_full_screen_app_has_left_the_space() -> None:
+    engine, result, error = await click_behind_a_full_screen_app(leaves_after=3)
+    assert error is None, text_of(result)
+    assert engine.leaves_after == 0  # it kept checking while the full-screen window was there
+    assert engine.events_of("mouse_click")
+
+
+async def test_a_full_screen_app_that_stays_refuses_the_mouse_click() -> None:
+    engine, result, error = await click_behind_a_full_screen_app(leaves_after=1_000)
+    assert error == "ELEMENT_NOT_ACTIONABLE"
+    assert "covered by Notes" in text_of(result)
+    assert not engine.events_of("mouse_click")
 
 
 async def test_coordinate_clicks_are_hit_tested_against_the_policy(
@@ -451,6 +547,24 @@ async def test_the_clipboard_is_restored_even_when_pasting_fails() -> None:
         _, error = await call(client, "type_text", {"ref": refs["Message #general"], "text": "x" * 500})
     assert error == "INTERNAL"
     assert faulty.inner.clipboard_get().text == "keep me"
+
+
+async def test_a_clipboard_that_cannot_be_restored_is_a_warning_not_silence() -> None:
+    """On a Mac a restore can fail (it used to, for a copied file that was deleted since);
+    the paste itself worked, so the result says so and warns about the clipboard."""
+    faulty = FaultyEngine(FakeEngine.demo())
+    ctx = fast(make_test_context({"tools.profile": "full"}, engine=faulty))
+    faulty.inner.app_control("launch", "Slack")
+    async with connected_client(ctx) as client:
+        refs = await refs_of(client, "Slack")
+        faulty.set_fault("clipboard_restore", Fault.error(ErrorCode.INTERNAL, "macOS refused"))
+        result, error = await call(client, "type_text", {"ref": refs["Message #general"], "text": "x" * 500})
+        assert error is None, text_of(result)
+        assert structured(result)["strategy"] == "paste"
+        assert any("clipboard could not be restored" in w for w in structured(result)["warnings"])
+        faulty.clear_faults()
+        _, error = await call(client, "type_text", {"ref": refs["Message #general"], "text": "y" * 500})
+    assert error is None  # the server and the input lock are fine
 
 
 async def test_submit_presses_return(ctx: ServerContext, client: Client) -> None:
@@ -786,6 +900,28 @@ async def test_sliders_are_clamped_to_their_range(
     assert bad == "INVALID_ARGUMENT"
 
 
+class IgnoresSliderValues(FakeEngine):
+    """Safari (macOS 26): a range input accepts an AXValue without moving; AXIncrement works."""
+
+    def set_value(self, handle: Any, value: str | float | bool) -> None:
+        if self.refresh_element(handle).role == "AXSlider":
+            return
+        super().set_value(handle, value)
+
+
+async def test_a_slider_that_ignores_its_value_is_stepped_instead() -> None:
+    engine = IgnoresSliderValues.from_dict(CONTROLS)
+    ctx = fast(make_test_context({"tools.profile": "full"}, engine=engine))
+    async with connected_client(ctx) as client:
+        refs = await refs_of(client, "Controls")
+        result, error = await call(client, "set_value", {"ref": refs["Volume"], "value": "53"})
+        assert error is None, text_of(result)
+        assert structured(result)["strategy"] == "ax:step"  # not "ax_value", which changed nothing
+        snapshot, _ = await call(client, "snapshot", {"app": "Controls"})
+    volume = next(el for el in structured(snapshot)["elements"] if el["name"] == "Volume")
+    assert volume["value"] == "53"
+
+
 async def test_read_only_steppers_are_stepped_to_the_value(
     controls: tuple[ServerContext, Client, dict[str, str]],
 ) -> None:
@@ -881,6 +1017,35 @@ async def test_drag_between_points_and_policy_on_both_ends(ctx: ServerContext, c
     engine_of(ctx).app_control("activate", "1Password")
     result, blocked = await call(client, "drag", {"from_x": 300, "from_y": 300, "to_x": 1950, "to_y": 840})
     assert blocked == "BLOCKED_BY_POLICY", text_of(result)
+
+
+async def test_fill_form_types_into_web_text_fields(ctx: ServerContext, client: Client) -> None:
+    """Safari (macOS 26) took an AXValue change of a form field without changing the page:
+    fill_form said "filled" and the form was sent empty. Browsers get keystrokes, like type_text."""
+    engine_of(ctx).app_control("launch", "Google Chrome")
+    refs = await refs_of(client, "Google Chrome")
+    fields = [{"ref": refs["Address and search bar"], "value": "example.com"}]
+    result, error = await call(client, "fill_form", {"fields": fields})
+    assert error is None, text_of(result)
+    assert structured(result)["warnings"] == []
+    assert [e["text"] for e in events(ctx, "type_text")] == ["example.com"]
+    assert not [e for e in events(ctx, "set_value") if e.get("value") == "example.com"]
+
+
+async def test_a_dragged_list_row_is_grabbed_by_its_text(ctx: ServerContext, client: Client) -> None:
+    """Finder (macOS 26) drags a file only from its name or icon: the row's center (another
+    column) started a selection rectangle instead, and the file stayed put."""
+    engine_of(ctx).app_control("launch", "com.apple.mail")
+    result, error = await call(client, "snapshot", {"app": "Mail", "mode": "full"})
+    assert error is None, text_of(result)
+    elements = structured(result)["elements"]
+    row = next(el for el in elements if el["role"] == "row" and el["name"].startswith("Alice Chen"))
+    assert row["center"] == [432.5, 91.0]  # the middle column (subject)
+    _, error = await call(
+        client, "drag", {"from_ref": row["ref"], "to_x": 300, "to_y": 300, "duration_ms": 0}
+    )
+    assert error is None
+    assert events(ctx, "mouse_drag")[-1]["start"] == [277.5, 91.0]  # the sender, the first text
 
 
 async def test_move_mouse_hovers_without_clicking(ctx: ServerContext, client: Client) -> None:

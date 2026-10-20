@@ -74,7 +74,7 @@ def engine_of(ctx: ServerContext) -> FakeEngine:
 # =========================================================================== matching
 @pytest.mark.parametrize(
     ("option", "index"),
-    [("Center", 1), ("center", 1), ("cent", 1), ("Right", 3), ("Align Right…", 3)],
+    [("Center", 1), ("center", 1), ("cent", 1), ("Align Right…", 3)],
 )
 def test_match_option(option: str, index: int) -> None:
     assert match_option(["Align Left", "Center", "Justify", "Align Right"], option) == index
@@ -85,6 +85,12 @@ def test_match_option_errors(option: str) -> None:
     with pytest.raises(AXPilotError) as caught:
         match_option(["Align Left", "Center", "Align Right"], option)
     assert "Align Left" in caught.value.message
+
+
+def test_a_word_inside_an_option_title_is_refused_with_the_title() -> None:
+    with pytest.raises(AXPilotError) as caught:
+        match_option(["Align Left", "Center", "Align Right"], "Right")
+    assert caught.value.message.endswith('it is part of "Align Right".')
 
 
 # =========================================================================== select_option
@@ -207,6 +213,14 @@ async def test_inspect_a_sheet(client: Client) -> None:
     assert error == "ELEMENT_NOT_ACTIONABLE"
 
 
+def entered(engine: FakeEngine) -> list[str]:
+    """Text put into fields, set through accessibility or typed as keystrokes (apps of an unknown
+    kind, like these fixtures, get keystrokes first)."""
+    return [e["value"] for e in engine.events_of("set_value")] + [
+        e["text"] for e in engine.events_of("type_text")
+    ]
+
+
 async def test_fill_and_accept(ctx: ServerContext, client: Client) -> None:
     await ok(client, "app", {"action": "activate", "name": "Login Demo"})
     data = await ok(
@@ -215,7 +229,7 @@ async def test_fill_and_accept(ctx: ServerContext, client: Client) -> None:
     assert data["pressed"] == "Sign In"
     pressed = engine_of(ctx).events_of("press")
     assert pressed[-1]["name"] == "Sign In"
-    assert any(e.get("value") == "ada@example.com" for e in engine_of(ctx).events_of("set_value"))
+    assert "ada@example.com" in entered(engine_of(ctx))
 
 
 async def test_cancel_and_press(ctx: ServerContext, client: Client) -> None:
@@ -330,10 +344,15 @@ async def test_press_by_title(client: Client) -> None:
 
 
 def alert_desktop(
-    tmp_path: Path, buttons: list[str], *, window_dialog: bool = False, field: bool = False
+    tmp_path: Path,
+    buttons: list[str],
+    *,
+    window_dialog: bool = False,
+    field: bool = False,
+    search: bool = False,
 ) -> FakeEngine:
     """One app showing an alert: a sheet, or (``window_dialog``) a dialog window, optionally
-    with a text field (``field``)."""
+    with a text field (``field``) and a search field before it (``search``, like a save panel)."""
     text_field = {
         "id": "alert.field",
         "role": "AXTextField",
@@ -343,6 +362,19 @@ def alert_desktop(
     }
     contents = [
         {"role": "AXStaticText", "value": "Do you want to keep the changes?", "frame": [120, 120, 300, 20]},
+        *(
+            [
+                {
+                    "id": "alert.search",
+                    "role": "AXTextField",
+                    "subrole": "AXSearchField",
+                    "value": "",
+                    "frame": [120, 90, 200, 22],
+                }
+            ]
+            if search
+            else []
+        ),
         *([text_field] if field else []),
         *(
             {
@@ -401,7 +433,24 @@ async def test_a_destructive_press_asks_before_filling_the_text_field(tmp_path: 
         recorder.answer = True
         data = await ok(client, "handle_dialog", {"action": "press", "button": "Delete", "text": "final"})
     assert data["pressed"] == "Delete"
-    assert [event["value"] for event in engine.events_of("set_value")] == ["final"]
+    assert entered(engine) == ["final"]
+
+
+async def test_text_goes_to_the_name_field_not_the_search_field(tmp_path: Path) -> None:
+    """macOS 26's save panel lists its search field before "Save As:": the text went into the
+    search field and the document was saved as "Untitled"."""
+    engine = alert_desktop(tmp_path, ["Cancel", "Save"], field=True, search=True)
+    name, search = engine.resolve_ref("alert.field"), engine.resolve_ref("alert.search")
+    ctx = make_ctx(engine=engine)
+    async with connected_client(ctx) as client:
+        await ok(client, "handle_dialog", {"action": "accept", "text": "report"})
+    assert entered(engine) == ["report"]
+    typed_into = {
+        e.get("handle") or e.get("target")
+        for e in engine.events_of("set_value") + engine.events_of("type_text")
+    }
+    assert name in typed_into
+    assert search not in typed_into
 
 
 async def test_accept_picks_the_rightmost_button_without_a_known_title(tmp_path: Path) -> None:

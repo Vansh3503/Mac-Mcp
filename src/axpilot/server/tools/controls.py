@@ -4,8 +4,8 @@
 buttons and web or Electron pickers are opened and the option is chosen from the menu or list
 that appears (:mod:`axpilot.server.dropdown`); native combo boxes take the option's text; radio
 groups, tab groups and segmented controls press the matching child; lists, tables and outlines
-select the matching row. Options match by title (exact, then prefix, then substring; ambiguous
-matches are an error that lists them) or by 1-based index.
+select the matching row. Options match by title (exact, then unique prefix; a word inside a longer
+title is refused and named; ambiguous matches are an error that lists them) or by 1-based index.
 
 ``handle_dialog`` finds the sheet or dialog in front of an app and reports its text, fields and
 buttons; it can fill its first text field and press a button: the default one (``accept``), the
@@ -106,8 +106,9 @@ menu or list, picks the option (typing to filter a web combo box when the option
 and checks that the control took it; the menu is closed again if anything fails. Also radio groups,
 tab groups and segmented controls (presses the matching button) and lists, tables and outlines
 (selects the matching row).
-Params: ref (the control, from a snapshot), option (title: exact, then prefix, then substring) or
-index; snapshot_id; report. Choosing the option that is already selected changes nothing.
+Params: ref (the control, from a snapshot), option (title: exact, then unique prefix; never a word
+inside a longer title) or index; snapshot_id; report. Choosing the option that is already selected
+changes nothing.
 Errors: INVALID_ARGUMENT (no or several matching options: the message lists them), STALE_REF,
 ELEMENT_NOT_ACTIONABLE (disabled control or option, nothing opened, or the control did not take
 the option), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER."""
@@ -385,7 +386,8 @@ def handle_dialog_tool(ctx: ServerContext) -> ToolFn:
                 f"No sheet or dialog is open in {tree.app.name}.",
                 hint="Take a snapshot to see what is on screen; the dialog may belong to another app.",
             )
-        editable = [el for el in fields if el.role in FIELD_ROLES]
+        # a save panel (macOS 26) lists its search field before "Save As:": search fields go last
+        editable = sorted((el for el in fields if el.role in FIELD_ROLES), key=lambda el: el.role == "search")
         if text is not None and not editable:
             raise AXPilotError(ErrorCode.INVALID_ARGUMENT, "The dialog has no text field for text.")
         if action == "press":

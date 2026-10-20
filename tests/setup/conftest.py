@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 import axpilot
+from axpilot.setup import runtime
 from axpilot.system.runner import CommandResult, CommandRunner
 
 
@@ -30,6 +31,8 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("AXPILOT_SOCKET", str(tmp_path / "s.sock"))
     for var in ("UV", "UV_TOOL_BIN_DIR", "XDG_BIN_HOME", "PIPX_BIN_DIR", "XDG_CONFIG_HOME"):
         monkeypatch.delenv(var, raising=False)
+    # A Mac with Homebrew's uv would otherwise always "have uv".
+    monkeypatch.setattr(runtime, "SYSTEM_UV_PATHS", (tmp_path / "homebrew" / "bin" / "uv",))
     monkeypatch.chdir(tmp_path)
     return home
 
@@ -43,7 +46,7 @@ class Call:
 
 def _kind(args: list[str]) -> str:
     if "-c" in args and "-I" in args:
-        return "probe"
+        return "warm_up" if args[-1] == runtime.WARM_UP else "probe"
     if "venv" in args[:3]:
         return "venv"
     if "install" in args[:4]:
@@ -54,7 +57,7 @@ def _kind(args: list[str]) -> str:
 @dataclass
 class SimulatedRunner(CommandRunner):
     """Pretends to be uv/venv/pip/open/codesign. ``failures`` maps a command kind (``venv``,
-    ``install``, ``probe``, ``open``, ``codesign``) to ``(exit_code, stderr)``."""
+    ``install``, ``probe``, ``warm_up``, ``open``, ``codesign``) to ``(exit_code, stderr)``."""
 
     version: str = axpilot.__version__
     failures: dict[str, tuple[int, str]] = field(default_factory=dict)
