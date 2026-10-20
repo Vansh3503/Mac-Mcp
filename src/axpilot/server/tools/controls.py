@@ -385,7 +385,8 @@ def handle_dialog_tool(ctx: ServerContext) -> ToolFn:
                 f"No sheet or dialog is open in {tree.app.name}.",
                 hint="Take a snapshot to see what is on screen; the dialog may belong to another app.",
             )
-        editable = [el for el in fields if el.role in FIELD_ROLES]
+        # a save panel (macOS 26) lists its search field before "Save As:": search fields go last
+        editable = sorted((el for el in fields if el.role in FIELD_ROLES), key=lambda el: el.role == "search")
         if text is not None and not editable:
             raise AXPilotError(ErrorCode.INVALID_ARGUMENT, "The dialog has no text field for text.")
         if action == "press":
