@@ -41,6 +41,8 @@ expects.
 | `smolagents_example.py` | Hugging Face smolagents |
 | `ms_agent_framework_example.py` | Microsoft Agent Framework |
 | `claude_agent_sdk_example.py` | Claude Agent SDK |
+| `agno_example.py` | Agno (`MCPTools`) |
+| `strands_example.py` | Strands Agents (`MCPClient`) |
 | `ts/ai_sdk_example.ts` | Vercel AI SDK (`@ai-sdk/mcp`) |
 | `ts/mastra_example.ts` | Mastra (`@mastra/mcp`) |
 

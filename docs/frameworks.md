@@ -121,6 +121,41 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
+## Agno
+
+```python
+import asyncio
+
+from agno.agent import Agent
+from agno.models.openai import OpenAIChat
+from agno.tools.mcp import MCPTools
+from mcp import StdioServerParameters
+
+
+async def main() -> None:
+    server = StdioServerParameters(command="axpilot", args=["stdio"])
+    async with MCPTools(server_params=server, timeout_seconds=60) as mac:
+        agent = Agent(model=OpenAIChat(id="<your-model>"), tools=[mac])
+        await agent.aprint_response("Open TextEdit and write a two-line shopping list.")
+
+
+asyncio.run(main())
+```
+
+## Strands Agents
+
+```python
+from mcp import StdioServerParameters, stdio_client
+from strands import Agent
+from strands.tools.mcp import MCPClient
+
+mac = MCPClient(lambda: stdio_client(StdioServerParameters(command="axpilot", args=["stdio"])))
+
+with mac:
+    agent = Agent(model="<your-model>", tools=mac.list_tools_sync())
+    agent("Which apps are running, and which one is in front?")
+```
+
 ## Tips for agent builders
 
 - **Give the agent the operating guide.** The server sends MCP `instructions` describing the

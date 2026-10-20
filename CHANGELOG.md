@@ -76,8 +76,9 @@ Pre-alpha. Nothing is published on PyPI yet.
   (`Desktop.connect()`). Scripts use the same tools, policy, confirmations, audit log and error
   codes as agents.
 - Examples: five automation scripts that run against the simulated desktop, and agent examples
-  for eleven frameworks (OpenAI Agents SDK, LangGraph, CrewAI, Google ADK, Pydantic AI,
-  LlamaIndex, smolagents, Microsoft Agent Framework, Claude Agent SDK, Vercel AI SDK, Mastra).
+  for thirteen frameworks (OpenAI Agents SDK, LangGraph, CrewAI, Google ADK, Pydantic AI,
+  LlamaIndex, smolagents, Microsoft Agent Framework, Claude Agent SDK, Agno, Strands Agents, Vercel AI
+  SDK, Mastra).
 - `select_option` (pop-ups, combo boxes, radio and tab groups, segmented controls, list rows by
   title or index) and `handle_dialog` (read a sheet or dialog; accept, cancel or press a button;
   buttons that delete or discard ask first, before `text` is typed into the dialog, so a "no"
