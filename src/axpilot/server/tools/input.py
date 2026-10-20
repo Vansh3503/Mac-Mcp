@@ -790,7 +790,10 @@ def _prefers_keystrokes(app: AppInfo | None) -> bool:
 
 
 async def _focus(ctx: ServerContext, target: Target) -> str:
-    """Give the field keyboard focus: AX focus, else a click on it."""
+    """Give the field keyboard focus: AX focus, else a click on it. Its app comes to the front
+    first in both cases: the keystrokes that follow go to the frontmost app, whatever element
+    of another app has accessibility focus."""
+    await activate_app(ctx, target.app)
     if target.handle is not None:
         try:
             await ctx.run_engine(ctx.engine.focus, target.handle)
@@ -799,7 +802,6 @@ async def _focus(ctx: ServerContext, target: Target) -> str:
             if err.code is not ErrorCode.ELEMENT_NOT_ACTIONABLE:
                 raise
     await ensure_uncovered(ctx, target)
-    await activate_app(ctx, target.app)
     await ctx.run_engine(ctx.engine.mouse_click, target.point)
     return "click_focus"
 

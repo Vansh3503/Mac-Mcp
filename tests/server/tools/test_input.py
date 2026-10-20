@@ -376,6 +376,28 @@ async def test_typing_into_web_views_uses_keystrokes(ctx: ServerContext, client:
     assert events(ctx, "type_text")[-1]["text"] == "hello team"
 
 
+async def test_keystrokes_into_a_background_app_bring_it_to_the_front_first(
+    ctx: ServerContext, client: Client
+) -> None:
+    # Keystrokes go to the frontmost app, whatever has accessibility focus elsewhere: typing into
+    # Login Demo while Finder is in front must activate Login Demo before the first key.
+    engine = engine_of(ctx)
+    assert engine.frontmost_app().name == "Finder"
+    refs = await refs_of(client, "Login Demo")
+    result, error = await call(client, "type_text", {"ref": refs["Email"], "text": "alex@example.com"})
+    assert error is None, text_of(result)
+    assert structured(result)["strategy"] == "keystrokes"
+    assert engine.frontmost_app().name == "Login Demo"
+    kinds = [kind for kind, _ in engine.events]
+    assert kinds.index("app_control") < kinds.index("type_text")
+    assert events(ctx, "type_text")[-1]["target"] == "login.email"
+    fields = structured(await client.call_tool("snapshot", {"app": "Login Demo"}))["elements"]
+    assert (
+        next(el for el in fields if el["name"] == "Email" and el["role"] == "field")["value"]
+        == "alex@example.com"
+    )
+
+
 async def test_long_text_is_pasted_and_the_clipboard_is_restored(ctx: ServerContext, client: Client) -> None:
     engine = engine_of(ctx)
     engine.clipboard_set(text="keep me")
