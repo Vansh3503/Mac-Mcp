@@ -33,6 +33,7 @@ import logging
 import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 import anyio
 
@@ -65,6 +66,8 @@ POLL_S = 0.1
 CLEANUP_TIMEOUT_S = 2.0
 CLOSE_WAIT_S = 0.5
 """How long a menu may take to close by itself after a pick (macOS fades it out) before AXCancel."""
+OPTION_CHECKS = 3
+"""How many options :func:`_still_open` looks at to tell whether a list is still shown."""
 """Closing a menu or list after a failure never takes longer than this."""
 WEB_APP_KINDS = frozenset({"electron", "cef"})
 """App kinds whose whole window is web content."""
@@ -284,16 +287,34 @@ async def _still_open(ctx: ServerContext, found: dd.OptionList, *, wait_s: float
     only reach the app."""
     handle = found.container.handle
     for _ in range(max(1, math.ceil(wait_s / POLL_S) + 1)):
-        if handle is None or not await ctx.run_engine(ctx.engine.element_valid, handle):
-            return False
-        node = await ctx.run_engine(ctx.engine.refresh_element, handle)
-        frame = node.frame
-        if not (node.visible and (frame is None or (frame.w > 0 and frame.h > 0))):
+        if handle is None or not await _shown(ctx, handle) or not await _any_option_shown(ctx, found):
             return False
         if wait_s <= 0:
             return True
         await ctx.sleep(POLL_S)
     return True
+
+
+async def _shown(ctx: ServerContext, handle: Any, min_height: float = 0.0) -> bool:
+    if not await ctx.run_engine(ctx.engine.element_valid, handle):
+        return False
+    node = await ctx.run_engine(ctx.engine.refresh_element, handle)
+    frame = node.frame
+    return node.visible and (frame is None or (frame.w > 0 and frame.h > max(0.0, min_height)))
+
+
+async def _any_option_shown(ctx: ServerContext, found: dd.OptionList) -> bool:
+    """A list whose options are gone is closed, even if its container stays. Safari (macOS 26)
+    keeps a hidden ARIA listbox and its options valid and visible, all collapsed into the list's
+    10 pt (its padding): an option counts while it keeps at least half the height it had."""
+    checked = [option.node for option in found.options[:OPTION_CHECKS] if option.node.handle is not None]
+    if not checked:
+        return True  # nothing to look at: trust the container
+    for node in checked:
+        before = node.frame.h if node.frame is not None else 0.0
+        if await _shown(ctx, node.handle, min_height=before / 2):
+            return True
+    return False
 
 
 async def _close(ctx: ServerContext, target: Target, found: dd.OptionList) -> str | None:

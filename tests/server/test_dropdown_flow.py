@@ -234,6 +234,37 @@ async def test_a_menu_that_closes_by_itself_after_the_pick_is_left_alone() -> No
     assert not [e for e in engine.events_of("perform_action") if e.get("action") == "AXCancel"]
 
 
+class Lingering(FakeEngine):
+    """Safari (macOS 26): a hidden ARIA listbox and its options stay valid and visible after the
+    pick, all collapsed into the list's 10 pt (its padding)."""
+
+    def _collapsed(self, handle: Any) -> bool:
+        ids = ("far.list", "far.a", "far.b", "far.c")
+        handles = {self.resolve_ref(i) for i in ids if self._lookup(i) is not None}
+        return handle in handles and not super().refresh_element(self.resolve_ref("far.list")).visible
+
+    def element_valid(self, handle: Any) -> bool:
+        return self._collapsed(handle) or super().element_valid(handle)
+
+    def refresh_element(self, handle: Any) -> RawNode:
+        node = super().refresh_element(handle)
+        if self._collapsed(handle):
+            frame = super().refresh_element(self.resolve_ref("far.list")).frame
+            assert frame is not None
+            return dataclasses.replace(node, visible=True, frame=dataclasses.replace(frame, h=10))
+        return node
+
+
+async def test_a_list_whose_options_are_gone_counts_as_closed() -> None:
+    engine = Lingering(desktop())
+    ctx = context(engine)
+    target = await target_of(ctx, "Far")
+    outcome = await dropdown.choose_option(ctx, target, option="Pressed", index=None)
+    assert outcome.chosen == "Pressed"
+    assert not [w for w in outcome.warnings if "open" in w]
+    assert not engine.events_of("press_key")
+
+
 # =========================================================================== off screen and covered
 async def test_an_option_outside_the_list_without_a_press_is_refused() -> None:
     ctx = context()
