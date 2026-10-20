@@ -1,6 +1,6 @@
 """Agno + AXPilot over stdio.
 
-pip install agno openai mcp   # and install AXPilot: uv tool install axpilot
+pip install agno "fastmcp>=4,<5" openai   # Agno 3 connects through fastmcp; and install AXPilot
 python agno_example.py
 """
 
