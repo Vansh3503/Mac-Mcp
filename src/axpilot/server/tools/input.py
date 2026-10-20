@@ -545,25 +545,39 @@ UNCOVER_CHECKS = 20
 reorders windows after the app is already frontmost (about 200 ms later on macOS 26)."""
 
 
+async def _full_screen_cover(ctx: ServerContext, app: AppInfo, point: Point) -> bool:
+    """Whether a full-screen window of ``app`` on the current Space contains ``point``."""
+    windows = await ctx.run_engine(ctx.engine.list_windows, _app_key(app) or app.name)
+    return any(w.pid == app.pid and w.fullscreen and w.frame.contains(point) for w in windows)
+
+
 async def ensure_uncovered(ctx: ServerContext, target: Target) -> None:
-    """A synthesized click lands on whatever is on top: make sure that is the target's app."""
+    """A synthesized click lands on whatever is on top: make sure that is the target's app.
+
+    A full-screen app in front means a switch to another Space: the hit test names the target
+    before events reach it (a click sent then went to the full-screen app, macOS 26), so this also
+    waits until the full-screen window has left the current Space."""
     if target.app is None:
         return
     under = await ctx.run_engine(ctx.engine.app_at_point, target.point)
     if under is None or under.pid == target.app.pid:
         return
+    cover = under if await _full_screen_cover(ctx, under, target.point) else None
     await activate_app(ctx, target.app)
     for check in range(UNCOVER_CHECKS):
         if check:
             await ctx.sleep(0.05)
         under = await ctx.run_engine(ctx.engine.app_at_point, target.point)
-        if under is not None and under.pid == target.app.pid:
+        in_front = under is not None and under.pid == target.app.pid
+        if in_front and (cover is None or not await _full_screen_cover(ctx, cover, target.point)):
             return
-    if under is None:  # still no window there after the checks: nothing covers it
+    if under is None and cover is None:  # still no window there after the checks: nothing covers it
         return
+    blocker = under if under is not None and under.pid != target.app.pid else cover
+    assert blocker is not None  # otherwise the target came forward and the loop returned
     raise AXPilotError(
         ErrorCode.ELEMENT_NOT_ACTIONABLE,
-        f"{target.describe()} is covered by {under.name}.",
+        f"{target.describe()} is covered by {blocker.name}.",
         hint="Move or minimize the covering window (window tool), or act on the element by ref "
         "with an accessibility action.",
     )

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from collections.abc import AsyncIterator
 from typing import Any
@@ -12,7 +13,7 @@ from mcp import Client
 
 from axpilot.engine.fake import FakeEngine
 from axpilot.errors import ErrorCode
-from axpilot.models import AppAction, AppInfo
+from axpilot.models import AppAction, AppInfo, Rect, WindowInfo
 from axpilot.server.context import ServerContext
 from axpilot.server.results import error_code_of, text_of
 from axpilot.testing import connected_client, make_test_context, structured
@@ -192,6 +193,57 @@ async def test_a_mouse_click_waits_for_the_windows_to_reorder_after_activating()
 
 async def test_a_window_that_stays_on_top_still_refuses_the_mouse_click() -> None:
     engine, result, error = await click_covered_bold(["Notes"] * 30)
+    assert error == "ELEMENT_NOT_ACTIONABLE"
+    assert "covered by Notes" in text_of(result)
+    assert not engine.events_of("mouse_click")
+
+
+class SpaceSwitch(FakeEngine):
+    """macOS 26: a full-screen app (Notes here) covers the target; after the target's app is
+    activated the hit test names it at once, but the full-screen window stays on the current
+    Space for a while, and a click sent then still reaches the full-screen app."""
+
+    leaves_after: int = 0
+    activated = False
+
+    def app_control(self, action: AppAction, app: str) -> AppInfo | None:
+        info = super().app_control(action, app)
+        self.activated = True
+        return info
+
+    def list_windows(self, app: str | None = None) -> list[WindowInfo]:
+        listed = not self.activated or self.leaves_after > 0
+        if self.activated and self.leaves_after > 0:
+            self.leaves_after -= 1
+        screen = Rect(0, 0, 10_000, 10_000)
+        return [
+            dataclasses.replace(w, fullscreen=True, frame=screen) if w.app == "Notes" else w
+            for w in super().list_windows(app)
+            if w.app != "Notes" or listed
+        ]
+
+
+async def click_behind_a_full_screen_app(leaves_after: int) -> tuple[SpaceSwitch, Any, str | None]:
+    engine = SpaceSwitch.demo()
+    assert isinstance(engine, SpaceSwitch)
+    ctx = fast(make_test_context({"tools.profile": "full"}, engine=engine))
+    async with connected_client(ctx) as client:
+        refs = await refs_of(client, "TextEdit")
+        FakeEngine.app_control(engine, "activate", "Notes")  # full screen, in front of TextEdit
+        engine.leaves_after = leaves_after
+        result, error = await call(client, "click", {"ref": refs["Bold"], "strategy": "mouse"})
+    return engine, result, error
+
+
+async def test_a_mouse_click_waits_until_a_full_screen_app_has_left_the_space() -> None:
+    engine, result, error = await click_behind_a_full_screen_app(leaves_after=3)
+    assert error is None, text_of(result)
+    assert engine.leaves_after == 0  # it kept checking while the full-screen window was there
+    assert engine.events_of("mouse_click")
+
+
+async def test_a_full_screen_app_that_stays_refuses_the_mouse_click() -> None:
+    engine, result, error = await click_behind_a_full_screen_app(leaves_after=1_000)
     assert error == "ELEMENT_NOT_ACTIONABLE"
     assert "covered by Notes" in text_of(result)
     assert not engine.events_of("mouse_click")
