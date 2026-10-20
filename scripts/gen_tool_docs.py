@@ -176,7 +176,10 @@ def _type(schema: dict[str, Any], defs: dict[str, Any]) -> str:
 
 
 def _cell(text: Any) -> str:
-    return str(text).replace("|", "\\|").replace("\n", " ").strip()
+    """Schema text as one table cell. Brackets are escaped so that text such as ``[text](url)``
+    reads as written instead of becoming a (broken) link."""
+    cell = str(text).replace("|", "\\|").replace("\n", " ").strip()
+    return cell.replace("[", "\\[").replace("]", "\\]")
 
 
 def _default(schema: dict[str, Any], required: bool) -> str:

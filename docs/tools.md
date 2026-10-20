@@ -118,7 +118,7 @@ APP_NOT_FOUND, BLOCKED_BY_POLICY, TIMEOUT.
 | `display_id` | integer | optional | Display id from list_displays. Default: the main display. |
 | `window_id` | integer | optional | Window id from list_windows; scopes the call to that window. |
 | `app` | string | optional | Capture the front window of this app (name, bundle id or pid). |
-| `rect` | list of number | optional | Region [x, y, width, height] in screen points (e.g. a frame from a snapshot). |
+| `rect` | list of number | optional | Region \[x, y, width, height\] in screen points (e.g. a frame from a snapshot). |
 | `max_edge` | integer | optional | Longest image edge in pixels (default from config, 1280). |
 | `format` | `png` \| `jpeg` | optional | Image format (default from config, jpeg). |
 
@@ -235,9 +235,9 @@ DISPLAY_NOT_FOUND, BLOCKED_BY_POLICY, TIMEOUT.
 |---|---|---|---|
 | `window_id` | integer | optional | Window id from list_windows; scopes the call to that window. |
 | `app` | string | optional | Capture the front window of this app (name, bundle id or pid). |
-| `rect` | list of number | optional | Region [x, y, width, height] in screen points (e.g. a frame from a snapshot). |
+| `rect` | list of number | optional | Region \[x, y, width, height\] in screen points (e.g. a frame from a snapshot). |
 | `display_id` | integer | optional | Display id from list_displays. Default: the main display. |
-| `languages` | list of string | optional | Recognition languages, e.g. ["en-US", "de-DE"]. Default: automatic. |
+| `languages` | list of string | optional | Recognition languages, e.g. \["en-US", "de-DE"\]. Default: automatic. |
 
 **Returns** (structured content): `screenshot_id`, `region`, `lines`, `count`, `text`, and `warnings`.
 
@@ -347,7 +347,7 @@ BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER, INVALID_ARGUMENT.
 | `screenshot_id` | string | optional | Screenshot the pixel coordinates refer to ("c_ab12"). Default: the latest. |
 | `button` | `left` \| `right` \| `middle` | `"left"` | Mouse button. |
 | `count` | integer | `1` | Clicks: 2 = double-click, 3 = triple-click. |
-| `modifiers` | list of `cmd` \| `shift` \| `option` \| `ctrl` \| `fn` | `[]` | Modifier keys held during the action, e.g. ["cmd"] to add to a selection. |
+| `modifiers` | list of `cmd` \| `shift` \| `option` \| `ctrl` \| `fn` | `[]` | Modifier keys held during the action, e.g. \["cmd"\] to add to a selection. |
 | `strategy` | `auto` \| `ax` \| `mouse` | `"auto"` | "auto" (AX, then mouse), "ax" only, or "mouse" only. |
 | `report` | `diff` \| `snapshot` \| `none` | `"diff"` | What to return after acting: "diff" (what changed, default), "snapshot" (the whole new snapshot) or "none" (fastest). |
 
@@ -455,7 +455,7 @@ BLOCKED_BY_POLICY, ELEMENT_NOT_ACTIONABLE, USER_ACTIVE, PAUSED_BY_USER.
 | `coordinate_space` | `points` \| `screenshot` | `"points"` | "points" (screen points) or "screenshot" (pixels of the screenshot given by screenshot_id, or the latest one). |
 | `screenshot_id` | string | optional | Screenshot the pixel coordinates refer to ("c_ab12"). Default: the latest. |
 | `duration_ms` | integer | `300` | How long the drag takes. |
-| `modifiers` | list of `cmd` \| `shift` \| `option` \| `ctrl` \| `fn` | `[]` | Modifier keys held during the action, e.g. ["cmd"] to add to a selection. |
+| `modifiers` | list of `cmd` \| `shift` \| `option` \| `ctrl` \| `fn` | `[]` | Modifier keys held during the action, e.g. \["cmd"\] to add to a selection. |
 | `report` | `diff` \| `snapshot` \| `none` | `"diff"` | What to return after acting: "diff" (what changed, default), "snapshot" (the whole new snapshot) or "none" (fastest). |
 
 **Returns** (structured content): `ok`, `action`, `strategy`, `attempts`, `target`, `point`, `message`, `diff`, `snapshot`, `snapshot_id`, and `warnings`.
@@ -566,7 +566,7 @@ listing), report. Errors: MENU_NOT_FOUND (with the available titles), ELEMENT_NO
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `path` | list of string | `[]` | Menu titles from the menu bar down, e.g. ["File", "Save As…"]. Empty = list. |
+| `path` | list of string | `[]` | Menu titles from the menu bar down, e.g. \["File", "Save As…"\]. Empty = list. |
 | `app` | string | optional | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
 | `extras` | boolean | `false` | Use the menu bar's status items (default app: Control Center). |
 | `depth` | integer | `2` | Levels to list (1 = top-level menus only). |
@@ -941,7 +941,7 @@ page in the front window), BLOCKED_BY_POLICY.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `browser` | string | optional | Safari, Chrome, Arc, Edge, Brave, Chromium or Vivaldi (name, key or bundle id). Default: the frontmost browser, else the first one running. |
-| `include_links` | boolean | `false` | Write links as [text](url). |
+| `include_links` | boolean | `false` | Write links as \[text\](url). |
 | `offset` | integer | `0` | Character to start at (from next_offset). |
 | `max_chars` | integer | `20000` | Most characters to return. |
 
@@ -998,7 +998,7 @@ SECURE_INPUT_ACTIVE, USER_ACTIVE, PAUSED_BY_USER, PERMISSION_SCREEN_RECORDING.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `action` | `screenshot` \| `left_click` \| `right_click` \| `middle_click` \| `double_click` \| `triple_click` \| `mouse_move` \| `left_click_drag` \| `left_mouse_down` \| `left_mouse_up` \| `type` \| `key` \| `scroll` \| `wait` \| `cursor_position` | required | What to do (see the tool description). |
-| `coordinate` | list of integer | optional | [x, y] in pixels of the latest screenshot. |
+| `coordinate` | list of integer | optional | \[x, y\] in pixels of the latest screenshot. |
 | `start_coordinate` | list of integer | optional | left_click_drag: where the drag starts. |
 | `text` | string | optional | type: the text; key: keys such as cmd+c; clicks: modifier keys to hold. |
 | `scroll_direction` | `up` \| `down` \| `left` \| `right` | optional | scroll: up\|down\|left\|right. |

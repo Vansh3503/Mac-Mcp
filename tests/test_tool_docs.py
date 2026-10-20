@@ -37,6 +37,13 @@ def test_check_mode() -> None:
     assert generator().main(["--check"]) == 0
 
 
+def test_schema_text_never_becomes_a_link() -> None:
+    # mkdocs --strict fails on a relative link it cannot resolve, such as "[text](url)" in a
+    # parameter description; table cells escape brackets so the text reads as written.
+    cell = generator()._cell("Write links as [text](url) | e.g. [x, y]")
+    assert cell == "Write links as \\[text\\](url) \\| e.g. \\[x, y\\]"
+
+
 def test_the_readme_lists_every_toolset() -> None:
     rows = {}
     for line in (ROOT / "README.md").read_text(encoding="utf-8").splitlines():
