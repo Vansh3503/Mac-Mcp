@@ -384,11 +384,11 @@ class FaultyEngine(Engine):
         return self._call("open_target", target, with_app, reveal)
 
     # ------------------------------------------------------------------ menus
-    def menu_bar(self, app: str | None = None, depth: int = 2) -> MenuNode:
-        return self._call("menu_bar", app, depth)
+    def menu_bar(self, app: str | None = None, depth: int = 2, *, extras: bool = False) -> MenuNode:
+        return self._call("menu_bar", app, depth, extras=extras)
 
-    def menu_select(self, app: str | None, path: Sequence[str]) -> list[str]:
-        return self._call("menu_select", app, path)
+    def menu_select(self, app: str | None, path: Sequence[str], *, extras: bool = False) -> list[str]:
+        return self._call("menu_select", app, path, extras=extras)
 
     # ------------------------------------------------------------------ capture & vision
     def screenshot(

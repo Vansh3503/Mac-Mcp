@@ -35,7 +35,8 @@ is authoritative for its exact parameters.
   Qualify it with its snapshot when in doubt (`s_7f3a:e12`).
 - **Use `select_menu` for menu commands.** It is often the most reliable way to drive a Mac app:
   `select_menu` with a path such as `["File", "Export…"]`. It can also list a menu's items when
-  you are unsure of the exact names.
+  you are unsure of the exact names. Status items at the right of the menu bar (Wi‑Fi, Battery, an
+  app's icon) are `select_menu` with `extras: true`; the system ones belong to Control Center.
 - **Pop-ups, radio groups, tabs and lists:** `select_option` with the control's ref and the
   option's title (or index) picks it the way the control expects.
 - **Sheets, alerts and dialogs:** `handle_dialog` reads the dialog in front of an app (text,

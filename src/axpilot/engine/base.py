@@ -228,14 +228,21 @@ class Engine(abc.ABC):
 
     # ------------------------------------------------------------------- menus
     @abc.abstractmethod
-    def menu_bar(self, app: str | None = None, depth: int = 2) -> MenuNode:
-        """The app's menu bar. The root's children are the top-level menus (Apple menu first)."""
+    def menu_bar(self, app: str | None = None, depth: int = 2, *, extras: bool = False) -> MenuNode:
+        """The app's menu bar. The root's children are the top-level menus (Apple menu first).
+
+        ``extras``: the app's menu bar extras instead (``AXExtrasMenuBar``: its status items at
+        the right of the menu bar; Control Center owns the system ones). ``MENU_NOT_FOUND`` if
+        the app has none."""
 
     @abc.abstractmethod
-    def menu_select(self, app: str | None, path: Sequence[str]) -> list[str]:
-        """Select a menu item by path (case-insensitive, ``…``/``...`` tolerant, prefix-matching
-        allowed when unambiguous). Returns the exact titles that were matched. Raises
-        ``MENU_NOT_FOUND`` or ``ELEMENT_NOT_ACTIONABLE`` for disabled items."""
+    def menu_select(self, app: str | None, path: Sequence[str], *, extras: bool = False) -> list[str]:
+        """Select a menu item by path (case-insensitive, ``…``/``...`` and hyphen-variant
+        tolerant, prefix-matching allowed when unambiguous). Returns the exact titles that were
+        matched. Raises ``MENU_NOT_FOUND`` or ``ELEMENT_NOT_ACTIONABLE`` for disabled items.
+
+        ``extras``: walk the app's status items; a one-title path clicks the status item, which
+        opens its menu or panel."""
 
     # ---------------------------------------------------------- capture & vision
     @abc.abstractmethod

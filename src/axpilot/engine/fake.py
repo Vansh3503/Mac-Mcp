@@ -12,6 +12,7 @@ The desktop is loaded from a JSON fixture (:meth:`FakeEngine.demo` uses the bund
       "windows": [{"window_id": 401, "app": "com.apple.Notes", "title": "Notes",
                    "frame": [0, 25, 1440, 875], "tree": {"role": "AXWindow", "children": [...]}}],
       "menus": {"com.apple.Notes": {"title": "", "children": [{"title": "Apple", ...}, ...]}},
+      "extras_menus": {"com.apple.controlcenter": [{"title": "Wi‑Fi", "children": [...]}, ...]},
       "clipboard": "some text",
       "permissions": {"accessibility": true, "screen_recording": true, "automation": {}}
     }
@@ -122,7 +123,9 @@ from axpilot.perception.snapshot import node_name
 FIXTURES_DIR = Path(__file__).with_name("fixtures")
 DEMO_FIXTURE = FIXTURES_DIR / "demo_desktop.json"
 
-_DESKTOP_KEYS = frozenset({"os_version", "displays", "apps", "windows", "menus", "clipboard", "permissions"})
+_DESKTOP_KEYS = frozenset(
+    {"os_version", "displays", "apps", "windows", "menus", "extras_menus", "clipboard", "permissions"}
+)
 _APP_KEYS = frozenset({"name", "bundle_id", "pid", "path", "running", "frontmost", "hidden", "bundle"})
 _WINDOW_KEYS = frozenset(
     {"window_id", "app", "title", "frame", "display_id", "open", "minimized", "fullscreen", "tree", "ocr"}
@@ -303,8 +306,13 @@ def parse_shortcut(text: str | None) -> KeyCombo | None:
     return KeyCombo(key, frozenset(modifiers))
 
 
+_HYPHENS = str.maketrans(dict.fromkeys("\u2010\u2011\u2012\u2013\u2212", "-"))
+
+
 def _menu_norm(text: str) -> str:
-    return " ".join(text.replace("…", " ").replace("...", " ").casefold().split())
+    """Menu titles compare like :func:`axpilot.engine.macos.helpers.normalize_menu_title`."""
+    cleaned = text.replace("\u00a0", " ").replace("…", " ").replace("...", " ").translate(_HYPHENS)
+    return " ".join(cleaned.casefold().split())
 
 
 # --------------------------------------------------------------------------- state objects
@@ -589,6 +597,7 @@ class FakeEngine(Engine):
         self._apps, frontmost = self._parse_apps(desktop.get("apps"))
         self._bundle_fs = MemoryBundleFS(self._bundle_files, self._bundle_plists)
         self._menus = self._parse_menus(desktop.get("menus") or {})
+        self._extras = self._parse_menus(desktop.get("extras_menus") or {}, extras=True)
         self._window_defs = self._parse_window_defs(desktop.get("windows") or [])
         self.clipboard: ClipboardContent = self._parse_clipboard(desktop.get("clipboard"))
         self.permission_status: PermissionStatus = self._parse_permissions(desktop.get("permissions"))
@@ -687,21 +696,24 @@ class FakeEngine(Engine):
         no files, so detection falls back to their bundle ids)."""
         return self._bundle_fs
 
-    def _parse_menus(self, data: Any) -> dict[str, _MenuItem]:
+    def _parse_menus(self, data: Any, *, extras: bool = False) -> dict[str, _MenuItem]:
+        """``menus`` (each app's menu bar, the Apple menu added when missing) or ``extras_menus``
+        (each app's status items at the right of the menu bar)."""
+        section = "extras_menus" if extras else "menus"
         if not isinstance(data, Mapping):
-            raise _fixture_error("menus must be an object keyed by bundle id.")
+            raise _fixture_error(f"{section} must be an object keyed by bundle id.")
         menus: dict[str, _MenuItem] = {}
         for key, value in data.items():
             app = next((a for a in self._apps if key in (a.bundle_id, a.name)), None)
             if app is None:
-                raise _fixture_error(f"menus has an entry for unknown app {key!r}.")
-            where = f"menus[{key!r}]"
+                raise _fixture_error(f"{section} has an entry for unknown app {key!r}.")
+            where = f"{section}[{key!r}]"
             root = (
                 _MenuItem(title="", children=[_parse_menu(c, f"{where}[{i}]") for i, c in enumerate(value)])
                 if isinstance(value, list)
                 else _parse_menu(value, where)
             )
-            if not root.children or root.children[0].title != "Apple":
+            if not extras and (not root.children or root.children[0].title != "Apple"):
                 root.children.insert(0, _apple_menu())
             menus[app.key] = root
         return menus
@@ -818,7 +830,7 @@ class FakeEngine(Engine):
             for child in item.children:
                 collect_menu(child)
 
-        for menu in self._menus.values():
+        for menu in [*self._menus.values(), *self._extras.values()]:
             collect_menu(menu)
         known = ids | identifiers
         for where, effect in effects:
@@ -1498,6 +1510,16 @@ class FakeEngine(Engine):
             root = self._menus[app.key] = _standard_menus(app.name)
         return root
 
+    def _extras_root(self, app: _App) -> _MenuItem:
+        root = self._extras.get(app.key)
+        if root is None or not root.children:
+            raise AXPilotError(
+                ErrorCode.MENU_NOT_FOUND,
+                f"{app.name} has no menu bar extras (status items).",
+                hint="System status items (Wi‑Fi, Battery, the clock…) belong to Control Center.",
+            )
+        return root
+
     def _menu_handle(self, app: _App, indices: Sequence[int]) -> str:
         return f"menu:{app.pid}:" + "/".join(str(i) for i in indices)
 
@@ -1522,21 +1544,24 @@ class FakeEngine(Engine):
             level = level[index].children
         return app, items
 
-    def _menu_node(self, item: _MenuItem, app: _App, indices: list[int], depth: int) -> MenuNode:
+    def _menu_node(
+        self, item: _MenuItem, app: _App, indices: list[int], depth: int, *, prefix: str = "menu"
+    ) -> MenuNode:
         children: list[MenuNode] = []
         if depth > 0:
             children = [
-                self._menu_node(child, app, [*indices, i], depth - 1)
+                self._menu_node(child, app, [*indices, i], depth - 1, prefix=prefix)
                 for i, child in enumerate(item.children)
                 if not child.separator
             ]
+        handle = self._menu_handle(app, indices)
         return MenuNode(
             title=item.title,
             enabled=item.enabled,
             checked=item.checked,
             shortcut=item.shortcut,
             children=children,
-            handle=self._menu_handle(app, indices),
+            handle=handle if prefix == "menu" else f"{prefix}{handle.removeprefix('menu')}",
         )
 
     def _menu_bar_node(self, app: _App) -> RawNode:
@@ -2266,26 +2291,36 @@ class FakeEngine(Engine):
                 self._activate(app)
 
     # ------------------------------------------------------------------ menus
-    def menu_bar(self, app: str | None = None, depth: int = 2) -> MenuNode:
+    def menu_bar(self, app: str | None = None, depth: int = 2, *, extras: bool = False) -> MenuNode:
         with self._lock:
             self._require_accessibility()
             target = self._target_app(app)
-            root = self._menu_root(target)
-            node = self._menu_node(root, target, [], max(depth, 0))
+            if extras:
+                node = self._menu_node(self._extras_root(target), target, [], max(depth, 0), prefix="extras")
+            else:
+                node = self._menu_node(self._menu_root(target), target, [], max(depth, 0))
             node.title = target.name
             return node
 
-    def menu_select(self, app: str | None, path: Sequence[str]) -> list[str]:
+    def menu_select(self, app: str | None, path: Sequence[str], *, extras: bool = False) -> list[str]:
         with self._lock:
             self._require_accessibility()
             if not path:
                 raise AXPilotError(ErrorCode.INVALID_ARGUMENT, "A menu path needs at least one title.")
             target = self._target_app(app)
-            items = self._menu_root(target).children
+            root = self._extras_root(target) if extras else self._menu_root(target)
+            bar = f"{target.name}'s menu bar extras" if extras else f"{target.name}'s menu bar"
+            items = root.children
             matched: list[str] = []
             item: _MenuItem | None = None
+            if extras and len(path) == 1:  # a status item: clicking it opens its menu or panel
+                item = self._match_menu(items, str(path[0]), bar)
+                self._record("menu_select", app=target.key, path=[item.title], via="extras")
+                if item.effects:
+                    self._apply_effects(item.effects, self._front_window_of(target))
+                return [item.title]
             for part in path:
-                item = self._match_menu(items, str(part), " > ".join(matched) or f"{target.name}'s menu bar")
+                item = self._match_menu(items, str(part), " > ".join(matched) or bar)
                 matched.append(item.title)
                 if not item.enabled:
                     raise AXPilotError(

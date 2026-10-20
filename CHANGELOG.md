@@ -66,6 +66,9 @@ Pre-alpha. Nothing is published on PyPI yet.
 - `select_option` (pop-ups, combo boxes, radio and tab groups, segmented controls, list rows by
   title or index) and `handle_dialog` (read a sheet or dialog; accept, cancel or press a button;
   buttons that delete or discard ask first).
+- Menu bar extras: `select_menu` with `extras: true` lists and chooses status items (Wi‑Fi,
+  Battery, an app's icon; Control Center by default); a one-title path clicks the item. Menu
+  titles match across hyphen variants ("wi-fi" finds "Wi‑Fi").
 - Portable input schemas that OpenAI, Gemini and Anthropic function calling all accept (no `null`
   unions or `$ref`s, `additionalProperties: false`, every parameter described), and an optional
   tool-name prefix (`[tools] prefix = "mac_"`).

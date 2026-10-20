@@ -202,6 +202,7 @@ def test_visibility_and_clipping() -> None:
 def test_normalize_menu_title() -> None:
     assert h.normalize_menu_title("Save As…") == h.normalize_menu_title("save  as...")
     assert h.normalize_menu_title("New\u00a0Window") == "new window"
+    assert h.normalize_menu_title("Wi\u2011Fi") == h.normalize_menu_title("wi-fi")
 
 
 def test_match_menu_title() -> None:

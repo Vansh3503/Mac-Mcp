@@ -1347,9 +1347,16 @@ MENU_DESCRIPTION = """\
 Use an app's menu bar: list its menus, or choose a command by path, e.g. ["File", "Export…"] or
 ["Format", "Font", "Bold"]. Matching ignores case and "…" vs "..." and accepts unambiguous
 prefixes. This is often the most reliable way to run a command in a Mac app.
-Params: path (omit to list the menus), app (default: the frontmost app), depth (when listing),
-report. Errors: MENU_NOT_FOUND (with the available titles), ELEMENT_NOT_ACTIONABLE (disabled
-item), APP_NOT_FOUND, BLOCKED_BY_POLICY."""
+extras=true uses the status items at the right of the menu bar instead (Wi-Fi, Battery, an app's
+icon; the system ones belong to Control Center, the default app then): a one-title path clicks the
+item, opening its menu or panel (take a snapshot of that app to see a panel).
+Params: path (omit to list the menus), app (default: the frontmost app), extras, depth (when
+listing), report. Errors: MENU_NOT_FOUND (with the available titles), ELEMENT_NOT_ACTIONABLE
+(disabled item), APP_NOT_FOUND, BLOCKED_BY_POLICY."""
+
+
+CONTROL_CENTER = "com.apple.controlcenter"
+"""Owner of the system status items (Wi-Fi, Battery, the clock…) since macOS 11."""
 
 
 class MenuItemModel(BaseModel):
@@ -1415,16 +1422,21 @@ def select_menu_tool(ctx: ServerContext) -> ToolFn:
             ),
         ] = [],  # noqa: B006 - pydantic copies defaults
         app: AppArg = None,
+        extras: Annotated[
+            bool, Field(description="Use the menu bar's status items (default app: Control Center).")
+        ] = False,
         depth: Annotated[
             int, Field(description="Levels to list (1 = top-level menus only).", ge=1, le=4)
         ] = 2,
         report: ReportArg = "diff",
     ) -> Annotated[CallToolResult, MenuResult]:
+        if extras and app is None:
+            app = CONTROL_CENTER
         target_app = await ctx.resolve_app(app)
         key = _app_key(target_app) if app is not None else None
         if not path:
             ctx.policy.check_app(target_app, kind="observe")
-            root = await ctx.run_engine(ctx.engine.menu_bar, key, depth)
+            root = await ctx.run_engine(functools.partial(ctx.engine.menu_bar, key, depth, extras=extras))
             menus = [_menu_model(child, depth - 1) for child in root.children]
             name = target_app.name if target_app is not None else "the frontmost app"
             text = f"menus of {name}:\n" + "\n".join(_menu_lines(menus))
@@ -1437,7 +1449,9 @@ def select_menu_tool(ctx: ServerContext) -> ToolFn:
         if report == "diff" and target_app is not None:
             with contextlib.suppress(AXPilotError):
                 before = await ctx.take_snapshot(app=_app_key(target_app), store=False)
-        selected = await ctx.run_engine(ctx.engine.menu_select, key, list(path))
+        selected = await ctx.run_engine(
+            functools.partial(ctx.engine.menu_select, key, list(path), extras=extras)
+        )
         observation = await observe_after(ctx, app=target_app, before=before, report=report)
         model = MenuResult(
             app=target_app.name if target_app else None,

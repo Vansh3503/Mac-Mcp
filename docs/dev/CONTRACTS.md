@@ -242,7 +242,10 @@ Node keys mirror `RawNode` field names; `frame` is `[x,y,w,h]`; omitted keys tak
 `class FakeEngine(Engine)`; `FakeEngine.demo() -> FakeEngine` (bundled fixture
 `src/axpilot/engine/fixtures/demo_desktop.json`), `FakeEngine.from_fixture(path) -> FakeEngine`.
 Desktop fixture = `{"os_version": "15.4", "displays": [...], "apps": [...], "windows": [{..., "tree": <node>}],
-"menus": {"<bundle_id>": <MenuNode dict>}, "clipboard": "...", "permissions": {...}}`.
+"menus": {"<bundle_id>": <MenuNode dict>}, "extras_menus": {"<bundle_id>": [<status item dicts>]},
+"clipboard": "...", "permissions": {...}}`. `extras_menus` are the app's menu bar extras
+(`menu_bar(..., extras=True)`, `menu_select(..., extras=True)`; a one-title path "clicks" the status item
+and applies its `on_select`).
 Simulation rules: `AXPress` on a button records the press in `engine.events` and, if the node has
 `"on_press"` in the fixture (e.g. `{"open_window": 102}`, `{"set_value": {"id": "...", "value": ...}}`,
 `{"focus": "<identifier>"}`), applies it; `set_value`/`insert_text`/`type_text` update the focused or
@@ -254,7 +257,8 @@ so tests can assert on it. `hid_idle_seconds()` returns a settable attribute (de
 Demo fixture must contain at least: Finder (front), TextEdit (document window with text area, toolbar,
 format popup), Notes (list with rows, search field, New Note button), a login sheet with a secure field
 (app "Login Demo"), Terminal (window with text area), 1Password (to test deny lists), System Settings
-with a "Privacy & Security" window, two displays.
+with a "Privacy & Security" window, Control Center with status items (Wi‑Fi, Battery, Clock), two
+displays.
 
 ---------------------------------------------------------------------------------------------------
 

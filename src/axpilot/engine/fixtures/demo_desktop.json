@@ -37,6 +37,10 @@
       "path": "/System/Applications/System Settings.app"
     },
     {
+      "name": "Control Center", "bundle_id": "com.apple.controlcenter", "pid": 380,
+      "path": "/System/Library/CoreServices/ControlCenter.app"
+    },
+    {
       "name": "Calculator", "bundle_id": "com.apple.calculator", "running": false,
       "path": "/System/Applications/Calculator.app"
     },
@@ -3324,6 +3328,26 @@
         {"title": "Help", "children": [{"title": "Notes Help"}]}
       ]
     }
+  },
+  "extras_menus": {
+    "com.apple.controlcenter": [
+      {
+        "title": "Wi‑Fi",
+        "children": [
+          {"title": "Wi‑Fi", "toggle": true, "checked": true},
+          {"separator": true},
+          {"title": "Home Network", "checked": true},
+          {"title": "Café Guest"},
+          {"separator": true},
+          {"title": "Wi‑Fi Settings…"}
+        ]
+      },
+      {"title": "Battery", "children": [{"title": "Battery Settings…"}]},
+      {"title": "Clock"}
+    ],
+    "com.1password.1password": [
+      {"title": "1Password", "children": [{"title": "Open Quick Access"}, {"title": "Lock 1Password"}]}
+    ]
   },
   "clipboard": "Quarterly numbers: revenue up 12%",
   "permissions": {

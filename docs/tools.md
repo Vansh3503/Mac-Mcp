@@ -555,14 +555,18 @@ input · Profiles: `standard`, `full` · Windows-MCP: `SelectMenu`
 Use an app's menu bar: list its menus, or choose a command by path, e.g. ["File", "Export…"] or
 ["Format", "Font", "Bold"]. Matching ignores case and "…" vs "..." and accepts unambiguous
 prefixes. This is often the most reliable way to run a command in a Mac app.
-Params: path (omit to list the menus), app (default: the frontmost app), depth (when listing),
-report. Errors: MENU_NOT_FOUND (with the available titles), ELEMENT_NOT_ACTIONABLE (disabled
-item), APP_NOT_FOUND, BLOCKED_BY_POLICY.
+extras=true uses the status items at the right of the menu bar instead (Wi-Fi, Battery, an app's
+icon; the system ones belong to Control Center, the default app then): a one-title path clicks the
+item, opening its menu or panel (take a snapshot of that app to see a panel).
+Params: path (omit to list the menus), app (default: the frontmost app), extras, depth (when
+listing), report. Errors: MENU_NOT_FOUND (with the available titles), ELEMENT_NOT_ACTIONABLE
+(disabled item), APP_NOT_FOUND, BLOCKED_BY_POLICY.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | list of string | `[]` | Menu titles from the menu bar down, e.g. ["File", "Save As…"]. Empty = list. |
 | `app` | string | optional | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
+| `extras` | boolean | `false` | Use the menu bar's status items (default app: Control Center). |
 | `depth` | integer | `2` | Levels to list (1 = top-level menus only). |
 | `report` | `diff` \| `snapshot` \| `none` | `"diff"` | What to return after acting: "diff" (what changed, default), "snapshot" (the whole new snapshot) or "none" (fastest). |
 
@@ -1032,7 +1036,7 @@ Each server exposes one naming.
 | `SelectOption` | `select_option` | `ref`, `option`, `index`, `snapshot_id`, `report` |
 | `HandleDialog` | `handle_dialog` | `app`, `action`, `button`, `text`, `report` |
 | `PerformAction` | `perform_action` | `ref`, `action`, `snapshot_id`, `report` |
-| `SelectMenu` | `select_menu` | `path`, `app`, `depth`, `report` |
+| `SelectMenu` | `select_menu` | `path`, `app`, `extras`, `depth`, `report` |
 | `MultiEdit` | `fill_form` | `locs`, `labels` |
 | `App` | `app` | `mode`, `name`, `window_loc`, `window_size`, `executable`, `args`, `cwd` |
 | `Window` | `window` | `action`, `window_id`, `ref`, `snapshot_id`, `x`, `y`, `width`, `height` |

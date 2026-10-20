@@ -627,19 +627,21 @@ class MacEngine(Engine):
 
     # ================================================================== menus
     @_guarded("Reading the menu bar")
-    def menu_bar(self, app: str | None = None, depth: int = 2) -> MenuNode:
+    def menu_bar(self, app: str | None = None, depth: int = 2, *, extras: bool = False) -> MenuNode:
         self._require_ax()
         target = self._target_app(app)
-        return self._menus.read(self._ax.application(target.pid), target.name, depth)
+        return self._menus.read(self._ax.application(target.pid), target.name, depth, extras=extras)
 
     @_guarded("Choosing the menu item")
-    def menu_select(self, app: str | None, path: Sequence[str]) -> list[str]:
+    def menu_select(self, app: str | None, path: Sequence[str], *, extras: bool = False) -> list[str]:
         self._require_ax()
         if not path:
             raise AXPilotError(ErrorCode.INVALID_ARGUMENT, "A menu path needs at least one title.")
         target = self._target_app(app)
         self._refuse_auth(target.pid)
-        return self._menus.select(self._ax.application(target.pid), target.name, [str(p) for p in path])
+        return self._menus.select(
+            self._ax.application(target.pid), target.name, [str(p) for p in path], extras=extras
+        )
 
     # ================================================================== capture & vision
     @_guarded("Taking a screenshot")

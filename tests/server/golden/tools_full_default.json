@@ -1240,7 +1240,7 @@
    "readOnlyHint": false,
    "title": "Use the menu bar"
   },
-  "description": "Use an app's menu bar: list its menus, or choose a command by path, e.g. [\"File\", \"Export…\"] or\n[\"Format\", \"Font\", \"Bold\"]. Matching ignores case and \"…\" vs \"...\" and accepts unambiguous\nprefixes. This is often the most reliable way to run a command in a Mac app.\nParams: path (omit to list the menus), app (default: the frontmost app), depth (when listing),\nreport. Errors: MENU_NOT_FOUND (with the available titles), ELEMENT_NOT_ACTIONABLE (disabled\nitem), APP_NOT_FOUND, BLOCKED_BY_POLICY.",
+  "description": "Use an app's menu bar: list its menus, or choose a command by path, e.g. [\"File\", \"Export…\"] or\n[\"Format\", \"Font\", \"Bold\"]. Matching ignores case and \"…\" vs \"...\" and accepts unambiguous\nprefixes. This is often the most reliable way to run a command in a Mac app.\nextras=true uses the status items at the right of the menu bar instead (Wi-Fi, Battery, an app's\nicon; the system ones belong to Control Center, the default app then): a one-title path clicks the\nitem, opening its menu or panel (take a snapshot of that app to see a panel).\nParams: path (omit to list the menus), app (default: the frontmost app), extras, depth (when\nlisting), report. Errors: MENU_NOT_FOUND (with the available titles), ELEMENT_NOT_ACTIONABLE\n(disabled item), APP_NOT_FOUND, BLOCKED_BY_POLICY.",
   "input_schema": {
    "additionalProperties": false,
    "properties": {
@@ -1256,6 +1256,11 @@
      "maximum": 4,
      "minimum": 1,
      "type": "integer"
+    },
+    "extras": {
+     "default": false,
+     "description": "Use the menu bar's status items (default app: Control Center).",
+     "type": "boolean"
     },
     "path": {
      "default": [],

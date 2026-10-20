@@ -172,6 +172,14 @@ def test_from_fixture_errors(tmp_path: Path) -> None:
             "unknown window",
         ),
         (lambda d: d.update(menus={"com.example.nope": []}), "unknown app"),
+        (
+            lambda d: d.update(extras_menus={"com.example.nope": []}),
+            "extras_menus has an entry for unknown app",
+        ),
+        (
+            lambda d: d.update(extras_menus={"Widget": [{"title": "W", "on_select": {"focus": "ghost"}}]}),
+            "unknown element 'ghost'",
+        ),
         (lambda d: d.update(displays=[]), "displays must be a non-empty list"),
     ],
 )
@@ -232,7 +240,7 @@ def test_os_version_idle_and_secure_input_are_settable(engine: FakeEngine) -> No
 def test_list_apps_and_frontmost(engine: FakeEngine) -> None:
     running = engine.list_apps()
     assert all(app.pid > 0 for app in running)
-    assert len(running) == 7
+    assert len(running) == 8  # Control Center has status items but no windows
     everything = engine.list_apps(include_installed=True)
     installed_only = [app for app in everything if app.pid == 0]
     assert [app for app in everything if app.pid > 0] == running
@@ -824,6 +832,18 @@ def test_apps_without_fixture_menus_get_standard_menus(engine: FakeEngine) -> No
     titles = [menu.title for menu in engine.menu_bar("Terminal").children]
     assert titles == ["Apple", "Terminal", "File", "Edit", "View", "Window", "Help"]
     assert engine.menu_bar().children[1].title == "Finder"  # frontmost app by default
+
+
+def test_menu_bar_extras(engine: FakeEngine) -> None:
+    bar = engine.menu_bar("Control Center", 2, extras=True)
+    assert [item.title for item in bar.children] == ["Wi‑Fi", "Battery", "Clock"]
+    assert all(str(item.handle).startswith("extras:") for item in bar.children)
+    assert engine.menu_select("Control Center", ["wi-fi", "Wi-Fi"], extras=True) == ["Wi‑Fi", "Wi‑Fi"]
+    assert engine.menu_bar("Control Center", 2, extras=True).children[0].children[0].checked is False
+    assert engine.menu_select("Control Center", ["clock"], extras=True) == ["Clock"]  # clicked
+    error = expect(ErrorCode.MENU_NOT_FOUND, engine.menu_bar, "Notes", extras=True)
+    assert error.hint
+    expect(ErrorCode.MENU_NOT_FOUND, engine.menu_select, "Control Center", ["Bluetooth"], extras=True)
 
 
 def test_menu_select_matching_rules(engine: FakeEngine) -> None:

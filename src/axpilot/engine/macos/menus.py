@@ -6,6 +6,11 @@ The menu bar is ``AXMenuBar`` → ``AXMenuBarItem`` (one per top-level menu, the
 first) → ``AXMenu`` → ``AXMenuItem`` (→ ``AXMenu`` for submenus). Separators are menu items
 without a title and are skipped.
 
+Menu bar extras (``AXExtrasMenuBar``, ``extras=True``) are an app's status items at the right of
+the menu bar (Control Center owns the system ones: Wi‑Fi, Battery, the clock). They are
+menu bar items too, but usually untitled, so their ``AXDescription`` names them; choosing
+one with a one-title path presses it, which opens its menu or panel.
+
 Choosing an item (:meth:`MenuService.select`) walks that hierarchy *without* opening the
 menus and presses only the final item, which AppKit performs directly (the approach
 Hammerspoon's ``selectMenuItem`` has used for years; it is fast and does not flash menus).
@@ -51,6 +56,8 @@ BAR_ITEM_ATTRIBUTES: tuple[str, ...] = (
     A.SIZE,
     A.CHILDREN,
 )
+EXTRAS_ITEM_ATTRIBUTES: tuple[str, ...] = (*ITEM_ATTRIBUTES, A.DESCRIPTION)
+"""Status items are named by their description when they have no title."""
 MENU_ACTIONS: tuple[str, ...] = (A.PRESS, A.CANCEL)
 """Every menu (bar) item supports these; listed without asking each item."""
 MAX_MENU_ITEMS = 3000
@@ -77,18 +84,24 @@ class MenuService:
         self._press_escape = press_escape
 
     # ------------------------------------------------------------------ reading
-    def menu_bar_element(self, app_element: AXElement, app_name: str) -> AXElement:
+    def menu_bar_element(self, app_element: AXElement, app_name: str, *, extras: bool = False) -> AXElement:
+        what = "menu bar extras (status items)" if extras else "menu bar"
         try:
-            bar = self._ax.get(app_element, A.MENU_BAR)
+            bar = self._ax.get(app_element, A.EXTRAS_MENU_BAR if extras else A.MENU_BAR)
         except AXCallError as exc:
-            raise ax_failure(
-                exc, f"Reading the menu bar of {app_name}", timeout_s=self._ax.timeout_s
-            ) from exc
+            if extras and exc.code == h.AX_NO_VALUE:
+                bar = None
+            else:
+                raise ax_failure(
+                    exc, f"Reading the {what} of {app_name}", timeout_s=self._ax.timeout_s
+                ) from exc
         if bar is None or not self._ax.is_element(bar):
             raise AXPilotError(
                 ErrorCode.MENU_NOT_FOUND,
-                f"{app_name} has no menu bar.",
-                hint="Background and menu-bar-only apps have no menus; activate a regular app.",
+                f"{app_name} has no {what}.",
+                hint="System status items (Wi‑Fi, Battery, the clock…) belong to Control Center."
+                if extras
+                else "Background and menu-bar-only apps have no menus; activate a regular app.",
             )
         return bar
 
@@ -110,9 +123,8 @@ class MenuService:
                 if exc.permission:
                     raise
                 continue
-            entries.append(
-                _Entry(element, A.text(attrs.get(A.TITLE)) or "", A.flag(attrs.get(A.ENABLED), True), attrs)
-            )
+            title = A.text(attrs.get(A.TITLE)) or A.text(attrs.get(A.DESCRIPTION)) or ""
+            entries.append(_Entry(element, title, A.flag(attrs.get(A.ENABLED), True), attrs))
         return entries
 
     def _menu_node(self, entry: _Entry, depth: int, budget: list[int]) -> MenuNode:
@@ -143,16 +155,20 @@ class MenuService:
             attrs.get(A.MENU_ITEM_CMD_VIRTUAL_KEY),
         )
 
-    def read(self, app_element: AXElement, app_name: str, depth: int = 2) -> MenuNode:
+    def read(
+        self, app_element: AXElement, app_name: str, depth: int = 2, *, extras: bool = False
+    ) -> MenuNode:
         """The menu bar as a :class:`MenuNode` tree: the root (titled with the app name) holds
-        the top-level menus, Apple menu first; ``depth`` counts levels below the root."""
-        bar = self.menu_bar_element(app_element, app_name)
+        the top-level menus, Apple menu first (or the status items, with ``extras``); ``depth``
+        counts levels below the root."""
+        bar = self.menu_bar_element(app_element, app_name, extras=extras)
         root = MenuNode(title=app_name, handle=bar)
         if depth <= 0:
             return root
         budget = [MAX_MENU_ITEMS]
+        top = EXTRAS_ITEM_ATTRIBUTES if extras else ITEM_ATTRIBUTES
         try:
-            for entry in self._entries(self._children(bar), ITEM_ATTRIBUTES):
+            for entry in self._entries(self._children(bar), top):
                 if entry.title:
                     root.children.append(self._menu_node(entry, depth - 1, budget))
         except AXCallError as exc:
@@ -219,9 +235,9 @@ class MenuService:
                 self._open(entry.element)
                 opened.append(entry.element)
 
-    def _level(self, parent: _Entry | None, bar: AXElement) -> list[_Entry]:
+    def _level(self, parent: _Entry | None, bar: AXElement, *, extras: bool = False) -> list[_Entry]:
         if parent is None:
-            return self._entries(self._children(bar), ITEM_ATTRIBUTES)
+            return self._entries(self._children(bar), EXTRAS_ITEM_ATTRIBUTES if extras else ITEM_ATTRIBUTES)
         attrs = self._ax.get_many(parent.element, (A.CHILDREN,))
         submenu = self._submenu(attrs)
         return [] if submenu is None else self._entries(self._children(submenu), ITEM_ATTRIBUTES)
@@ -238,14 +254,24 @@ class MenuService:
             except AXPilotError as escape_error:
                 _log.warning("could not close the menu: %s", escape_error)
 
-    def select(self, app_element: AXElement, app_name: str, path: list[str]) -> list[str]:
-        """Choose the item at ``path`` and return the exact titles that matched."""
+    def select(
+        self, app_element: AXElement, app_name: str, path: list[str], *, extras: bool = False
+    ) -> list[str]:
+        """Choose the item at ``path`` and return the exact titles that matched. With
+        ``extras``, a one-title path presses that status item (opening its menu or panel)."""
         if not path or any(not str(part).strip() for part in path):
             raise AXPilotError(ErrorCode.INVALID_ARGUMENT, "A menu path needs one or more non-empty titles.")
-        bar = self.menu_bar_element(app_element, app_name)
+        bar = self.menu_bar_element(app_element, app_name, extras=extras)
         opened: list[AXElement] = []
         try:
-            return self._walk(bar, app_name, [str(p) for p in path], opened)
+            if extras and len(path) == 1:
+                level = self._level(None, bar, extras=True)
+                entry = level[
+                    h.match_menu_title([e.title for e in level], str(path[0]), f"{app_name}'s status items")
+                ]
+                self._open(entry.element)
+                return [entry.title]
+            return self._walk(bar, app_name, [str(p) for p in path], opened, extras=extras)
         except AXCallError as exc:
             self._cancel(opened)
             raise ax_failure(
@@ -255,23 +281,27 @@ class MenuService:
             self._cancel(opened)
             raise
 
-    def _walk(self, bar: AXElement, app_name: str, path: list[str], opened: list[AXElement]) -> list[str]:
+    def _walk(
+        self, bar: AXElement, app_name: str, path: list[str], opened: list[AXElement], *, extras: bool = False
+    ) -> list[str]:
         chain: list[_Entry] = []
         matched: list[str] = []
         for index, part in enumerate(path):
             parent = chain[-1] if chain else None
-            location = " > ".join(matched) or f"{app_name}'s menu bar"
-            level = self._level(parent, bar)
+            location = " > ".join(matched) or (
+                f"{app_name}'s status items" if extras else f"{app_name}'s menu bar"
+            )
+            level = self._level(parent, bar, extras=extras)
             if parent is not None and not level:
                 self._open_chain(chain, opened)
-                level = self._level(parent, bar)
+                level = self._level(parent, bar, extras=extras)
             try:
                 found = h.match_menu_title([e.title for e in level], part, location)
             except AXPilotError:
                 if parent is None or any(self._ax.equal(parent.element, done) for done in opened):
                     raise
                 self._open_chain(chain, opened)
-                level = self._level(parent, bar)
+                level = self._level(parent, bar, extras=extras)
                 found = h.match_menu_title([e.title for e in level], part, location)
             entry = level[found]
             matched.append(entry.title)

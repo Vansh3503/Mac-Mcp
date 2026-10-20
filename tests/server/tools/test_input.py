@@ -548,6 +548,38 @@ async def test_menu_not_found_lists_what_is_available(client: Client) -> None:
     assert "Font" in text_of(result)
 
 
+async def test_menu_bar_extras(ctx: ServerContext, client: Client) -> None:
+    listed, error = await call(client, "select_menu", {"extras": True})  # Control Center by default
+    assert error is None, text_of(listed)
+    data = structured(listed)
+    assert data["app"] == "Control Center"
+    assert [menu["title"] for menu in data["menus"]] == ["Wi‑Fi", "Battery", "Clock"]
+    chosen, error = await call(client, "select_menu", {"extras": True, "path": ["wi-fi", "cafe guest"]})
+    assert error == "MENU_NOT_FOUND"  # "é" is a different letter: nothing is guessed
+    chosen, error = await call(client, "select_menu", {"extras": True, "path": ["wi-fi", "Café"]})
+    assert error is None, text_of(chosen)
+    assert structured(chosen)["selected"] == ["Wi‑Fi", "Café Guest"]
+    opened, error = await call(client, "select_menu", {"extras": True, "path": ["Battery"]})
+    assert error is None, text_of(opened)  # a status item alone is clicked (its menu or panel opens)
+    assert events(ctx, "menu_select")[-1] == {
+        "app": "com.apple.controlcenter",
+        "path": ["Battery"],
+        "via": "extras",
+    }
+
+
+async def test_menu_bar_extras_follow_the_policy_and_need_status_items(client: Client) -> None:
+    for args in (
+        {"extras": True, "app": "1Password"},
+        {"extras": True, "app": "1Password", "path": ["1Password", "Lock"]},
+    ):
+        result, error = await call(client, "select_menu", args)
+        assert error == "BLOCKED_BY_POLICY", text_of(result)
+    result, error = await call(client, "select_menu", {"extras": True, "app": "Notes"})
+    assert error == "MENU_NOT_FOUND"
+    assert "Control Center" in text_of(result)
+
+
 # =========================================================================== set_value
 async def test_checkboxes_are_set_idempotently(ctx: ServerContext, client: Client) -> None:
     refs = await refs_of(client, "TextEdit")

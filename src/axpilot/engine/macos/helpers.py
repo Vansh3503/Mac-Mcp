@@ -292,9 +292,14 @@ def child_clip(role: str, frame: Rect | None, clip: Rect | None) -> Rect | None:
 _MENU_LIST_LIMIT = 25
 
 
+_HYPHENS = str.maketrans(dict.fromkeys("\u2010\u2011\u2012\u2013\u2212", "-"))
+"""Hyphen look-alikes macOS uses in titles ("Wi\u2011Fi" has a non-breaking hyphen)."""
+
+
 def normalize_menu_title(text: str) -> str:
-    """Casefold, treat ``…`` and ``...`` as the same, and collapse whitespace."""
-    cleaned = text.replace("\u00a0", " ").replace("…", " ").replace("...", " ")
+    """Casefold, treat ``…`` and ``...`` as the same, hyphen look-alikes as ``-``, and collapse
+    whitespace."""
+    cleaned = text.replace("\u00a0", " ").replace("…", " ").replace("...", " ").translate(_HYPHENS)
     return " ".join(cleaned.casefold().split())
 
 
