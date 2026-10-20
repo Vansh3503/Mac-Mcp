@@ -64,11 +64,11 @@ FILTER_WAIT_S = 1.5
 """How long a web combo box may take to update its list after typing."""
 POLL_S = 0.1
 CLEANUP_TIMEOUT_S = 2.0
+"""Closing a menu or list after a failure never takes longer than this."""
 CLOSE_WAIT_S = 0.5
-"""How long a menu may take to close by itself after a pick (macOS fades it out) before AXCancel."""
+"""How long a menu may take to close after a pick, AXCancel or Escape (macOS fades it out)."""
 OPTION_CHECKS = 3
 """How many options :func:`_still_open` looks at to tell whether a list is still shown."""
-"""Closing a menu or list after a failure never takes longer than this."""
 WEB_APP_KINDS = frozenset({"electron", "cef"})
 """App kinds whose whole window is web content."""
 TEXT_COMBO_ROLES = frozenset({"AXComboBox", "AXTextField"})
@@ -147,7 +147,8 @@ def _locate(tree: RawTree, target: Target, baseline: _Baseline, web: bool) -> dd
         control, ancestors = found
         menu = dd.open_menu_of(control)
         if menu is not None:
-            return dd.OptionList(menu, dd.menu_options(menu), "menu", in_web=dd.in_web_content(ancestors))
+            options = dd.menu_options(menu)
+            return dd.OptionList(menu, options, "menu", in_web=dd.in_web_content(ancestors), control=control)
     menus = dd.new_menus(tree.root, baseline.visible)
     if menus:
         menu, ancestors = menus[0]
@@ -285,14 +286,26 @@ async def _still_open(ctx: ServerContext, found: dd.OptionList, *, wait_s: float
     """Whether the options are still shown, giving them up to ``wait_s`` to close by themselves:
     right after a pick a menu is still fading out (macOS 26), and AXCancel or Escape then would
     only reach the app."""
-    handle = found.container.handle
     for _ in range(max(1, math.ceil(wait_s / POLL_S) + 1)):
-        if handle is None or not await _shown(ctx, handle) or not await _any_option_shown(ctx, found):
+        if not await _list_shown(ctx, found):
             return False
         if wait_s <= 0:
             return True
         await ctx.sleep(POLL_S)
     return True
+
+
+async def _list_shown(ctx: ServerContext, found: dd.OptionList) -> bool:
+    control = found.control
+    if control is not None and control.expanded and control.handle is not None:
+        # Chrome (macOS 26) keeps a <select>'s options in an 80×6 pt strip, open or closed, and
+        # its popup outside the tree: the control's AXExpanded tells. Safari reports False
+        # everywhere, so it counts only if it read True while the list was open.
+        if not await ctx.run_engine(ctx.engine.element_valid, control.handle):
+            return False
+        return (await ctx.run_engine(ctx.engine.refresh_element, control.handle)).expanded is True
+    handle = found.container.handle
+    return handle is not None and await _shown(ctx, handle) and await _any_option_shown(ctx, found)
 
 
 async def _shown(ctx: ServerContext, handle: Any, min_height: float = 0.0) -> bool:
@@ -328,7 +341,7 @@ async def _close(ctx: ServerContext, target: Target, found: dd.OptionList) -> st
             handle = found.container.handle
             if "AXCancel" in found.container.actions and handle is not None:
                 await ctx.run_engine(ctx.engine.perform_action, handle, "AXCancel")
-                if not await _still_open(ctx, found):
+                if not await _still_open(ctx, found, wait_s=CLOSE_WAIT_S):
                     return None
             front = await ctx.run_engine(ctx.engine.frontmost_app)
             if (
@@ -339,7 +352,7 @@ async def _close(ctx: ServerContext, target: Target, found: dd.OptionList) -> st
                 and not await ctx.run_engine(ctx.engine.secure_input_active)
             ):
                 await ctx.run_engine(ctx.engine.press_key, ESCAPE)
-                if not await _still_open(ctx, found):
+                if not await _still_open(ctx, found, wait_s=CLOSE_WAIT_S):
                     return None
         except AXPilotError as err:
             _log.warning("Could not close the options of %s: %s", target.describe(), err.message)

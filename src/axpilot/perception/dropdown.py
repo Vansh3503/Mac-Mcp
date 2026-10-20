@@ -140,6 +140,8 @@ class OptionList:
     """The container lies in web content (an ``AXWebArea``): options are clicked like a user would."""
     window_id: int | None = None
     """``window``: the id of the window that holds the list."""
+    control: RawNode | None = None
+    """``menu``: the control that shows the list as its child."""
 
     def titles(self) -> list[str]:
         return [option.title for option in self.options]

@@ -12,7 +12,7 @@ import pytest
 
 from axpilot.engine.fake import FakeEngine
 from axpilot.errors import AXPilotError, ErrorCode
-from axpilot.models import AppInfo, Point, RawNode, RawTree
+from axpilot.models import AppInfo, KeyCombo, Point, RawNode, RawTree
 from axpilot.perception import dropdown as dd
 from axpilot.server import dropdown
 from axpilot.server.context import ServerContext
@@ -263,6 +263,97 @@ async def test_a_list_whose_options_are_gone_counts_as_closed() -> None:
     assert outcome.chosen == "Pressed"
     assert not [w for w in outcome.warnings if "open" in w]
     assert not engine.events_of("press_key")
+
+
+def select_desktop() -> dict[str, Any]:
+    """Chrome (macOS 26): a <select>'s options sit in an 80×6 pt strip under it, open or closed."""
+    data = desktop()
+    strip = [300, 450, 80, 6]  # the top of the control, as in Chrome
+
+    def item(handle: str, title: str, **extra: Any) -> dict[str, Any]:
+        pick = {"set_value": {"id": "fruit", "value": title}}
+        return {
+            "id": handle,
+            "role": "AXMenuItem",
+            "value": title,
+            "frame": strip,
+            "actions": ["AXPress"],
+            "on_press": pick,
+            **extra,
+        }
+
+    data["windows"][0]["tree"]["children"][0]["children"].append(
+        {
+            "id": "fruit",
+            "role": "AXPopUpButton",
+            "description": "Fruit",
+            "value": "Apple",
+            "frame": [300, 450, 80, 24],
+            "actions": ["AXPress"],
+            "children": [
+                {
+                    "id": "fruit.menu",
+                    "role": "AXMenu",
+                    "frame": strip,
+                    "children": [
+                        item("fruit.a", "Apple"),
+                        item("fruit.b", "Banana"),
+                        item("fruit.d", "Durian", enabled=False),
+                    ],
+                }
+            ],
+        }
+    )
+    return data
+
+
+class ChromeSelect(FakeEngine):
+    """Its popup is a native menu outside the tree: open from a click until Escape, also after an
+    option is pressed by AX; only the control's AXExpanded shows it. The strip stays shown."""
+
+    def _in_strip(self, handle: Any) -> bool:
+        return handle in {self.resolve_ref(i) for i in ("fruit.menu", "fruit.a", "fruit.b", "fruit.d")}
+
+    def element_valid(self, handle: Any) -> bool:
+        return self._in_strip(handle) or super().element_valid(handle)
+
+    def refresh_element(self, handle: Any) -> RawNode:
+        node = super().refresh_element(handle)
+        return dataclasses.replace(node, visible=True) if self._in_strip(handle) else node
+
+    def _press(self, node: RawNode, *, modifiers: frozenset[str] = frozenset()) -> None:
+        super()._press(node, modifiers=modifiers)
+        if node.handle == self.resolve_ref("fruit"):
+            node.expanded = True
+
+    def press_key(self, combo: KeyCombo) -> None:
+        super().press_key(combo)
+        if combo.key == "escape":
+            fruit = self._lookup("fruit")
+            assert fruit is not None
+            fruit.expanded = False
+
+
+async def test_a_select_whose_popup_stays_open_is_closed_and_seen_closed() -> None:
+    engine = ChromeSelect(select_desktop())
+    ctx = context(engine)
+    target = await target_of(ctx, "Fruit")
+    outcome = await dropdown.choose_option(ctx, target, option="Banana", index=None)
+    assert outcome.chosen == "Banana"
+    assert outcome.warnings == [
+        f"The options of {target.describe()} stayed open after the choice; AXPilot closed them."
+    ]
+    assert engine.refresh_element(target.handle).expanded is False
+
+
+async def test_a_select_whose_choice_fails_is_closed() -> None:
+    engine = ChromeSelect(select_desktop())
+    ctx = context(engine)
+    target = await target_of(ctx, "Fruit")
+    with pytest.raises(AXPilotError) as caught:
+        await dropdown.choose_option(ctx, target, option="Durian", index=None)
+    assert "disabled" in caught.value.message
+    assert engine.refresh_element(target.handle).expanded is False
 
 
 # =========================================================================== off screen and covered
