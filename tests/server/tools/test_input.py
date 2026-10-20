@@ -12,6 +12,7 @@ from mcp import Client
 
 from axpilot.engine.fake import FakeEngine
 from axpilot.errors import ErrorCode
+from axpilot.models import AppAction, AppInfo
 from axpilot.server.context import ServerContext
 from axpilot.server.results import error_code_of, text_of
 from axpilot.testing import connected_client, make_test_context, structured
@@ -401,6 +402,30 @@ async def test_keystrokes_into_a_background_app_bring_it_to_the_front_first(
         next(el for el in fields if el["name"] == "Email" and el["role"] == "field")["value"]
         == "alex@example.com"
     )
+
+
+class IgnoresActivation(FakeEngine):
+    """macOS may ignore an activation request from a process in the background."""
+
+    def app_control(self, action: AppAction, app: str) -> AppInfo | None:
+        if action == "activate":
+            return None
+        return super().app_control(action, app)
+
+
+async def test_nothing_is_typed_when_the_target_app_stays_in_the_background() -> None:
+    # The keystrokes would go to the app in front (Finder), not to the field the policy checked.
+    ctx = fast(make_test_context({"tools.profile": "full"}, engine=IgnoresActivation.demo()))
+    async with connected_client(ctx) as client:
+        refs = await refs_of(client, "Login Demo")
+        result, error = await call(client, "type_text", {"ref": refs["Email"], "text": "alex@example.com"})
+    assert error == "ELEMENT_NOT_ACTIONABLE", text_of(result)
+    assert "Could not bring Login Demo to the front" in text_of(result)
+    assert not events(ctx, "type_text")
+    assert not events(ctx, "press_key")
+    front = engine_of(ctx).frontmost_app()
+    assert front is not None
+    assert front.name == "Finder"
 
 
 async def test_long_text_is_pasted_and_the_clipboard_is_restored(ctx: ServerContext, client: Client) -> None:
