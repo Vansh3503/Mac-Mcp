@@ -193,6 +193,7 @@ Linux container: nothing touched a real Mac).
 | `adf563c` | Tests: `tests/server/tools/test_dropdowns.py` (10 dropdown kinds × success, index, current option, unknown and disabled options, disabled control, STALE_REF, policy, USER_ACTIVE, PAUSED_BY_USER, faults and the kill switch while open; the manual open + snapshot + click path), `tests/server/test_dropdown_flow.py` (edge paths), `tests/perception/test_dropdown.py`, fake-engine menu tests; seven eval tasks (finder-new-folder, textedit-line-spacing, store-country, store-shipping, store-pickup, slack-notifications, idea-run-configuration). |
 | `786217c` | Docs: Agent Skill, CONTRACTS (§1 `perception/dropdown.py`, §2 fake menus, §6 the flow), PLAN tool table, evals page, CHANGELOG, `Engine.capture_tree` docstring (open menus). |
 | `0ed17c6` | **CI builds the launcher**: a `macos-14` job runs `launcher/build.sh` and `launcher/tests` against the built bundle and fails if the bundle tests skipped (only the LaunchServices E2E test may). Nothing published; `BUILDINFO.txt` and `SHA256SUMS` kept as a 14-day artifact. `launcher/` unchanged. |
+| `fdc5cc5` | The launcher job's first runs (macos-14): **`launcher/main.swift` compiles**; the universal2 bundle is ad-hoc signed and verified, and the smoke test passes (cdhash arm64 `ca3fde20450a55467e2bc927ef154a9275ee4f64`, x86_64 `560c01f5c4de0d803b601bbfb86953ef4332243c`, Xcode on the runner; a release must still pin the bundle `launcher.yml` builds). 39 of 40 contract tests passed; `test_gives_up_after_five_restarts_within_a_minute` failed 2 runs in 3 (16 s step measured 17.55 s; `asyncAfter` may fire up to 10% late). Its bound is now `expected * 1.1 + 1.5`, a test-only change the owner agreed to (bundle and cdhash unchanged). |
 | `2e20490` | **Bridge handshake without the launcher**: when `axpilot stdio` cannot reach the host (`HOST_UNAVAILABLE`, or the host refuses: `USER_DENIED`, `BUSY`, `NOT_SUPPORTED`), it prints the error on stderr and serves a stand-in (`axpilot/bridge/offline.py`): the usual tools are listed, the instructions say what is wrong, every tool call returns the error and its hint ("Run `axpilot setup` once"). An unknown profile still exits 2. `build_server` gained `server_factory`. Tested with real subprocesses (no host; `--naming windows-mcp`; a host that refuses pairing). |
 
 Bugs found on the way: the fake engine's hit-testing stopped at zero-size wrappers, so no mouse click inside
@@ -224,8 +225,8 @@ Dropdowns (`axpilot/server/dropdown.py`, `engine/macos`):
    `AXList`? Do its items take `AXPress`?
 
 Launcher and bridge:
-9. CI's new launcher job is the first compile of `launcher/main.swift` (see PR #18's checks). TCC behaviour is
-   still spike S1.
+9. The launcher now compiles and passes its contract tests on CI's macos-14 runner. Still for a Mac: TCC
+   attribution (spike S1) and the LaunchServices start (`AXPILOT_LAUNCHER_E2E=1`).
 10. The bridge stand-in with Claude Desktop and Claude Code when AXPilot.app is missing: the server shows as
     connected, and a tool call shows "Run `axpilot setup` once".
 
