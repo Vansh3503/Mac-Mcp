@@ -26,11 +26,8 @@ text applies.
 
 ## Reporting and enforcement
 
-Report unacceptable behavior to the project's community leaders at:
-
-**`[INSERT CONTACT EMAIL]`** <!-- Maintainers: replace with a monitored address before the first public release. -->
-
-Until that address is set, you can contact a maintainer privately through their GitHub profile.
+Report unacceptable behavior privately to the maintainer through
+[their GitHub profile](https://github.com/Vansh3503).
 Please do not report conduct issues in a public issue.
 
 All complaints will be reviewed and investigated promptly and fairly, and community leaders will
