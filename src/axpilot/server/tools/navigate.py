@@ -1486,11 +1486,10 @@ async def _full_text(ctx: ServerContext, snap: Snapshot, area: Element) -> list[
     handle = await ctx.run_engine(
         live_handle, ctx.engine, snap, area, timeout_s=ctx.capture_timeout_s + ctx.engine_timeout_s
     )
-    attributes = await ctx.run_engine(ctx.engine.element_attributes, handle)
-    value = attributes.get("AXValue")
+    value = await ctx.run_engine(ctx.engine.element_text, handle, READ_MAX_CHARS + 1)
     if value is None:
         return (area.value or "").splitlines()
-    return str(value).splitlines()
+    return value.splitlines()
 
 
 @dataclass

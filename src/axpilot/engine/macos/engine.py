@@ -454,6 +454,11 @@ class MacEngine(Engine):
         self._require_ax()
         return actions_.element_attributes(self._ax, handle, self.max_value_chars)
 
+    @_guarded("Reading the text")
+    def element_text(self, handle: Any, max_chars: int) -> str | None:
+        self._require_ax()
+        return actions_.element_text(self._ax, handle, max_chars)
+
     # ================================================================== AX actions
     @_guarded("Performing the action")
     def perform_action(self, handle: Any, action: str) -> None:

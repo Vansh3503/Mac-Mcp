@@ -98,6 +98,7 @@ ENGINE_METHODS: frozenset[str] = frozenset(
         "clipboard_get",
         "clipboard_set",
         "clipboard_save",
+        "element_text",
         "clipboard_restore",
         "notify",
     }
@@ -430,6 +431,9 @@ class FaultyEngine(Engine):
         files: Sequence[str] | None = None,
     ) -> None:
         return self._call("clipboard_set", text=text, image_png=image_png, files=files)
+
+    def element_text(self, handle: Any, max_chars: int) -> str | None:
+        return self._call("element_text", handle, max_chars)
 
     def clipboard_save(self) -> Any:
         return self._call("clipboard_save")

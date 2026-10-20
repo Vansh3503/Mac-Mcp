@@ -133,6 +133,13 @@ class Engine(abc.ABC):
     def element_attributes(self, handle: Any) -> dict[str, Any]:
         """Every readable attribute of the element as JSON-safe values (for ``inspect``)."""
 
+    def element_text(self, handle: Any, max_chars: int) -> str | None:
+        """The element's whole text value (``AXValue``), up to ``max_chars``; ``None`` without one
+        (and for secure fields). Snapshots and :meth:`element_attributes` may cut values short;
+        ``read`` needs all of it. The default reads :meth:`element_attributes`."""
+        value = self.element_attributes(handle).get("AXValue")
+        return None if value is None else str(value)[:max_chars]
+
     # -------------------------------------------------------------- AX actions
     @abc.abstractmethod
     def perform_action(self, handle: Any, action: str) -> None:

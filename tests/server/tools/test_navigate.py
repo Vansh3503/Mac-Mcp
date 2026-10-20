@@ -959,3 +959,25 @@ async def test_engine_faults_while_scrolling(fault: Fault, code: str) -> None:
             assert (await ok(client, "scroll", {"app": "Mail"}))["moved"] is True
     finally:
         faulty.release()
+
+
+class CappedAttributes(HookedEngine):
+    """MacEngine cuts every value of element_attributes (the inspect dump) at 2000 characters."""
+
+    def element_attributes(self, handle: Any) -> dict[str, Any]:
+        attributes = super().element_attributes(handle)
+        if isinstance(attributes.get("AXValue"), str):
+            attributes["AXValue"] = attributes["AXValue"][:50] + "…"
+        return attributes
+
+
+async def test_read_gets_the_whole_text_of_a_text_area() -> None:
+    """TextEdit (macOS 26): read returned 72 of 300 lines, cut at 2000 characters, as complete."""
+    engine = CappedAttributes.demo()
+    assert isinstance(engine, CappedAttributes)
+    lines = [f"Line {number:03d} of the scroll test" for number in range(1, 301)]
+    engine.set_value(engine.resolve_ref("textedit.body"), "\n".join(lines))
+    async with connected_client(demo_ctx(engine)) as client:
+        data = await ok(client, "read", {"app": "TextEdit"})
+    assert data["lines"] == lines
+    assert data["complete"] is True
