@@ -4,8 +4,9 @@ Give this whole file to the next coding session (any account). It is self-contai
 every decision made so far, the exact current state, the rules the owner set, and the ordered remaining work.
 
 - **Repository:** `github.com/Vansh3503/Mac-Mcp` (private). Default branch `main`.
-- **Working branch:** `feature/axpilot-foundation`. PR #14 brought it into `main` up to `f6802e5`; the
-  later work (§5, "After PR #14") is on the branch only.
+- **Working branch:** `feature/axpilot-foundation`. On `main`: PR #14 (up to `f6802e5`) and PR #16 (merge commit
+  `5f0fa59`, the work listed under "After PR #14"). **PR #18** carries the work listed under "After PR #16"
+  (dropdowns, the launcher CI build, the bridge stand-in); the owner merges it.
 - **Last verified work commit:** see `git log --oneline -20`; §5 lists what each commit did.
 - **Owner:** Vansh Malhotra (GitHub `Vansh3503`).
 
@@ -152,7 +153,7 @@ Not verified on a real Mac: everything in `engine/macos` (including the run-loop
 the real launcher, and every AppleScript the browser/scripting tools send. All of it is covered by Linux tests with
 fakes only.
 
-### After PR #14 (on `feature/axpilot-foundation` only, not on `main`)
+### After PR #14 (merged into `main` by PR #16, `5f0fa59`)
 
 | Commit | Issue | What |
 |---|---|---|
@@ -171,13 +172,68 @@ fakes only.
 | `1d968d9`, `b97ac5a`, `158445c` | #10 | `scripts/release.py` and `launcher.yml`, `release.yml`, `docs.yml` (none has run) |
 | `cb78eb1` | #10 | `.mcpb` feasibility: `docs/dev/mcpb-feasibility.md` |
 
-`main` therefore still lacks two safety fixes (`347cae8`, `9eceb42`) and the CI flake fix. Merging needs
-a pull request, which only the owner can ask for (§4).
+Verified before PR #16 merged, on `48bba59`: the full Linux suite with coverage gave **3439 passed, 51 skipped,
+94.34%** branch coverage, with `HOME` pointed at an empty folder (which stayed empty); CI was green on every
+job, including macOS 14 and 15, where the strict peer-uid test proved `LOCAL_PEERCRED` works. A deep fuzz
+run (`AXPILOT_FUZZ_EXAMPLES=200`) passed after `848db3c`.
 
 Release setup the owner must do once (details in `packaging/README.md`): build and pin the launcher
 (`launcher.yml`, then a filled row in `launcher/CDHASH.md`; `release.yml` refuses to run until then),
 a PyPI trusted publisher (workflow `release.yml`, environment `pypi`), and GitHub Pages with source
 "GitHub Actions" (a private repository needs a paid plan or must go public first).
+
+### After PR #16 (PR #18, not merged yet)
+
+The owner's three tasks for this session, all done on the simulated desktop and in CI (this session ran on a
+Linux container: nothing touched a real Mac).
+
+| Commit | What |
+|---|---|
+| `9de5f86` | **Dropdowns in every kind of app.** `select_option` runs one flow (`axpilot/server/dropdown.py`): open the control, wait ≤ 2 s for what appeared, pick by title or index, press, verify, and on any failure (the kill switch too) close the menu again, shielded and bounded. Covers menu buttons (Notes Format, Finder Action; refused before), menus that are not the control's child (any new menu: application level, context menus, ARIA menus), a new app window holding a menu or list (Java/Qt pop-ups), web `<select>`, and custom web/Electron pickers (React Select, MUI, Slack, VS Code) through real mouse clicks, Down to open a web text combo box, and typing to filter (text put back on failure). Pop-ups chosen with `set_value`/`fill_form` use the same flow. Pure helpers in `axpilot/perception/dropdown.py`. The fake engine models opened menus (`menu`, `menu_at`, `pointer_only`, `filters` keys; clicks reach elements in 0×0 wrappers), and the demo desktop gained the Finder/Notes/TextEdit menus, a Google Chrome checkout page, a Slack picker and an IntelliJ combo box whose list is a window. macOS engine: `capture_tree` adds the app's open menus (AXMenu children of the application element), open menus stay visible inside scroll areas, `select_popup_option` falls back to an application-level menu. Golden files regenerated deliberately: only the `select_option` description changed. |
+| `adf563c` | Tests: `tests/server/tools/test_dropdowns.py` (10 dropdown kinds × success, index, current option, unknown and disabled options, disabled control, STALE_REF, policy, USER_ACTIVE, PAUSED_BY_USER, faults and the kill switch while open; the manual open + snapshot + click path), `tests/server/test_dropdown_flow.py` (edge paths), `tests/perception/test_dropdown.py`, fake-engine menu tests; seven eval tasks (finder-new-folder, textedit-line-spacing, store-country, store-shipping, store-pickup, slack-notifications, idea-run-configuration). |
+| `786217c` | Docs: Agent Skill, CONTRACTS (§1 `perception/dropdown.py`, §2 fake menus, §6 the flow), PLAN tool table, evals page, CHANGELOG, `Engine.capture_tree` docstring (open menus). |
+| `0ed17c6` | **CI builds the launcher**: a `macos-14` job runs `launcher/build.sh` and `launcher/tests` against the built bundle and fails if the bundle tests skipped (only the LaunchServices E2E test may). Nothing published; `BUILDINFO.txt` and `SHA256SUMS` kept as a 14-day artifact. `launcher/` unchanged. |
+| `fdc5cc5` | The launcher job's first runs (macos-14): **`launcher/main.swift` compiles**; the universal2 bundle is ad-hoc signed and verified, and the smoke test passes (cdhash arm64 `ca3fde20450a55467e2bc927ef154a9275ee4f64`, x86_64 `560c01f5c4de0d803b601bbfb86953ef4332243c`, Xcode on the runner; a release must still pin the bundle `launcher.yml` builds). 39 of 40 contract tests passed; `test_gives_up_after_five_restarts_within_a_minute` failed 2 runs in 3 (16 s step measured 17.55 s; `asyncAfter` may fire up to 10% late). Its bound is now `expected * 1.1 + 1.5`, a test-only change the owner agreed to (bundle and cdhash unchanged). |
+| `2e20490` | **Bridge handshake without the launcher**: when `axpilot stdio` cannot reach the host (`HOST_UNAVAILABLE`, or the host refuses: `USER_DENIED`, `BUSY`, `NOT_SUPPORTED`), it prints the error on stderr and serves a stand-in (`axpilot/bridge/offline.py`): the usual tools are listed, the instructions say what is wrong, every tool call returns the error and its hint ("Run `axpilot setup` once"). An unknown profile still exits 2. `build_server` gained `server_factory`. Tested with real subprocesses (no host; `--naming windows-mcp`; a host that refuses pairing). |
+
+Verified before PR #18 was opened for review, on `fdc5cc5` (the code; later commits are docs): the full Linux suite
+with coverage gave **3639 passed, 51 skipped, 94.46%** branch coverage (gate 90%), with `HOME` pointed at an empty
+folder, which stayed empty; `ruff check`, `ruff format --check` and `pyright` are clean; `docs/tools.md` is
+regenerated. The dropdown modules: `server/dropdown.py` 94%, `perception/dropdown.py` 98%, `bridge/offline.py` 97%.
+
+Bugs found on the way: the fake engine's hit-testing stopped at zero-size wrappers, so no mouse click inside
+Slack's web area could ever land; a failed filter left the typed text in the web field; a pause during the wait
+left the opened menu open (the flow now finds and closes what it opened).
+
+### Mac verification
+
+Only a real Mac can confirm these; the logic around them is tested on the fake desktop.
+
+Dropdowns (`axpilot/server/dropdown.py`, `engine/macos`):
+1. AppKit pop-up buttons and menu buttons: `AXPress` returns (or times out after `ax_timeout_ms` and is treated as
+   delivered), the menu shows up as the control's `AXMenu` child, and `capture_tree` works while the menu tracks
+   (how long does a capture take then?). Pull-down `NSPopUpButton`s report `AXMenuButton` (an `AXPopUpButton`
+   whose title never changes would fail verification with "it shows …").
+2. Context menus and pop-ups whose menu is not their child are `AXMenu` children of the application element
+   (`MacEngine._open_menus`), and are not duplicates of a menu already inside the window.
+3. A pop-up inside a scroll area (System Settings panes): its open menu's items are read
+   (`helpers.node_visible` no longer clips floating menus).
+4. `AXCancel` on an open `AXMenu` closes it; otherwise Escape does.
+5. Safari and Chrome `<select>`: does the open menu appear as the pop-up's `AXMenu` child with an on-screen frame,
+   or as an application-level menu? Does pressing the item select it and fire `change`?
+6. Web role mapping in Chromium and WebKit: ARIA `listbox`/`option` (expected `AXList` + `AXStaticText`), ARIA
+   `menu`/`menuitem` (`AXMenu`/`AXMenuItem`), `combobox` (`AXComboBox`), `aria-haspopup` buttons
+   (`AXPopUpButton`). React Select, MUI and Headless UI take the real clicks; Down opens ARIA comboboxes;
+   typing filters; the 2 s wait is enough.
+7. Electron (Slack, VS Code, Discord): the same as 6, after `AXManualAccessibility` is switched on.
+8. Java (JetBrains) and Qt combo boxes: is the list a separate window that `list_windows` reports, holding an
+   `AXList`? Do its items take `AXPress`?
+
+Launcher and bridge:
+9. The launcher now compiles and passes its contract tests on CI's macos-14 runner. Still for a Mac: TCC
+   attribution (spike S1) and the LaunchServices start (`AXPILOT_LAUNCHER_E2E=1`).
+10. The bridge stand-in with Claude Desktop and Claude Code when AXPilot.app is missing: the server shows as
+    connected, and a tool call shows "Run `axpilot setup` once".
 
 ### GitHub issues already created
 
@@ -398,7 +454,27 @@ checklists. Report honestly, including what is still unverified on real macOS.
 
 Run `spikes/README.md` S1→S6 on a real Mac (S1 first: it is the go/no-go for the launcher design), build the
 launcher (`launcher/build.sh`), run `AXPILOT_MACOS_TESTS=1 uv run pytest tests/engine -q`, and work through the
-"Mac verification" items in `docs/dev/handoff/build1-followups.md`.
+"Mac verification" items in `docs/dev/handoff/build1-followups.md` and in §5 ("Mac verification").
+
+Owner steps, in order (none of them can be done from a cloud session):
+
+1. Merge PR #18 once its CI is green (Linux, macOS 14/15 and the new launcher job).
+2. On the Mac, in a clone: `uv sync`, then spike S1 (`spikes/README.md`). It decides whether the frozen launcher
+   design holds; record the result in `docs/spikes/` from `docs/spikes/RESULTS_TEMPLATE.md`. Then S2–S6.
+3. `launcher/build.sh`, then `uv run pytest launcher/tests -q` (and `AXPILOT_LAUNCHER_E2E=1` once, with AXPilot not
+   running). Compare the cdhashes with the `launcher-buildinfo` artifact of PR #18's launcher job.
+4. `AXPILOT_MACOS_TESTS=1 uv run pytest tests/engine -q`, then with `AXPILOT_MACOS_TESTS_MUTATE=1` too.
+5. Dropdowns on the real desktop (§5 "Mac verification" 1–8): with `axpilot stdio --direct` in Claude Code, ask for
+   TextEdit's format bar (paragraph style, line spacing), Finder's Action button (New Folder), a `<select>` and a
+   React Select or MUI demo page in Safari and in Chrome, a Slack or VS Code picker, and a JetBrains run
+   configuration. Note every case that needed the manual open + click path.
+6. Without AXPilot.app installed, add AXPilot to Claude Desktop (`axpilot connect claude-desktop`) and check that a
+   tool call shows "Run `axpilot setup` once" (§5 item 10).
+7. Release setup, once S1 passed: run `launcher.yml`, fill the row in `launcher/CDHASH.md`, add the PyPI trusted
+   publisher (workflow `release.yml`, environment `pypi`) and GitHub Pages (source "GitHub Actions"); see
+   `packaging/README.md`.
+8. Decide gap G5 (`docs/dev/threat-model-review.md`: unknown argument names are ignored) before the API freeze.
+9. Delete the old remote branch `claude/mac-mcp-plan` in the GitHub UI.
 
 ## 7. Environment and verified technical facts
 

@@ -200,7 +200,9 @@ def test_gives_up_after_five_restarts_within_a_minute(run: LauncherRun) -> None:
     starts = run.events("start")
     assert len(starts) == 6
     for measured, expected in zip(gaps(starts), [1, 2, 4, 8, 16], strict=True):
-        assert expected - 0.2 <= measured <= expected + 1.5
+        # asyncAfter may fire up to 10% late (libdispatch timer leeway); each gap also includes
+        # starting the stub host.
+        assert expected - 0.2 <= measured <= expected * 1.1 + 1.5
     assert "giving up" in run.log()
 
 

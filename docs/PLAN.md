@@ -296,7 +296,8 @@ Toolsets toggle individually (`[tools] enable = ["browser"]`). `scripting` and `
 | `scroll` | A ref or point; lines/pages; `scroll_into_view: ref` |
 | `drag` | ref/point → ref/point; `duration`, `modifiers` |
 | `move_mouse` | Hover |
-| `set_value` | Slider, checkbox, popup, or text value through AX |
+| `set_value` | Slider, checkbox, date, or text value through AX; a pop-up's option through its menu |
+| `select_option` | Choose an option of any dropdown (pop-up, menu button, combo box, web `<select>`, web/Electron picker) or of a radio/tab group or list, by title or index: open, wait for the menu or list, pick, verify, close on failure |
 | `perform_action` | Raw AX action (`AXShowMenu`, `AXIncrement`, `AXConfirm`, `AXRaise`, …) |
 | `select_menu` | List or select menu-bar items (and status-bar extras) by path |
 | `fill_form` | Set many fields at once, `[{ref, value}]` |
@@ -593,7 +594,7 @@ Tooling: `uv`, `ruff` (lint + format), `pyright`, `pytest` (+ `anyio`, `hypothes
 | Real-app smoke | Finder, TextEdit, Notes, Safari, Chrome, System Settings, Calculator, an Electron app | Nightly self-hosted or a pre-release checklist |
 | Security | Policy bypass attempts (coordinate click onto a deny-listed app, typing into Terminal, secure field, unpaired client), HTTP auth/Origin/Host, fuzzing | Linux + macOS |
 | Clean install | Every channel on a **fresh macOS VM** (Tart/UTM), timed against the 2-minute goal; check for no quarantine and no Gatekeeper prompt | Pre-release |
-| Evals | ~30 TOML tasks (goal → state-based checks through read-only tools, plus a reference solution); `python -m axpilot.evals` runs an agent (scripted, or model-backed via `module:factory`) on a fresh simulated desktop per task and reports success, steps, tokens and time (36 tasks done; see docs/evals.md). A macOSWorld subset is optional | CI (scripted agent); model baselines manual, published per release |
+| Evals | ~30 TOML tasks (goal → state-based checks through read-only tools, plus a reference solution); `python -m axpilot.evals` runs an agent (scripted, or model-backed via `module:factory`) on a fresh simulated desktop per task and reports success, steps, tokens and time (43 tasks done; see docs/evals.md). A macOSWorld subset is optional | CI (scripted agent); model baselines manual, published per release |
 | Performance | Snapshot p50/p95, action latency, tokens per snapshot | CI trend |
 
 **v1 targets (calibrated in Phase 1):** snapshot p50 < 400 ms on typical windows (a Python budget; S2 may tighten it); a default snapshot < ~2.5k tokens; first action within 2 minutes of install.

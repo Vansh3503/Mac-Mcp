@@ -117,6 +117,57 @@ jobs:
       - name: pytest
         run: uv run pytest
 
+  launcher:
+    name: Launcher (build and contract tests)
+    # Proves on every change that launcher/main.swift compiles into the universal2, ad-hoc signed
+    # AXPilot.app and meets its contract (launcher/tests). Nothing is published: the bundle stays
+    # on the runner. Whether TCC attributes permissions to it is spike S1, on a real Mac.
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - name: Show the toolchain
+        run: sw_vers && uname -m && xcrun swiftc --version
+      - name: Build the launcher (universal2, ad-hoc signed, not published)
+        run: launcher/build.sh # into launcher/build/ (git-ignored), where the tests look
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Contract tests against the built bundle
+        run: >-
+          uv run pytest launcher/tests -p no:cacheprovider -rs
+          --junitxml="$RUNNER_TEMP/launcher-tests.xml"
+      - name: Require that the bundle tests ran
+        # A missing bundle makes the tests skip, which would pass silently. Only the LaunchServices
+        # end-to-end test (AXPILOT_LAUNCHER_E2E) may be skipped.
+        run: |
+          uv run --no-project python - "$RUNNER_TEMP/launcher-tests.xml" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          cases = list(ET.parse(sys.argv[1]).iter("testcase"))
+          skipped = sorted(c.get("name", "") for c in cases if c.find("skipped") is not None)
+          unexpected = [name for name in skipped if not name.startswith("test_started_through_launchservices")]
+          if unexpected or len(cases) < 20:
+              sys.exit(f"launcher tests: {len(cases)} ran, unexpected skips: {unexpected}")
+          print(f"OK: {len(cases) - len(skipped)} of {len(cases)} launcher tests ran; skipped: {skipped}")
+          PY
+      - name: Keep the build record (not the bundle)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: launcher-buildinfo
+          path: |
+            launcher/build/BUILDINFO.txt
+            launcher/build/SHA256SUMS
+          if-no-files-found: ignore
+          retention-days: 14
+
   build:
     name: Build and check distributions
     runs-on: ubuntu-latest
@@ -197,7 +248,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [lint, typecheck, test-linux, test-macos, build, docs]
+    needs: [lint, typecheck, test-linux, test-macos, launcher, build, docs]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

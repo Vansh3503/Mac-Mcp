@@ -380,13 +380,14 @@ class MacEngine(Engine):
             if root_element is not None:
                 window, dialogs = self._windows.root_context(target, root_element)
         focused = self._focused_element(target.pid)
+        menus = self._open_menus(app_element, target) if root_element is not None else []
         try:
             root, count, truncated = capture_subtree(
                 self._reader,
                 root_element if root_element is not None else app_element,
                 budget=budget,
                 focused=focused,
-                extra_children=dialogs,
+                extra_children=[*dialogs, *menus],
             )
         except AXCallError as exc:
             if exc.stale and window_id is not None:
@@ -404,6 +405,26 @@ class MacEngine(Engine):
             truncated=truncated,
             elapsed_ms=(time.monotonic() - started) * 1000.0,
         )
+
+    def _open_menus(self, app_element: AXElement, target: AppInfo) -> list[AXElement]:
+        """Menus the app shows outside its windows right now (context menus, and pop-up menus
+        that belong to the application): its ``AXMenu`` children. They are added to the captured
+        window like attached dialogs, so snapshots list their items. Best effort: a failure is
+        logged and the capture goes on without them."""
+        try:
+            children = self._ax.get(app_element, A.CHILDREN) or []
+            return [
+                child
+                for child in list(children)
+                if self._ax.is_element(child) and A.text(self._ax.get(child, A.ROLE)) == A.MENU
+            ]
+        except AXCallError as exc:
+            if exc.permission:
+                raise ax_failure(
+                    exc, f"Reading the menus of {target.name}", timeout_s=self._ax.timeout_s
+                ) from exc
+            _log.debug("cannot read the open menus of %s: %s", target.name, exc)
+            return []
 
     def _menu_bar_raw(self, app_element: AXElement, target: AppInfo) -> RawNode | None:
         try:

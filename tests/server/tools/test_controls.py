@@ -92,13 +92,14 @@ async def test_pop_ups_and_combo_boxes(client: Client) -> None:
     els = await elements(client, "TextEdit")
     style = els["popup:Paragraph Styles"]["ref"]
     data = await ok(client, "select_option", {"ref": style, "option": "heading"})
-    assert data["strategy"] == "ax_value"
+    assert data["strategy"] == "menu"  # opened, and the item chosen from the menu
     after = await elements(client, "TextEdit")
     assert after["popup:Paragraph Styles"]["value"] == "Heading"
     _, error = await call(client, "select_option", {"ref": style, "option": "Nope"})
     assert error == "INVALID_ARGUMENT"
-    _, error = await call(client, "select_option", {"ref": style, "index": 2})
-    assert error == "INVALID_ARGUMENT"  # pop-ups list their items only while open
+    await ok(client, "select_option", {"ref": style, "index": 2})  # the open menu lists them
+    after = await elements(client, "TextEdit")
+    assert after["popup:Paragraph Styles"]["value"] == "Title"
     size = after["combobox:Font Size"]["ref"]
     await ok(client, "select_option", {"ref": size, "option": "18"})
     assert (await elements(client, "TextEdit"))["combobox:Font Size"]["value"] == "18"
@@ -145,9 +146,12 @@ async def test_list_rows(client: Client) -> None:
 
 
 async def test_controls_without_options(client: Client) -> None:
+    finder = await elements(client, "Finder")
+    _, error = await call(
+        client, "select_option", {"ref": finder["menubutton:Group"]["ref"], "option": "Name"}
+    )
+    assert error == "ELEMENT_NOT_ACTIONABLE"  # pressing it showed no menu
     els = await elements(client, "Notes")
-    _, error = await call(client, "select_option", {"ref": els["menubutton:Share"]["ref"], "option": "Mail"})
-    assert error == "ELEMENT_NOT_ACTIONABLE"
     _, error = await call(client, "select_option", {"ref": els["button:New Note"]["ref"], "option": "x"})
     assert error == "ELEMENT_NOT_ACTIONABLE"
 

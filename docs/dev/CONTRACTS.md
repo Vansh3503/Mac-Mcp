@@ -181,6 +181,21 @@ paired first (refs are carried, so the same ref is the same element); the rest a
 elements (a named element under another ref at the same place is another element, e.g. a list row showing
 other content). `match_snapshots(before, after) -> dict[int, int]` exposes the pairing.
 
+### `axpilot/perception/dropdown.py`
+What an opened dropdown shows, over raw trees: `visible_handles(root) -> HandleIndex` (the baseline taken
+before opening), `find_node(root, handle) -> (node, ancestors) | None`, `in_web_content(ancestors)`,
+`option_title(node)`, `menu_options(menu) -> list[Option]` (titled visible `AXMenuItem`s; separators are
+untitled), `open_menu_of(control)` (its visible `AXMenu` child or grandchild with items), `new_menus(root,
+baseline)` (visible menus not visible before, outermost first, menu bar excluded), `page_options(root,
+baseline, *, exclude=None) -> OptionList | None` (new titled option-like nodes in a web page, the outermost
+of nested ones, grouped by their nearest `AXList`/`AXMenu`/`AXTable`/`AXOutline`; a real list wins, other
+groups need two options), `options_in(root)` (a pop-up window's first menu, else its biggest list),
+`shows_choice(node, title)` (value, title or description equal or containing it), `text_near(root, control,
+title, levels=3)` (static text outside lists near the control), `fold(text)` and `match_option(names,
+option) -> int` (exact, then unique prefix, then unique substring, case-insensitive, "…"/"..." and a
+trailing "." ignored; `INVALID_ARGUMENT` listing the options). `Option(title, node)`;
+`OptionList(container, options, where: "menu"|"app_menu"|"page"|"window", in_web, window_id)`.
+
 ### `axpilot/perception/find.py`
 `def find_elements(snap: Snapshot, *, text: str | None = None, role: str | None = None,
 identifier: str | None = None, limit: int = 20) -> list[tuple[Element, float]]` — searches
@@ -261,6 +276,21 @@ with a "Privacy & Security" window, Control Center with status items (Wi‑Fi, B
 opens its "Go to the folder" field), two displays. Fake-only node keys `default` (the button Return
 presses from a one-line field of that sheet or window) and `keys` (shortcuts a visible element handles
 itself) model AppKit's default buttons and panel key equivalents.
+Element menus: a node's `menu` (flat menu items) is shown when it is pressed or sent `AXShowMenu`; a
+pop-up with `options` and no `on_press` shows its options (the current one `selected`); an
+`AXPopUpButton`/`AXMenuButton` with a fixture `AXMenu` child shows that child (web `<select>`). One menu is
+open at a time, with fresh item handles, as the element's `AXMenu` child (`menu_at: "child"`, default) or the
+last child of the window root (`"app"`). Pressing an item (AX or click) chooses it and closes the menu;
+`AXCancel`, Escape, Return, pressing the owner again, a click outside (swallowed), another app coming
+forward or the window closing close it without choosing; other keys and typing go nowhere while it is
+open. `pointer_only: true` (a web control whose script listens to the mouse): `AXPress`, `AXShowMenu`,
+`set_value` and `insert_text` change nothing (recorded as `ignored`), clicks work. `filters: {"list": id,
+"limit": n}` on a text field: when its text changes, the list shows the first `n` children whose label
+contains it. Clicks reach elements inside zero-size wrappers. Test helpers: `menu_state()` (the open
+menu's owner and item titles) and `set_enabled(ref, enabled)`. The demo desktop also has menus on Notes'
+Format and Share and Finder's Action buttons, an app-level pop-up menu (TextEdit's line spacing), a Google
+Chrome checkout page (a `<select>`, a mouse-only combo box, an autocomplete that opens with Down and filters,
+an ARIA menu), a Slack (Electron) picker and an IntelliJ (Java) combo box whose list is a window.
 
 ---------------------------------------------------------------------------------------------------
 
@@ -445,7 +475,8 @@ class ServerContext:
 
 # axpilot/server/app.py
 def build_server(ctx: ServerContext, *, profile: str | None = None, naming: str | None = None,
-                 client_name: str | None = None) -> MCPServer
+                 client_name: str | None = None,
+                 server_factory: Callable[..., AXPilotServer] = AXPilotServer) -> AXPilotServer
 ```
 Every tool is registered through `axpilot/server/registry.py` (`ToolSpec`: name, toolset, factory(ctx)->async fn,
 title, description, read_only, destructive, idempotent, open_world, input_action, windows_mcp_name, confirm_text,
@@ -492,12 +523,32 @@ function's model (an explicit `null` is accepted). Real unions (a list or its JS
 the policy keep canonical names; calling a tool without the prefix gets `INVALID_ARGUMENT` naming the prefixed one.
 
 Controls (`axpilot/server/tools/controls.py`, input toolset):
-- `select_option(ref, option | index, snapshot_id, report)`: pop-up/combo box → `set_value` with the exact title;
+- `select_option(ref, option | index, snapshot_id, report)`: pop-up buttons, menu buttons, web combo boxes and
+  native combo boxes chosen by index → the dropdown flow below; a native combo box chosen by title →
+  `set_value` with the text, falling back to the flow when its value cannot be set (`ELEMENT_NOT_ACTIONABLE`);
   radio group, tab group, segmented control, group → press the matching child (`radio`, `tab`, `button`,
   `toggle`, `checkbox`); list/table/outline → click the matching row; an option element itself (radio, tab, row)
-  is pressed; menu buttons are `ELEMENT_NOT_ACTIONABLE` (their items appear only when open). Matching: exact,
-  then unique prefix, then unique substring (case-insensitive, trailing "…" ignored); ambiguity or no match is
-  `INVALID_ARGUMENT` listing the options. An already selected option is not pressed again.
+  is pressed. Matching: `perception.dropdown.match_option`; ambiguity or no match is `INVALID_ARGUMENT` listing
+  the options. An already selected option is not pressed again (a pop-up that already shows it is not opened).
+- The dropdown flow (`axpilot/server/dropdown.py`): `choose_option(ctx, target, *, option, index) ->
+  DropdownOutcome(strategy: "menu"|"menu_window"|"listbox"|None, chosen, message, attempts, warnings)`, also
+  used by `set_value`/`fill_form` on pop-ups. `in_web(ctx, target)`: the control's locator path has an
+  `AXWebArea`, or its app is Electron/CEF. Steps: capture the window (baseline: visible handles, the app's
+  window ids); open (native: `AXPress`, else `AXShowMenu`, else a mouse click; web: a mouse click); poll up to
+  2 s, re-capturing, for the control's menu, a new menu, (web) a new option list, or a new app window with a
+  menu or list; a web text combo box with nothing shown gets Down; a web text combo box without a matching
+  option gets the title typed once (filter: wait up to 1.5 s for a match). Pick (title or index; disabled →
+  `ELEMENT_NOT_ACTIONABLE`), press (menu items and native lists: `AXPress`; web options: a mouse click on
+  their visible part, `AXScrollToVisible` or `AXPress` when off screen, refused when covered by another app).
+  Verify: a list still open is closed (warning); a menu button needs nothing more; the control showing the
+  title passes; a native pop-up that does not is `ELEMENT_NOT_ACTIONABLE` ("it shows …"); a web control
+  passes when static text near it or the option's selected state shows the choice, else a warning. Every
+  failure or cancellation after opening (the kill switch included) runs a shielded, bounded clean-up: typed
+  filter text is put back (select all, delete, retype; not while paused or in the background), and what was
+  opened is located if needed and closed (`AXCancel`, else Escape when the app is frontmost, not paused and
+  secure input is off). Input is never repeated; each rung is tried only when the previous visibly did
+  nothing, and `attempts` lists them (`open:ax:AXPress`, `open:mouse`, `open:keys:down`, `filter:keys`,
+  `pick:ax:AXPress`, `pick:mouse`).
 - `handle_dialog(app, action=inspect|accept|cancel|press, button, text, report)`: the first `sheet`/`dialog`
   element of a full snapshot, else the window itself when its root subrole is `AXDialog`/`AXSystemDialog`.
   accept = OK/Allow/Continue/Done/Open/Save/Yes/Sign In/… else the bottom-rightmost enabled non-cancel button;
@@ -549,6 +600,14 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
   `HOST_UNAVAILABLE` when the host is unreachable or silent, then pumps stdin→socket and socket→stdout. When
   stdin ends it half-closes the socket and keeps forwarding until the host closes; returns `0`. Only the host's
   bytes are written to stdout.
+- `axpilot/bridge/offline.py`: the stand-in `axpilot stdio` serves when it cannot reach the host.
+  `build_unavailable_server(error, config, *, profile=None, naming=None) -> UnavailableServer` lists the tools
+  the host would offer (same names, descriptions and schemas, via `build_server(server_factory=...)`), puts the
+  error and its hint at the start of the instructions, and answers every listed tool with `error_result(error)`
+  (unknown names get the usual answers); it never calls its engine (an empty fake desktop) and audits nothing.
+  `STAND_IN_ERRORS` = `HOST_UNAVAILABLE`, `USER_DENIED`, `BUSY`, `NOT_SUPPORTED`: raised by
+  `ensure_host_running` or by `run_bridge` before the session starts, they are printed on stderr and the
+  stand-in serves stdin/stdout (exit `0` when stdin ends); other errors (an unknown profile) still exit.
 - `axpilot/bridge/launch.py`: `ensure_host_running(socket_path=None, *, timeout_s=10, ...) -> Path` returns at
   once if a host answers; on macOS runs `open -g -a <launcher>` and polls the socket; elsewhere (and when the
   launcher is missing) raises `HOST_UNAVAILABLE` with a hint to use `--direct` or `--engine fake`.

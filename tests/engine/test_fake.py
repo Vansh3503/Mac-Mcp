@@ -1175,3 +1175,280 @@ def test_set_value_on_radio_buttons_selects_within_the_group(engine: FakeEngine)
 def test_tree_dumps_need_an_app() -> None:
     error = expect(ErrorCode.INVALID_ARGUMENT, FakeEngine.from_dict, {"root": {"role": "AXWindow"}})
     assert "needs an 'app'" in error.message
+
+
+# =========================================================================== element menus
+def menu_desktop(**node: Any) -> dict[str, Any]:
+    """One window with a pop-up, a menu button and a button; ``node`` adds to the menu button."""
+    button = {
+        "id": "menu.button",
+        "role": "AXMenuButton",
+        "description": "Actions",
+        "frame": [120, 120, 40, 24],
+        "actions": ["AXPress", "AXShowMenu"],
+        "menu": [
+            {"title": "Copy", "on_select": {"set_value": {"id": "status", "value": "copied"}}},
+            {"separator": True},
+            {"title": "Pin", "toggle": True},
+            {"title": "Delete", "enabled": False},
+        ],
+        **node,
+    }
+    return {
+        "apps": [
+            {"name": "Widget", "bundle_id": "com.example.widget", "pid": 500, "frontmost": True},
+            {"name": "Other", "bundle_id": "com.example.other", "pid": 501},
+        ],
+        "windows": [
+            {
+                "window_id": 1,
+                "app": "com.example.widget",
+                "title": "Menus",
+                "frame": [100, 100, 400, 300],
+                "tree": {
+                    "role": "AXWindow",
+                    "children": [
+                        button,
+                        {
+                            "id": "size",
+                            "role": "AXPopUpButton",
+                            "value": "Small",
+                            "frame": [200, 120, 80, 24],
+                            "actions": ["AXPress", "AXShowMenu"],
+                            "options": ["Small", "Large"],
+                        },
+                        {"id": "status", "role": "AXTextField", "value": "", "frame": [120, 300, 200, 24]},
+                        {
+                            "id": "ok",
+                            "role": "AXButton",
+                            "title": "OK",
+                            "frame": [400, 350, 60, 24],
+                            "actions": ["AXPress"],
+                        },
+                    ],
+                },
+            },
+            {"window_id": 2, "app": "com.example.other", "title": "Other", "frame": [600, 100, 200, 200]},
+        ],
+    }
+
+
+def open_items(engine: FakeEngine) -> list[RawNode]:
+    tree = engine.capture_tree(app="Widget")
+    menu = next(node for node in tree.root.walk() if node.role == "AXMenu" and node.visible)
+    return [child for child in menu.children if child.role == "AXMenuItem"]
+
+
+def test_pressing_a_menu_button_opens_its_menu_and_an_item_chooses(engine: FakeEngine) -> None:
+    engine = FakeEngine(menu_desktop())
+    button = engine.resolve_ref("menu.button")
+    engine.perform_action(button, "AXPress")
+    state = engine.menu_state()
+    assert state is not None
+    assert state["titles"] == ["Copy", "", "Pin", "Delete"]
+    tree = engine.capture_tree(app="Widget")
+    owner = find(tree.root, handle=button)
+    assert [child.role for child in owner.children] == ["AXMenu"]  # menu_at "child"
+    items = open_items(engine)
+    assert items[3].enabled is False
+    assert items[1].title == ""  # a separator
+    assert items[1].enabled is False
+    engine.perform_action(items[0].handle, "AXPress")
+    assert engine.menu_state() is None
+    assert engine.refresh_element(engine.resolve_ref("status")).value == "copied"
+    assert not engine.element_valid(items[0].handle)  # every opening has fresh handles
+    engine.perform_action(button, "AXShowMenu")
+    pin = open_items(engine)[2]
+    engine.perform_action(pin.handle, "AXPress")
+    engine.perform_action(button, "AXShowMenu")
+    assert open_items(engine)[2].selected is True  # toggled items keep their checkmark
+    assert [event["title"] for event in engine.events_of("menu_choose")] == ["Copy", "Pin"]
+
+
+def test_a_pop_up_shows_its_options_with_the_current_one_checked() -> None:
+    engine = FakeEngine(menu_desktop())
+    size = engine.resolve_ref("size")
+    engine.perform_action(size, "AXPress")
+    items = open_items(engine)
+    assert [(item.title, item.selected) for item in items] == [("Small", True), ("Large", False)]
+    engine.mouse_click(items[1].frame.center if items[1].frame else Point(0, 0))
+    assert engine.refresh_element(size).value == "Large"
+    assert engine.menu_state() is None
+
+
+@pytest.mark.parametrize(
+    "close",
+    [
+        lambda e: e.press_key(key("escape")),
+        lambda e: e.press_key(key("return")),
+        lambda e: e.perform_action(e.resolve_ref("menu.button"), "AXPress"),
+        lambda e: e.perform_action(open_menu_node(e).handle, "AXCancel"),
+        lambda e: e.mouse_click(Point(450, 360)),
+        lambda e: e.app_control("activate", "Other"),
+        lambda e: e.window_control(1, "close"),
+        lambda e: e.perform_action(e.resolve_ref("ok"), "AXPress"),
+    ],
+    ids=[
+        "escape",
+        "return",
+        "press-again",
+        "cancel",
+        "click-outside",
+        "other-app",
+        "window-closed",
+        "press-other",
+    ],
+)
+def test_menus_close_without_choosing(close: Any) -> None:
+    engine = FakeEngine(menu_desktop())
+    engine.perform_action(engine.resolve_ref("menu.button"), "AXPress")
+    assert engine.menu_state() is not None
+    close(engine)
+    assert engine.menu_state() is None
+    assert not engine.events_of("menu_choose")
+    assert engine.events_of("menu_close")
+
+
+def open_menu_node(engine: FakeEngine) -> RawNode:
+    tree = engine.capture_tree(app="Widget")
+    return next(node for node in tree.root.walk() if node.role == "AXMenu" and node.visible)
+
+
+def test_a_click_outside_is_swallowed_and_keys_go_nowhere() -> None:
+    engine = FakeEngine(menu_desktop())
+    engine.perform_action(engine.resolve_ref("menu.button"), "AXPress")
+    engine.focus(engine.resolve_ref("status"))
+    engine.type_text("hello")
+    engine.press_key(key("a", "cmd"))
+    assert engine.refresh_element(engine.resolve_ref("status")).value == ""
+    assert engine.menu_state() is not None
+    engine.mouse_click(Point(430, 362))  # on OK, but the click only closes the menu
+    assert engine.menu_state() is None
+    assert not [e for e in engine.events_of("press") if e["name"] == "OK"]
+    engine.mouse_click(Point(430, 362))
+    assert [e for e in engine.events_of("press") if e["name"] == "OK"]
+
+
+def test_an_app_level_menu_hangs_from_the_window_root() -> None:
+    engine = FakeEngine(menu_desktop(menu_at="app"))
+    button = engine.resolve_ref("menu.button")
+    engine.perform_action(button, "AXShowMenu")
+    tree = engine.capture_tree(app="Widget")
+    assert tree.root.children[-1].role == "AXMenu"
+    assert find(tree.root, handle=button).children == []
+    items = open_items(engine)
+    engine.mouse_click(items[0].frame.center if items[0].frame else Point(0, 0))
+    assert engine.refresh_element(engine.resolve_ref("status")).value == "copied"
+
+
+def test_a_fixture_menu_child_is_shown_and_its_items_apply_their_own_effects() -> None:
+    desktop = menu_desktop()
+    popup = desktop["windows"][0]["tree"]["children"][1]
+    del popup["options"]
+    popup["children"] = [
+        {
+            "role": "AXMenu",
+            "visible": False,
+            "frame": [200, 146, 80, 44],
+            "actions": ["AXCancel"],
+            "children": [
+                {
+                    "role": "AXMenuItem",
+                    "title": "Huge",
+                    "frame": [200, 146, 80, 22],
+                    "actions": ["AXPress"],
+                    "on_press": {"set_value": {"id": "size", "value": "Huge"}},
+                }
+            ],
+        }
+    ]
+    engine = FakeEngine(desktop)
+    size = engine.resolve_ref("size")
+    engine.perform_action(size, "AXPress")
+    assert engine.menu_state() == {"owner": size, "name": None, "titles": ["Huge"]}
+    engine.perform_action(open_items(engine)[0].handle, "AXPress")
+    assert engine.refresh_element(size).value == "Huge"
+    assert engine.menu_state() is None
+    tree = engine.capture_tree(app="Widget")
+    assert find(tree.root, handle=size).children[0].visible is False
+
+
+def test_pointer_only_controls_ignore_accessibility_but_take_clicks() -> None:
+    desktop = menu_desktop()
+    ok_button = desktop["windows"][0]["tree"]["children"][3]
+    ok_button.update(pointer_only=True, on_press={"set_value": {"id": "status", "value": "clicked"}})
+    desktop["windows"][0]["tree"]["children"][2]["pointer_only"] = True
+    engine = FakeEngine(desktop)
+    status = engine.resolve_ref("status")
+    engine.perform_action(engine.resolve_ref("ok"), "AXPress")
+    engine.set_value(status, "typed")
+    assert engine.insert_text(status, "more") is False
+    assert engine.refresh_element(status).value == ""
+    assert len(engine.events_of("ignored")) == 2
+    engine.mouse_click(Point(430, 362))
+    assert engine.refresh_element(status).value == "clicked"
+
+
+def test_filters_show_the_matching_items_of_a_list() -> None:
+    desktop = menu_desktop()
+    children = desktop["windows"][0]["tree"]["children"]
+    children[2]["filters"] = {"list": "cities", "limit": 2}
+    children.append(
+        {
+            "id": "cities",
+            "role": "AXList",
+            "visible": False,
+            "frame": [120, 330, 200, 90],
+            "children": [
+                {"role": "AXStaticText", "value": city, "frame": [120, 330 + 30 * i, 200, 30]}
+                for i, city in enumerate(["Lisbon", "London", "Los Angeles", "Oslo"])
+            ],
+        }
+    )
+    engine = FakeEngine(desktop)
+    status = engine.resolve_ref("status")
+    engine.focus(status)
+    engine.type_text("lo")
+    cities = find(engine.capture_tree(app="Widget").root, identifier=None, role="AXList")
+    assert cities.visible
+    assert [c.value for c in cities.children if c.visible] == ["London", "Los Angeles"]  # limit 2
+    engine.press_key(key("delete"))
+    engine.press_key(key("delete"))
+    engine.type_text("s")
+    cities = find(engine.capture_tree(app="Widget").root, role="AXList")
+    assert [c.value for c in cities.children if c.visible] == ["Lisbon", "Los Angeles"]
+
+
+def test_clicks_reach_elements_inside_zero_size_wrappers() -> None:
+    desktop = menu_desktop()
+    tree = desktop["windows"][0]["tree"]
+    ok_button = tree["children"].pop(3)
+    tree["children"].append({"role": "AXGroup", "frame": [100, 100, 0, 0], "children": [ok_button]})
+    engine = FakeEngine(desktop)
+    engine.mouse_click(Point(430, 362))
+    assert [e for e in engine.events_of("press") if e["name"] == "OK"]
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ({"menu": "Copy"}, "must be a list"),
+        ({"menu": [{"title": "More", "children": [{"title": "Deeper"}]}]}, "cannot have submenus"),
+        ({"menu_at": "window"}, "menu_at"),
+        ({"filters": {"list": 3}}, "filters"),
+        ({"filters": {"list": "nowhere"}}, "unknown element 'nowhere'"),
+        ({"menu": [{"title": "Go", "on_select": {"focus": "nowhere"}}]}, "unknown element 'nowhere'"),
+    ],
+)
+def test_menu_fixture_errors(change: dict[str, Any], message: str) -> None:
+    with pytest.raises(AXPilotError) as caught:
+        FakeEngine(menu_desktop(**change))
+    assert message in caught.value.message
+
+
+def test_menu_test_helpers() -> None:
+    engine = FakeEngine(menu_desktop())
+    assert engine.menu_state() is None
+    engine.set_enabled("ok", False)
+    assert engine.refresh_element(engine.resolve_ref("ok")).enabled is False
+    expect(ErrorCode.STALE_REF, engine.set_enabled, "nowhere", True)

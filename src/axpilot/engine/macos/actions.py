@@ -79,6 +79,8 @@ SETTABLE_PROBES: tuple[str, ...] = (
     A.SIZE,
 )
 POPUP_OPEN_DELAY_S = 0.15
+POPUP_OPEN_WAIT_S = 0.6
+"""How long a pop-up's menu may take to appear (polled every :data:`POPUP_OPEN_DELAY_S`)."""
 
 
 def process_alive(pid: int) -> bool:
@@ -328,6 +330,40 @@ def _child_with_role(ax: AX, element: AXElement, role: str) -> AXElement | None:
     return None
 
 
+def _on_screen(ax: AX, element: AXElement) -> bool:
+    frame = A.frame_of(ax, ax.get_many(element, (A.POSITION, A.SIZE)))
+    return frame is not None and frame.w > 0 and frame.h > 0
+
+
+def _app_menu(ax: AX, element: AXElement) -> AXElement | None:
+    """An open menu of ``element``'s application outside its windows (``AXMenu`` children of the
+    application element): where some pop-ups and every context menu show their items."""
+    pid = ax.pid(element)
+    if pid is None:
+        return None
+    for child in list(ax.get(ax.application(pid), A.CHILDREN) or []):
+        if ax.is_element(child) and A.text(ax.get(child, A.ROLE)) == A.MENU and _on_screen(ax, child):
+            return child
+    return None
+
+
+def open_menu_of(ax: AX, popup: AXElement) -> AXElement | None:
+    """The menu a pressed pop-up shows: its own ``AXMenu`` child when on screen, else an open
+    application-level menu, else the (frameless) child menu itself. Polls for up to
+    :data:`POPUP_OPEN_WAIT_S`; ``None`` if no menu appears."""
+    deadline = time.monotonic() + POPUP_OPEN_WAIT_S
+    while True:
+        child = _child_with_role(ax, popup, A.MENU)
+        if child is not None and _on_screen(ax, child):
+            return child
+        detached = _app_menu(ax, popup)
+        if detached is not None:
+            return detached
+        if time.monotonic() >= deadline:
+            return child
+        time.sleep(POPUP_OPEN_DELAY_S)
+
+
 def _cancel(ax: AX, *elements: AXElement | None) -> None:
     for element in elements:
         if element is None:
@@ -341,11 +377,14 @@ def _cancel(ax: AX, *elements: AXElement | None) -> None:
 
 def select_popup_option(ax: AX, popup: AXElement, option: str) -> str:
     """Open a pop-up button's menu and press the item matching ``option`` (same tolerant
-    matching as menus). Returns the chosen title; cancels the menu on failure."""
+    matching as menus). The menu is the pop-up's ``AXMenu`` child, or an application-level menu
+    when the pop-up's menu is not its child (:func:`open_menu_of`). Returns the chosen title;
+    cancels the menu on failure. (The tools use :mod:`axpilot.server.dropdown`, which also
+    finds menu windows and web lists; this is the engine-level ``set_value`` on a pop-up.)"""
     label = describe(ax, popup)
     _deliver(ax, popup, A.PRESS)
     time.sleep(POPUP_OPEN_DELAY_S)
-    menu = _child_with_role(ax, popup, "AXMenu")
+    menu = open_menu_of(ax, popup)
     if menu is None:
         raise AXPilotError(
             ErrorCode.ELEMENT_NOT_ACTIONABLE,

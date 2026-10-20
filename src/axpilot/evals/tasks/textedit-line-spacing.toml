@@ -1,0 +1,21 @@
+id = "textedit-line-spacing"
+title = "Change the line spacing"
+goal = "In TextEdit, set the line and paragraph spacing in the format bar to 1.5."
+tags = ["textedit", "controls"]
+max_steps = 10
+
+[[check]]
+tool = "find"
+args = { app = "TextEdit", text = "Line and Paragraph Spacing", role = "popup" }
+path = "matches.0.value"
+op = "equals"
+value = "1.5"
+
+[[solution]]
+tool = "find"
+args = { app = "TextEdit", text = "Line and Paragraph Spacing", role = "popup" }
+save = { spacing = "matches.0.ref" }
+
+[[solution]]
+tool = "select_option"
+args = { ref = "$spacing", option = "1.5" }

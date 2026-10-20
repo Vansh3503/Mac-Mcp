@@ -1,0 +1,25 @@
+id = "idea-run-configuration"
+title = "Pick from a Java pop-up list"
+goal = "Open IntelliJ IDEA and switch the run configuration to All Tests."
+tags = ["compatibility", "controls", "apps"]
+max_steps = 12
+
+[[check]]
+tool = "find"
+args = { app = "IntelliJ IDEA", text = "Run/Debug Configurations", role = "combobox" }
+path = "matches.0.value"
+op = "equals"
+value = "All Tests"
+
+[[solution]]
+tool = "app"
+args = { action = "launch", name = "IntelliJ IDEA" }
+
+[[solution]]
+tool = "find"
+args = { app = "IntelliJ IDEA", text = "Run/Debug Configurations", role = "combobox" }
+save = { config = "matches.0.ref" }
+
+[[solution]]
+tool = "select_option"
+args = { ref = "$config", option = "All Tests" }

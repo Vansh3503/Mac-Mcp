@@ -20,6 +20,7 @@ import anyio
 import pytest
 from mcp import Client, StdioServerParameters, stdio_client
 
+from axpilot.server.results import error_code_of, text_of
 from axpilot.testing import structured
 
 pytestmark = pytest.mark.anyio
@@ -184,6 +185,82 @@ async def test_client_bridge_host_chain(
     assert "Traceback" not in stderr
     assert host.stdout is not None
     assert host.stdout.read() == b""  # the host never writes to stdout
+
+
+async def test_without_a_host_the_bridge_still_answers_with_the_reason(env: dict[str, str]) -> None:
+    """No AXPilot.app (macOS) or no host at all (elsewhere): the handshake completes, the usual tools
+    are listed, and each tool call returns HOST_UNAVAILABLE with the way out."""
+    params = StdioServerParameters(command=sys.executable, args=["-m", "axpilot", "stdio"], env=env)
+    with anyio.fail_after(60):
+        async with Client(stdio_client(params)) as client:
+            assert client.instructions is not None
+            assert "HOST_UNAVAILABLE" in client.instructions
+            names = {tool.name for tool in (await client.list_tools()).tools}
+            assert {"status", "snapshot", "click", "select_option"} <= names
+            for tool, args in (("status", {}), ("snapshot", {"app": "Notes"}), ("click", {"x": 10, "y": 10})):
+                result = await client.call_tool(tool, args)
+                assert error_code_of(result) == "HOST_UNAVAILABLE", text_of(result)
+                way_out = "axpilot setup" if sys.platform == "darwin" else "--engine fake"
+                assert way_out in text_of(result)
+        windows = StdioServerParameters(
+            command=sys.executable, args=["-m", "axpilot", "stdio", "--naming", "windows-mcp"], env=env
+        )
+        async with Client(stdio_client(windows)) as client:
+            names = {tool.name for tool in (await client.list_tools()).tools}
+            assert {"Click", "Snapshot"} <= names
+            assert error_code_of(await client.call_tool("Click", {"loc": [10, 10]})) == "HOST_UNAVAILABLE"
+
+
+async def test_a_bad_profile_still_exits_before_the_handshake(env: dict[str, str]) -> None:
+    process = await anyio.open_process(
+        [*AXPILOT, "stdio", "--profile", "everything"], env=env, stdin=subprocess.PIPE
+    )
+    async with process:
+        assert process.stdin is not None
+        await process.stdin.aclose()
+        with anyio.fail_after(60):
+            returncode = await process.wait()
+        assert process.stderr is not None
+        stderr = (await process.stderr.receive()).decode()
+    assert returncode == 2
+    assert "INVALID_ARGUMENT" in stderr
+
+
+@pytest.fixture
+def refusing_host(env: dict[str, str], sock_dir: Path) -> Iterator[subprocess.Popen[bytes]]:
+    """``axpilot host --engine fake`` without ``--yes``: nobody can approve pairing, so it is refused."""
+    path = sock_dir / "axpilot.sock"
+    process = subprocess.Popen(
+        [*AXPILOT, "host", "--engine", "fake", "--socket", str(path)],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    try:
+        deadline = 60.0
+        while deadline > 0 and not _accepts(path):
+            if process.poll() is not None:
+                pytest.fail(f"the host exited: {process.stderr.read().decode() if process.stderr else ''}")
+            time.sleep(0.1)
+            deadline -= 0.1
+        yield process
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=20)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+
+
+async def test_a_refused_client_gets_the_refusal_from_every_tool(
+    env: dict[str, str], refusing_host: subprocess.Popen[bytes]
+) -> None:
+    params = StdioServerParameters(command=sys.executable, args=["-m", "axpilot", "stdio"], env=env)
+    with anyio.fail_after(60):
+        async with Client(stdio_client(params)) as client:
+            result = await client.call_tool("snapshot", {"app": "Notes"})
+            assert error_code_of(result) == "USER_DENIED", text_of(result)
 
 
 def _free_port() -> int:

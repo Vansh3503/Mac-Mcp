@@ -511,19 +511,22 @@ number for a slider), BLOCKED_BY_POLICY (secure fields), STALE_REF.
 
 idempotent · input · Profiles: `standard`, `full` · Windows-MCP: `SelectOption`
 
-Choose an option of a control by its title (or 1-based index): a pop-up button or combo box
-(AXPilot opens it and picks the item), a radio group, tab group or segmented control (presses the
-matching button), or a list, table or outline (selects the matching row).
-Params: ref (the control, from a snapshot), option (title: exact, then prefix, then substring; pop-ups
-and combo boxes need the exact title, since their items are listed only while open) or index (not
-for pop-ups); snapshot_id; report. Choosing the option that is already selected changes nothing.
+Choose an option of a dropdown or choice control by its title (or 1-based index), in one call:
+pop-up buttons, menu buttons (Format, Action…), combo boxes, web <select> elements and custom web
+or Electron pickers (React Select, MUI, Slack, VS Code): AXPilot opens the control, waits for its
+menu or list, picks the option (typing to filter a web combo box when the option is not listed),
+and checks that the control took it; the menu is closed again if anything fails. Also radio groups,
+tab groups and segmented controls (presses the matching button) and lists, tables and outlines
+(selects the matching row).
+Params: ref (the control, from a snapshot), option (title: exact, then prefix, then substring) or
+index; snapshot_id; report. Choosing the option that is already selected changes nothing.
 Errors: INVALID_ARGUMENT (no or several matching options: the message lists them), STALE_REF,
-ELEMENT_NOT_ACTIONABLE (disabled, or not a control with options; menu buttons: use
-perform_action AXShowMenu), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER.
+ELEMENT_NOT_ACTIONABLE (disabled control or option, nothing opened, or the control did not take
+the option), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `ref` | string | required | The control: a pop-up, combo box, radio/tab group or list ("e7"). |
+| `ref` | string | required | The control: a pop-up, menu button, combo box, radio/tab group or list ("e7"). |
 | `option` | string | optional | The option's title. |
 | `index` | integer | optional | The option's position, from 1. |
 | `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |

@@ -32,7 +32,26 @@ Tree nodes use the :mod:`axpilot.perception.serialize` format plus these fake-on
 * ``default``: ``true`` on a window's or sheet's default button, which Return in a one-line text
   field of that window or sheet presses (like AppKit's default button);
 * ``keys``: ``{"⇧⌘G": <effects>}``, shortcuts that the element handles itself while it is visible
-  in the front window (an open/save panel's "Go to the folder"); they win over menu shortcuts.
+  in the front window (an open/save panel's "Go to the folder"); they win over menu shortcuts;
+* ``menu``: the items (menu-item format below, without submenus) the element shows in a menu
+  when it is pressed or sent ``AXShowMenu`` (a menu button, or a context menu);
+* ``menu_at``: where that menu appears in the tree: ``"child"`` (default: an ``AXMenu`` child of
+  the element, like AppKit pop-up buttons) or ``"app"`` (appended to the window's root, like a
+  context menu or a pop-up whose menu belongs to the application);
+* ``pointer_only``: ``true`` on a web control whose script listens to real mouse events:
+  ``AXPress``, ``AXShowMenu`` and ``set_value`` are recorded but change nothing, a click works;
+* ``filters``: ``{"list": "<id>", "limit": 3}`` on a text field or combo box: whenever its text
+  changes, the list shows (at most ``limit`` of) the children whose label contains the text, like
+  an autocomplete.
+
+Menus that elements show (see ``menu`` above; a pop-up button with ``options`` and no
+``on_press`` shows its options, the current one selected; an ``AXPopUpButton`` or
+``AXMenuButton`` with an ``AXMenu`` child in the fixture shows that child, as web ``<select>``
+elements do): pressing the element opens the menu with fresh item handles (one menu at a time,
+like macOS). Pressing an item (``AXPress`` or a click) chooses it and closes the menu; ``AXCancel``,
+Escape, Return, pressing the element again, another app coming forward or a click outside the
+menu close it without choosing (the click is swallowed). Other keys and typing go nowhere while
+it is open.
 
 Menu items (``title``, ``enabled``, ``checked``, ``shortcut`` in glyph form such as ``"⇧⌘S"``,
 ``children``) may add ``"separator": true``, ``"toggle": true`` (flip ``checked`` on select)
@@ -136,8 +155,30 @@ _WINDOW_KEYS = frozenset(
 )
 _DISPLAY_KEYS = frozenset({"display_id", "frame", "work_area", "scale", "main", "name"})
 _FAKE_NODE_KEYS = frozenset(
-    {"id", "on_press", "options", "settable", "min", "max", "step", "content_rows", "default", "keys"}
+    {
+        "id",
+        "on_press",
+        "options",
+        "settable",
+        "min",
+        "max",
+        "step",
+        "content_rows",
+        "default",
+        "keys",
+        "menu",
+        "menu_at",
+        "pointer_only",
+        "filters",
+    }
 )
+_MENU_OWNER_ROLES = frozenset({"AXPopUpButton", "AXMenuButton"})
+"""Roles whose ``AXMenu`` child (from the fixture) is the menu they show when pressed."""
+_MENU_PLACEMENTS = frozenset({"child", "app"})
+_FILTER_KEYS = frozenset({"list", "limit"})
+_MENU_ITEM_HEIGHT = 22.0
+_MENU_MIN_WIDTH = 180.0
+_MENU_CLOSE_KEYS = frozenset({"escape", "return"})
 _BUNDLE_KEYS = frozenset({"files", "plists"})
 _OCR_KEYS = frozenset({"text", "frame", "confidence"})
 _CONTENT_ROWS_KEYS = frozenset({"rows", "row_height", "points_per_line", "offset"})
@@ -428,6 +469,22 @@ def _item(title: str, shortcut: str | None = None, *children: _MenuItem, enabled
 _SEPARATOR = _MenuItem(title="", enabled=False)
 
 
+@dataclass(slots=True, eq=False)
+class _OpenMenu:
+    """The menu an element shows while it is open (see the module docstring)."""
+
+    owner: RawNode
+    """The element that opened it (a pop-up button, a menu button, a context-menu target)."""
+    node: RawNode
+    """The ``AXMenu`` node."""
+    window: _Window
+    parent: RawNode | None
+    """Where a generated menu hangs while open (the owner or the window root); ``None`` for a
+    fixture ``AXMenu`` child, which is only made visible."""
+    choices: dict[str, _MenuItem | str] = field(default_factory=dict)
+    """Generated item handle → its menu item (``menu``) or the option title (pop-up ``options``)."""
+
+
 def _apple_menu() -> _MenuItem:
     return _item(
         "Apple",
@@ -524,6 +581,29 @@ def _key_bindings(data: Any, where: str) -> dict[str, list[Effect]]:
     return bindings
 
 
+def _element_menu(data: Any, where: str) -> list[_MenuItem]:
+    """An element's ``menu``: a flat list of menu items (no submenus)."""
+    if not isinstance(data, list):
+        raise _fixture_error(f"menu of {where} must be a list of menu items.")
+    items = [_parse_menu(item, f"menu[{index}] of {where}") for index, item in enumerate(data)]
+    if any(item.children for item in items):
+        raise _fixture_error(f"menu of {where}: items of an element's menu cannot have submenus.")
+    return items
+
+
+def _check_menu_behaviour(data: Mapping[str, Any], where: str) -> list[_MenuItem]:
+    """Validate ``menu``, ``menu_at`` and ``filters``; returns the parsed menu items."""
+    items = _element_menu(data["menu"], where) if "menu" in data else []
+    if data.get("menu_at", "child") not in _MENU_PLACEMENTS:
+        raise _fixture_error(f"menu_at of {where} must be 'child' or 'app'.")
+    if "filters" in data:
+        spec = _check_keys(data["filters"], _FILTER_KEYS, f"filters of {where}")
+        limit = spec.get("limit", 10)
+        if not isinstance(spec.get("list"), str) or not isinstance(limit, int) or limit < 1:
+            raise _fixture_error(f"filters of {where} needs a list id and a positive integer limit.")
+    return items
+
+
 def _walk_visible(root: RawNode) -> Iterator[RawNode]:
     """Pre-order traversal that skips invisible subtrees."""
     stack = [root]
@@ -584,6 +664,8 @@ class FakeEngine(Engine):
         """How far each ordinary scroll area is scrolled from its fixture layout (x, y points)."""
         self._bundle_files: list[str] = []
         self._bundle_plists: dict[str, Mapping[str, Any]] = {}
+        self._open_menu: _OpenMenu | None = None
+        """The menu an element shows right now (one at a time, like macOS)."""
         self._load(desktop)
 
     # ------------------------------------------------------------------ construction
@@ -812,6 +894,7 @@ class FakeEngine(Engine):
         ids: set[str] = set()
         identifiers: set[str] = set()
         effects: list[tuple[str, Effect]] = []
+        lists: list[tuple[str, str]] = []  # filters lists: (owner, list id)
 
         def collect(node: RawNode, data: Mapping[str, Any]) -> None:
             if "id" in data:
@@ -834,12 +917,14 @@ class FakeEngine(Engine):
                 _check_content_rows(
                     node, data["content_rows"], f"content_rows of {data.get('id') or node.role}"
                 )
-            effects.extend(
-                (f"on_press of {data.get('id') or node.role}", e)
-                for e in _effects(data.get("on_press"), "on_press")
-            )
-            for shortcut, bound in _key_bindings(data.get("keys"), data.get("id") or node.role).items():
-                effects.extend((f"keys[{shortcut!r}] of {data.get('id') or node.role}", e) for e in bound)
+            name = data.get("id") or node.role
+            effects.extend((f"on_press of {name}", e) for e in _effects(data.get("on_press"), "on_press"))
+            for shortcut, bound in _key_bindings(data.get("keys"), name).items():
+                effects.extend((f"keys[{shortcut!r}] of {name}", e) for e in bound)
+            for item in _check_menu_behaviour(data, name):
+                effects.extend((f"menu item {item.title!r} of {name}", e) for e in item.effects)
+            if "filters" in data:
+                lists.append((name, str(data["filters"]["list"])))
 
         for window_id, definition in self._window_defs.items():
             tree = definition.get("tree")
@@ -856,6 +941,9 @@ class FakeEngine(Engine):
         for menu in [*self._menus.values(), *self._extras.values()]:
             collect_menu(menu)
         known = ids | identifiers
+        for owner, list_id in lists:
+            if list_id not in known:
+                raise _fixture_error(f"filters of {owner} refers to unknown element {list_id!r}.")
         for where, effect in effects:
             ((kind, arg),) = effect.items()
             for ref in self._effect_refs(kind, arg):
@@ -940,6 +1028,8 @@ class FakeEngine(Engine):
         self._parents[handle] = parent
         self._node_windows[handle] = window
         behaviour = {key: data[key] for key in _FAKE_NODE_KEYS if key in data and key != "id"}
+        if "menu" in behaviour:  # parsed once per opening of the window: checkmarks persist
+            behaviour["menu"] = _element_menu(behaviour["menu"], str(fixture_id or node.role))
         if behaviour:
             self._behaviour[handle] = behaviour
         if _is_secure(node):
@@ -1159,6 +1249,8 @@ class FakeEngine(Engine):
         return next((w for w in self._windows if w.window_id == window_id), None)
 
     def _close_window(self, window: _Window) -> None:
+        if self._open_menu is not None and self._open_menu.window is window:
+            self._close_menu("window closed")
         if window in self._windows:
             self._windows.remove(window)
         self._unregister(window)
@@ -1178,6 +1270,8 @@ class FakeEngine(Engine):
 
     # ------------------------------------------------------------------ apps & focus helpers
     def _activate(self, app: _App) -> None:
+        if self._open_menu is not None and self._open_menu.window.app is not app:
+            self._close_menu("another app came forward")
         app.hidden = False
         self._frontmost = app
         mine = [w for w in self._windows if w.app is app]
@@ -1383,6 +1477,24 @@ class FakeEngine(Engine):
                 raise AXPilotError(ErrorCode.STALE_REF, f"No open element has id or identifier {ref!r}.")
             node.frame = frame
 
+    def set_enabled(self, ref: str, enabled: bool) -> None:
+        """Enable or disable an element (fixture id or ``AXIdentifier``; a test helper)."""
+        with self._lock:
+            node = self._lookup(ref)
+            if node is None:
+                raise AXPilotError(ErrorCode.STALE_REF, f"No open element has id or identifier {ref!r}.")
+            node.enabled = enabled
+
+    def menu_state(self) -> dict[str, Any] | None:
+        """The menu an element shows right now (a test helper): ``owner`` (handle), ``name``
+        and the item ``titles``; ``None`` when no menu is open."""
+        with self._lock:
+            menu = self._open_menu
+            if menu is None:
+                return None
+            titles = [item.title or "" for item in menu.node.children if item.role == "AXMenuItem"]
+            return {"owner": menu.owner.handle, "name": _node_label(menu.owner), "titles": titles}
+
     def secure_value(self, handle: str) -> str | None:
         """What was typed into a secure field (a test helper; never exposed through the engine API)."""
         with self._lock:
@@ -1433,6 +1545,9 @@ class FakeEngine(Engine):
             self._secrets[node.handle] = text
         else:
             node.value = text
+        spec = self._behaviour.get(node.handle, {}).get("filters")
+        if spec is not None:
+            self._filter_list(spec, text)
 
     def _insert(self, node: RawNode, text: str) -> None:
         if node.role in _SINGLE_LINE_ROLES:
@@ -1464,9 +1579,143 @@ class FakeEngine(Engine):
             if sibling.role == "AXRadioButton":
                 sibling.value = 1 if sibling is radio else 0
 
+    # ------------------------------------------------------------------ element menus
+    def _menu_source(self, node: RawNode) -> tuple[list[_MenuItem | str], RawNode | None] | None:
+        """What ``node`` shows when pressed: generated choices, or its fixture ``AXMenu`` child
+        (``None`` when it shows no menu)."""
+        behaviour = self._behaviour.get(node.handle, {})
+        if "menu" in behaviour:
+            return list(behaviour["menu"]), None
+        if node.role in _MENU_OWNER_ROLES:
+            child = next((c for c in node.children if c.role == "AXMenu"), None)
+            if child is not None:
+                return [], child
+        if node.role == "AXPopUpButton" and behaviour.get("options") and "on_press" not in behaviour:
+            return [str(option) for option in behaviour["options"]], None
+        return None
+
+    def _generated_menu(self, owner: RawNode, choices: Sequence[_MenuItem | str]) -> RawNode:
+        """An ``AXMenu`` below ``owner`` with one ``AXMenuItem`` per choice (separators untitled)."""
+        frame = owner.frame or Rect(0.0, 0.0, 0.0, 0.0)
+        x, top = frame.x, frame.y + frame.h + 2.0
+        width = max(frame.w, _MENU_MIN_WIDTH)
+        items: list[RawNode] = []
+        for index, choice in enumerate(choices):
+            if isinstance(choice, str):
+                title, enabled, checked = choice, True, str(owner.value) == choice
+            else:
+                title, checked = choice.title, choice.checked
+                enabled = choice.enabled and not choice.separator
+            items.append(
+                RawNode(
+                    role="AXMenuItem",
+                    title=title,
+                    enabled=enabled,
+                    selected=checked,
+                    frame=Rect(x, top + index * _MENU_ITEM_HEIGHT, width, _MENU_ITEM_HEIGHT),
+                    actions=("AXPress", "AXCancel"),
+                )
+            )
+        height = _MENU_ITEM_HEIGHT * len(items)
+        frame = Rect(x, top, width, height)
+        return RawNode(role="AXMenu", frame=frame, actions=("AXCancel",), children=items)
+
+    def _show_menu(self, owner: RawNode) -> bool:
+        """Open the menu ``owner`` shows (closing any other); False if it shows none."""
+        source = self._menu_source(owner)
+        if source is None:
+            return False
+        self._close_menu("another menu opened")
+        choices, literal = source
+        window = self._node_windows[owner.handle]
+        if literal is not None:
+            literal.visible = True
+            self._open_menu = _OpenMenu(owner=owner, node=literal, window=window, parent=None)
+            placement = "fixture"
+        else:
+            placement = self._behaviour.get(owner.handle, {}).get("menu_at", "child")
+            parent = owner if placement == "child" else window.root
+            menu = self._generated_menu(owner, choices)
+            parent.children.append(menu)
+            generation = self._generations.get(window.window_id, 1)
+            self._register(menu, parent, _Registration(window=window, raw={}, generation=generation))
+            opened = _OpenMenu(owner=owner, node=menu, window=window, parent=parent)
+            for item, choice in zip(menu.children, choices, strict=True):
+                opened.choices[item.handle] = choice
+            self._open_menu = opened
+        self._record("menu_open", owner=owner.handle, name=_node_label(owner), placement=placement)
+        return True
+
+    def _close_menu(self, reason: str) -> None:
+        menu = self._open_menu
+        if menu is None:
+            return
+        self._open_menu = None
+        if menu.parent is None:
+            menu.node.visible = False
+        else:
+            if menu.node in menu.parent.children:
+                menu.parent.children.remove(menu.node)
+            self._unregister_subtree(menu.node, menu.window.app)
+        self._record("menu_close", owner=menu.owner.handle, reason=reason)
+
+    def _in_open_menu(self, node: RawNode) -> bool:
+        menu = self._open_menu
+        current: RawNode | None = node
+        while menu is not None and current is not None:
+            if current is menu.node:
+                return True
+            current = self._parents.get(current.handle) if current.handle is not None else None
+        return False
+
+    def _menu_item_at(self, point: Point) -> RawNode | None:
+        menu = self._open_menu
+        if menu is None:
+            return None
+        for item in reversed(menu.node.children):
+            if item.visible and item.frame is not None and item.frame.contains(point):
+                return item
+        return None
+
+    def _press_in_menu(self, node: RawNode) -> bool:
+        """A press while a menu is open: choose an item, or close the menu. True if handled."""
+        menu = self._open_menu
+        if menu is None:
+            return False
+        if self._in_open_menu(node):
+            choice = menu.choices.get(node.handle)
+            self._close_menu("chosen")
+            self._record("menu_choose", owner=menu.owner.handle, title=node.title)
+            if isinstance(choice, str):
+                menu.owner.value = choice
+            elif isinstance(choice, _MenuItem):
+                if choice.toggle:
+                    choice.checked = not choice.checked
+                self._apply_effects(choice.effects, menu.window)
+            return menu.parent is not None  # a fixture menu's item applies its own on_press
+        self._close_menu("pressed again" if node is menu.owner else "pressed elsewhere")
+        return node is menu.owner
+
+    def _filter_list(self, spec: Mapping[str, Any], text: str) -> None:
+        """``filters``: show the list's children whose label contains ``text`` (at most ``limit``)."""
+        listing = self._lookup(str(spec["list"]))
+        if listing is None:
+            self._record("effect_skipped", effect="filters", ref=spec["list"])
+            return
+        limit = int(spec.get("limit", 10))
+        wanted = text.strip().casefold()
+        shown = 0
+        for child in listing.children:
+            child.visible = shown < limit and wanted in (_node_label(child) or "").casefold()
+            shown += child.visible
+        listing.visible = True
+        self._record("filter", list=listing.handle, shown=shown)
+
     def _press(self, node: RawNode, *, modifiers: frozenset[str] = frozenset()) -> None:
         """What happens when the user activates an element (AXPress or a click)."""
         self._record("press", handle=node.handle, name=_node_label(node))
+        if self._press_in_menu(node) or self._show_menu(node):
+            return
         if node.role == "AXCheckBox":
             node.value = 0 if node.value not in (0, False, None, "0") else 1
         elif node.role == "AXRadioButton":
@@ -1754,17 +2003,20 @@ class FakeEngine(Engine):
         return next((w for w in self._visible_windows() if w.frame.contains(point)), None)
 
     def _hit(self, node: RawNode, point: Point, root: RawNode) -> RawNode | None:
-        """Deepest, topmost interactive node under ``point`` (later siblings are on top)."""
+        """Deepest, topmost interactive node under ``point`` (later siblings are on top). A
+        zero-size node is never hit itself but does not hide its children (web content nests
+        visible elements in 0×0 wrappers)."""
         if not node.visible:
             return None
         frame = node.frame
-        if frame is not None and (frame.w <= 0 or frame.h <= 0 or not frame.contains(point)):
+        empty = frame is not None and (frame.w <= 0 or frame.h <= 0)
+        if frame is not None and not empty and not frame.contains(point):
             return None
         for child in reversed(node.children):
             found = self._hit(child, point, root)
             if found is not None:
                 return found
-        if frame is not None and node is not root and is_interactive(node):
+        if frame is not None and not empty and node is not root and is_interactive(node):
             return node
         return None
 
@@ -1943,8 +2195,20 @@ class FakeEngine(Engine):
             if not node.enabled:
                 raise AXPilotError(ErrorCode.ELEMENT_NOT_ACTIONABLE, f"This {node.role} is disabled.")
             self._record("perform_action", handle=node.handle, action=action, name=_node_label(node))
-            if action == "AXPress":
+            pointer_only = self._behaviour.get(node.handle, {}).get("pointer_only")
+            if pointer_only and action in ("AXPress", "AXShowMenu"):
+                self._record("ignored", handle=node.handle, action=action)  # the page listens to the mouse
+            elif action == "AXPress":
                 self._press(node)
+            elif action == "AXShowMenu":
+                menu = self._open_menu
+                if menu is None or menu.owner is not node:
+                    self._close_menu("another menu opened")
+                    self._show_menu(node)
+            elif action == "AXCancel":
+                menu = self._open_menu
+                if menu is not None and (node is menu.owner or self._in_open_menu(node)):
+                    self._close_menu("cancelled")
             elif action in ("AXIncrement", "AXDecrement"):
                 self._step(node, 1 if action == "AXIncrement" else -1)
             elif action == "AXRaise":
@@ -1978,6 +2242,9 @@ class FakeEngine(Engine):
             if not node.enabled:
                 raise AXPilotError(ErrorCode.ELEMENT_NOT_ACTIONABLE, f"This {node.role} is disabled.")
             self._record("set_value", handle=node.handle, value="<secure>" if node.secure else value)
+            if behaviour.get("pointer_only"):
+                self._record("ignored", handle=node.handle, action="set_value")  # the page re-renders
+                return
             self._assign_value(node, value, behaviour)
 
     def _assign_value(self, node: RawNode, value: str | float | bool, behaviour: Mapping[str, Any]) -> None:
@@ -2051,6 +2318,8 @@ class FakeEngine(Engine):
             node = self._node(handle)
             if node.role not in TEXT_INPUT_ROLES or not node.enabled:
                 return False
+            if self._behaviour.get(node.handle, {}).get("pointer_only"):
+                return False
             details = {"length": len(text)} if node.secure else {"text": text}
             self._record("insert_text", handle=node.handle, secure=node.secure, **details)
             self._insert(node, text)
@@ -2087,6 +2356,9 @@ class FakeEngine(Engine):
                     ErrorCode.INVALID_ARGUMENT, f"Bad click: button={button!r}, count={count}."
                 )
             self._cursor = point
+            if self._open_menu is not None:  # an open menu takes every click
+                self._click_with_menu(point, button, count, modifiers)
+                return
             window = self._window_at(point)
             target = self._hit(window.root, point, window.root) if window is not None else None
             self._record(
@@ -2105,6 +2377,30 @@ class FakeEngine(Engine):
             if target is not None and target.enabled:
                 self._click(target, count, modifiers)
 
+    def _click_with_menu(
+        self, point: Point, button: MouseButton, count: int, modifiers: frozenset[str]
+    ) -> None:
+        """A click while a menu is open: an item is chosen; anywhere else closes the menu and the
+        click goes no further (as on macOS)."""
+        menu = self._open_menu
+        assert menu is not None
+        item = self._menu_item_at(point)
+        self._record(
+            "mouse_click",
+            point=point.to_list(),
+            button=button,
+            count=count,
+            modifiers=sorted(modifiers),
+            window_id=menu.window.window_id,
+            target=item.handle if item is not None else None,
+        )
+        if item is not None:
+            if item.enabled and button == "left":
+                self._press(item)
+            return
+        if menu.node.frame is None or not menu.node.frame.contains(point):
+            self._close_menu("clicked outside")
+
     def _click(self, node: RawNode, count: int, modifiers: frozenset[str]) -> None:
         if node.role in TEXT_INPUT_ROLES:
             app = self._app_of(node)
@@ -2113,7 +2409,9 @@ class FakeEngine(Engine):
                 self._select_all.add(node.handle)
             else:
                 self._select_all.discard(node.handle)
-        elif node.role == "AXRow" or "AXPress" in node.actions:
+            if "on_press" in self._behaviour.get(node.handle, {}):  # e.g. a web combo box opens its list
+                self._press(node, modifiers=modifiers)
+        elif node.role == "AXRow" or "AXPress" in node.actions or self._menu_source(node) is not None:
             self._press(node, modifiers=modifiers)
 
     def mouse_drag(
@@ -2161,6 +2459,10 @@ class FakeEngine(Engine):
         with self._lock:
             self._require_keyboard()
             self._record("press_key", key=combo.key, modifiers=sorted(combo.modifiers), combo=str(combo))
+            if self._open_menu is not None:  # an open menu takes the keyboard
+                if combo.key in _MENU_CLOSE_KEYS and not combo.modifiers:
+                    self._close_menu(f"{combo.key} pressed")
+                return
             app = self._frontmost
             if app is None:
                 return
@@ -2244,7 +2546,7 @@ class FakeEngine(Engine):
     def type_text(self, text: str, interval_s: float = 0.0) -> None:
         with self._lock:
             self._require_keyboard()
-            node = self._focused_text(self._frontmost)
+            node = None if self._open_menu is not None else self._focused_text(self._frontmost)
             if node is None:
                 self._record("type_text", target=None, text=text)
                 return

@@ -264,9 +264,12 @@ def is_visible(frame: Rect | None, clip: Rect | None) -> bool:
 def node_visible(role: str, frame: Rect | None, clip: Rect | None) -> bool:
     """:func:`is_visible`, plus: a menu (``AXMenu``) without an on-screen frame is closed, so
     neither it nor its items are visible (closed pop-up and menu-button menus stay in the AX
-    tree)."""
+    tree); an open menu or a popover floats above its parent, so the scroll area around the
+    control that opened it does not hide it."""
     if role == "AXMenu" and (frame is None or frame.w <= 0 or frame.h <= 0):
         return False
+    if role in FLOATING_ROLES:
+        return True
     return is_visible(frame, clip)
 
 

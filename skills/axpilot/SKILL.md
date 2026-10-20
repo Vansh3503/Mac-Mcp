@@ -37,8 +37,17 @@ is authoritative for its exact parameters.
   `select_menu` with a path such as `["File", "Export…"]`. It can also list a menu's items when
   you are unsure of the exact names. Status items at the right of the menu bar (Wi‑Fi, Battery, an
   app's icon) are `select_menu` with `extras: true`; the system ones belong to Control Center.
-- **Pop-ups, radio groups, tabs and lists:** `select_option` with the control's ref and the
-  option's title (or index) picks it the way the control expects.
+- **Dropdowns, radio groups, tabs and lists:** `select_option` with the control's ref and the
+  option's title (or 1-based index) picks it the way the control expects, in one call. This
+  covers pop-up buttons, menu buttons (Notes "Format", Finder "Action"), combo boxes, web
+  `<select>` elements and custom web or Electron pickers (React Select, MUI, Slack, VS Code):
+  AXPilot opens the control, waits for its menu or list, chooses the option (typing to filter a
+  web combo box when the option is not listed yet) and checks that the control took it. An
+  unknown option is `INVALID_ARGUMENT` with the options listed, and the menu is closed again;
+  pass one of those titles. Read the result's warnings: "could not confirm" means take a
+  snapshot to check what the page shows. If `select_option` says the control showed no menu or
+  list, open it yourself (`click`, or `perform_action` with `AXShowMenu`), take a snapshot, and
+  click the option by ref; Escape closes a menu you opened and no longer need.
 - **Sheets, alerts and dialogs:** `handle_dialog` reads the dialog in front of an app (text,
   fields, buttons) and can accept, cancel or press a button by title. Read it before answering.
   In open and save panels, `path` goes to a folder or file first (`"~/Documents"`); for a save,
@@ -92,6 +101,7 @@ Errors come back as `CODE: message` with a `Hint:`. Follow the hint. In particul
 | `BLOCKED_BY_POLICY` | The app, window or action is off limits by the person's settings. Don't try to get around it (coordinates, other tools, keyboard tricks). Explain what you couldn't do. |
 | `TOOL_DISABLED` | That tool isn't enabled. Use the tools you have, or tell the person what you'd need. |
 | `PERMISSION_*`, `LAUNCHER_CHANGED` | macOS permissions are missing. Tell the person which one (the hint names it) and suggest `axpilot doctor`. |
+| `HOST_UNAVAILABLE` | AXPilot is not set up or not running on this Mac (every tool returns it). Tell the person the hint (usually "run `axpilot setup` once") and stop; retrying won't help until they fix it and restart the client. |
 | `BUSY`, `RATE_LIMITED` | Slow down and retry shortly. Verify results between actions. |
 | `TIMEOUT` | Take a snapshot to see what actually happened before deciding to retry. |
 

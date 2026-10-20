@@ -3,6 +3,7 @@ shapes, and errors as one line (tracebacks only with ``--debug``)."""
 
 from __future__ import annotations
 
+import io
 import json
 import sys
 from importlib import resources
@@ -281,11 +282,15 @@ def test_dump_tree(run: Any) -> None:
 
 # =========================================================================== serving
 @pytest.mark.skipif(sys.platform == "darwin", reason="on a Mac the bridge would start AXPilot.app")
-def test_the_stdio_bridge_needs_a_host(run: Any) -> None:
-    ran = run("stdio")
-    assert ran.code == 1
+def test_the_stdio_bridge_without_a_host_reports_it_and_still_serves(
+    run: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO(b"")))
+    ran = run("stdio")  # stdin is empty: the stand-in answers nothing and ends with it
+    assert ran.code == 0
     assert "HOST_UNAVAILABLE" in ran.err
     assert "--engine fake" in ran.err
+    assert "every tool call returns this error" in ran.err
     assert ran.out == ""  # stdout stays clean for JSON-RPC
 
 
