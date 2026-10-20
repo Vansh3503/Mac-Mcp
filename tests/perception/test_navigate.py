@@ -263,3 +263,21 @@ def test_a_scrolled_text_area_has_another_signature() -> None:
     _, scrolled = page(-410, "s_down")
     assert top == again
     assert scrolled != top
+
+
+def test_a_toolbar_button_over_a_scrolled_text_area_is_not_inside_it() -> None:
+    """TextEdit (macOS 26): the text area's frame spans the whole document, far above the window
+    and over the format bar. A format bar button was taken to be in the text area, clipped to
+    its viewport and refused as "scrolled out of view", even for AXPress."""
+    bold = RawNode(role="AXCheckBox", description="bold", frame=Rect(190, 141, 20, 20), actions=("AXPress",))
+    bar = RawNode(role="AXGroup", frame=Rect(181, 131, 586, 38), children=[bold])
+    text = RawNode(role="AXTextArea", frame=Rect(181, -3617, 586, 4200), value="Line 001", actions=())
+    scroll = RawNode(role="AXScrollArea", frame=Rect(181, 169, 586, 414), children=[text])
+    root = RawNode(role="AXWindow", title="Untitled", frame=Rect(181, 101, 586, 488), children=[bar, scroll])
+    app = AppInfo(name="TextEdit", pid=7, bundle_id="com.apple.TextEdit")
+    window = WindowInfo(
+        window_id=3, pid=7, app="TextEdit", title="Untitled", frame=root.frame or Rect(0, 0, 1, 1)
+    )
+    snap = build_snapshot(RawTree(app=app, window=window, root=root), snapshot_id="s_bar", mode="interactive")
+    button = next(el for el in snap.all_elements if el.name == "bold")
+    assert scroll_container_for(snap, button) is None
