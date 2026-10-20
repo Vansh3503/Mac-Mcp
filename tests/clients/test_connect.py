@@ -35,6 +35,7 @@ JSON_SHAPES: dict[str, dict[str, Any]] = {
     "cursor": {"mcpServers": {"axpilot": PLAIN}},
     "vscode": {"servers": {"axpilot": TYPED}},
     "windsurf": {"mcpServers": {"axpilot": PLAIN}},
+    "antigravity": {"mcpServers": {"axpilot": PLAIN}},
     "zed": {"context_servers": {"axpilot": PLAIN}},
     "gemini": {"mcpServers": {"axpilot": PLAIN}},
     "lm-studio": {"mcpServers": {"axpilot": PLAIN}},

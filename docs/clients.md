@@ -118,7 +118,8 @@ and keys are verified per client before v0.3, so check each client's documentati
 
 | Client | Where MCP servers are configured | Shape |
 |---|---|---|
-| Windsurf | `~/.codeium/windsurf/mcp_config.json` | `mcpServers` (as for Cursor) |
+| Devin (formerly Windsurf; `axpilot connect devin`) | `~/.codeium/windsurf/mcp_config.json` | `mcpServers` (as for Cursor) |
+| Antigravity (`axpilot connect antigravity`) | `~/.gemini/antigravity-ide/mcp_config.json` | `mcpServers` (as for Cursor) |
 | Zed | Zed `settings.json` | `context_servers` entry with `command` and `args` |
 | LM Studio | *Program → Install → Edit mcp.json* (`~/.lmstudio/mcp.json`) | `mcpServers` (as for Cursor) |
 | Goose | `goose configure` → *Add Extension* → *Command-line Extension*, command `axpilot stdio` | extension entry in Goose's `config.yaml` |

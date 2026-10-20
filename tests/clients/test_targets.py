@@ -14,6 +14,7 @@ EXPECTED_USER_PATHS = {
     "cursor": ".cursor/mcp.json",
     "vscode": "Library/Application Support/Code/User/mcp.json",
     "windsurf": ".codeium/windsurf/mcp_config.json",
+    "antigravity": ".gemini/antigravity-ide/mcp_config.json",
     "zed": ".config/zed/settings.json",
     "codex": ".codex/config.toml",
     "gemini": ".gemini/settings.json",
@@ -38,6 +39,7 @@ EXPECTED_FORMATS = {
     "cursor": ("json", ("mcpServers",)),
     "vscode": ("jsonc", ("servers",)),
     "windsurf": ("json", ("mcpServers",)),
+    "antigravity": ("json", ("mcpServers",)),
     "zed": ("jsonc", ("context_servers",)),
     "codex": ("toml", ("mcp_servers",)),
     "gemini": ("jsonc", ("mcpServers",)),
@@ -48,9 +50,9 @@ EXPECTED_FORMATS = {
 }
 
 
-def test_twelve_unique_targets_in_documented_order() -> None:
+def test_unique_targets_in_documented_order() -> None:
     assert target_names() == list(EXPECTED_USER_PATHS)
-    assert len(set(target_names())) == 12
+    assert len(set(target_names())) == 13
     aliases = [alias for target in TARGETS for alias in target.aliases]
     assert len(aliases) == len(set(aliases))
     assert not set(aliases) & set(target_names())
@@ -112,6 +114,8 @@ def test_unknown_scope_is_rejected(home: Path) -> None:
         ("gemini-cli", "gemini"),
         ("openai-codex", "codex"),
         ("CURSOR", "cursor"),
+        ("Devin", "windsurf"),
+        ("antigravity-ide", "antigravity"),
     ],
 )
 def test_aliases(alias: str, name: str) -> None:

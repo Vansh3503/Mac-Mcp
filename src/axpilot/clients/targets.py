@@ -87,14 +87,30 @@ VSCODE = ClientTarget(
 
 WINDSURF = ClientTarget(
     name="windsurf",
-    display_name="Windsurf",
+    display_name="Devin (Windsurf)",
     format="json",
     servers_key=("mcpServers",),
     user_path=(".codeium", "windsurf", "mcp_config.json"),
     detect_paths=((".codeium", "windsurf"),),
-    app_names=("Windsurf.app",),
+    app_names=("Devin.app", "Windsurf.app"),
     executables=("windsurf",),
-    restart_hint="Refresh the MCP servers in Windsurf's Cascade panel.",
+    notes="Cognition's desktop app Devin is Windsurf renamed (bundle com.exafunction.windsurf 3.6) and "
+    "keeps Windsurf's ~/.codeium/windsurf/mcp_config.json.",
+    restart_hint="Refresh the MCP servers in the Cascade panel.",
+    aliases=("devin", "devin-desktop"),
+)
+
+ANTIGRAVITY = ClientTarget(
+    name="antigravity",
+    display_name="Antigravity",
+    format="json",
+    servers_key=("mcpServers",),
+    user_path=(".gemini", "antigravity-ide", "mcp_config.json"),
+    detect_paths=((".gemini", "antigravity-ide"),),
+    app_names=("Antigravity IDE.app",),
+    notes="Google Antigravity IDE (2.5) reads mcp_config.json in its data folder ~/.gemini/antigravity-ide.",
+    restart_hint="Refresh the MCP servers in Antigravity's agent panel, or restart Antigravity.",
+    aliases=("antigravity-ide", "google-antigravity"),
 )
 
 ZED = ClientTarget(
@@ -206,6 +222,7 @@ TARGETS: tuple[ClientTarget, ...] = (
     CURSOR,
     VSCODE,
     WINDSURF,
+    ANTIGRAVITY,
     ZED,
     CODEX,
     GEMINI,
