@@ -14,7 +14,7 @@ drives a real Mac.
    control's own menu, any other new menu (application level, context menus, ARIA menus), a new
    list of options in a web page, or a new window of the app holding a menu or list (Java and
    Qt pop-ups). See :mod:`axpilot.perception.dropdown`.
-3. **Pick** the option by title (exact, prefix, substring) or 1-based index. When a web text
+3. **Pick** the option by title (exact, then unique prefix) or 1-based index. When a web text
    combo box lists no match, the title is typed to filter the list (autocomplete), once.
 4. **Press** it: menu items with ``AXPress``; options in web content with a real click.
 5. **Verify**: a pop-up must show the chosen title (``ELEMENT_NOT_ACTIONABLE`` otherwise); a web

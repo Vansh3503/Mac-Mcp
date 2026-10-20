@@ -74,7 +74,7 @@ def engine_of(ctx: ServerContext) -> FakeEngine:
 # =========================================================================== matching
 @pytest.mark.parametrize(
     ("option", "index"),
-    [("Center", 1), ("center", 1), ("cent", 1), ("Right", 3), ("Align Right…", 3)],
+    [("Center", 1), ("center", 1), ("cent", 1), ("Align Right…", 3)],
 )
 def test_match_option(option: str, index: int) -> None:
     assert match_option(["Align Left", "Center", "Justify", "Align Right"], option) == index
@@ -85,6 +85,12 @@ def test_match_option_errors(option: str) -> None:
     with pytest.raises(AXPilotError) as caught:
         match_option(["Align Left", "Center", "Align Right"], option)
     assert "Align Left" in caught.value.message
+
+
+def test_a_word_inside_an_option_title_is_refused_with_the_title() -> None:
+    with pytest.raises(AXPilotError) as caught:
+        match_option(["Align Left", "Center", "Align Right"], "Right")
+    assert caught.value.message.endswith('it is part of "Align Right".')
 
 
 # =========================================================================== select_option

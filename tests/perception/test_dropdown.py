@@ -29,6 +29,27 @@ def test_match_option(option: str, index: int) -> None:
     assert dd.match_option(["Title", "Heading", "Subheading", "Save As…"], option) == index
 
 
+def test_a_word_inside_a_title_is_not_a_match() -> None:
+    """TextEdit (macOS 26): "Bold" on the typeface pop-up chose the font "Arial Rounded MT Bold"."""
+    with pytest.raises(AXPilotError) as caught:
+        dd.match_option(["Helvetica", "Arial Rounded MT Bold", "Times"], "Bold")
+    assert caught.value.code is ErrorCode.INVALID_ARGUMENT
+    assert caught.value.details["options"] == ["Arial Rounded MT Bold"]
+    assert '"Arial Rounded MT Bold"' in caught.value.message
+
+
+def test_a_title_listed_twice_is_the_first() -> None:
+    """TextEdit lists recently used fonts again above the full list."""
+    assert dd.match_option(["Recently Used", "Helvetica", "Times", "Arial", "Helvetica"], "helvetica") == 1
+    with pytest.raises(AXPilotError, match="several"):
+        dd.match_option(["Bold", "BOLD"], "bold")  # different titles that fold alike stay ambiguous
+
+
+def test_leading_marks_are_skipped() -> None:
+    assert dd.match_option(["🇫🇷 France", "🇯🇵 Japan", "• Kenya"], "Japan") == 1
+    assert dd.match_option(["✓ Show Sidebar", "Hide Toolbar"], "show") == 0
+
+
 def test_match_option_errors_list_the_options() -> None:
     with pytest.raises(AXPilotError) as caught:
         dd.match_option(["Align Left", "Center", "Align Right"], "Align")
