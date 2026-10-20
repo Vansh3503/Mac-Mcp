@@ -3,6 +3,7 @@ results, the error matrix and fault injection."""
 
 from __future__ import annotations
 
+import dataclasses
 import itertools
 import json
 from collections.abc import AsyncIterator, Callable
@@ -289,6 +290,27 @@ async def test_read_collects_every_row_exactly_once(ctx: ServerContext, client: 
     assert "complete" in head
     # the final snapshot is stored: its refs work
     ctx.snapshots.get(data["snapshot_id"])
+
+
+class UnpairedWindow(HookedEngine):
+    """An engine that cannot identify the window it captured reports window_id 0 (macOS: the
+    app's windows are on another Space, e.g. behind a full-screen app)."""
+
+    def capture_tree(self, **kwargs: Any) -> Any:
+        tree = super().capture_tree(**kwargs)
+        if tree.window is not None:
+            tree = dataclasses.replace(tree, window=dataclasses.replace(tree.window, window_id=0))
+        return tree
+
+
+async def test_read_works_when_the_engine_cannot_identify_the_window() -> None:
+    engine = UnpairedWindow.demo()
+    assert isinstance(engine, UnpairedWindow)
+    engine.app_control("launch", "com.apple.mail")
+    async with connected_client(demo_ctx(engine)) as client:
+        data = await ok(client, "read", {"app": "Mail"})  # re-snapshots after every scroll
+    assert data["lines"] == mail_rows()
+    assert data["complete"] is True
 
 
 async def test_read_from_the_middle_goes_to_the_top_first() -> None:

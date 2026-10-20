@@ -431,11 +431,18 @@ class WindowService:
         focused = self._focused_window(app, self._apps.frontmost_pid())
         index = next((i for i, w in enumerate(ax_windows) if self._ax.equal(w.element, root)), None)
         if index is None:
+            # AXWindows leaves out windows on another Space (seen on macOS 26 while a full-screen
+            # app is in front), but the focused window still reads: pair that one window alone.
             try:
                 window = self.read_window(root)
             except AXCallError:
                 window = None
-            return (self.info(app, window, None, focused_element=focused) if window else None), []
+            if window is None:
+                return None, []
+            cg = self._pairs_for(app.pid, [window]).get(0)
+            if cg is not None:
+                self._remember(cg.window_id, app.pid, root)
+            return self.info(app, window, cg, focused_element=focused), []
         cg = self._pairs_for(app.pid, ax_windows).get(index)
         if cg is not None:
             self._remember(cg.window_id, app.pid, root)

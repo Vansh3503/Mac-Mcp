@@ -509,8 +509,9 @@ class ServerContext:
     ) -> Snapshot:
         """:meth:`capture_tree` + :meth:`build_snapshot` (AX only; the ``snapshot`` tool adds
         the app profile, OCR and screenshots on top). ``previous`` is the snapshot whose refs
-        to carry (default: the latest stored one of the same window)."""
-        tree = await self.capture_tree(app=app, window_id=window_id, include_menus=include_menus)
+        to carry (default: the latest stored one of the same window). ``window_id`` 0 is what
+        an engine reports for a window it could not identify: that captures the app's front window."""
+        tree = await self.capture_tree(app=app, window_id=window_id or None, include_menus=include_menus)
         return self.build_snapshot(
             tree, mode=mode, max_elements=max_elements, offset=offset, store=store, previous=previous
         )

@@ -719,6 +719,36 @@ def test_resolve_languages() -> None:
     assert "de-DE" in error.hint
 
 
+@pytest.mark.skipif(sys.platform != "darwin", reason="WindowService imports PyObjC")
+def test_a_root_window_on_another_space_still_gets_its_window_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """macOS 26 with a full-screen app in front: the target app's AXWindows is empty (its windows
+    are on another Space), but its focused window reads, and CGWindowList (all windows) has it."""
+    import threading
+    from types import SimpleNamespace
+
+    from axpilot.engine.macos import windows as w
+    from axpilot.models import AppInfo
+
+    frame = Rect(296, 161, 920, 436)
+    root = w.AXWindow("root", "list200", frame, "AXStandardWindow", False, True, True, False, False)
+    service: Any = w.WindowService.__new__(w.WindowService)  # only the parts root_context needs
+    service._lock, service._cache = threading.Lock(), {}
+    service._ax = SimpleNamespace(application=lambda pid: "app", equal=lambda a, b: a is b)
+    service._apps = SimpleNamespace(frontmost_pid=lambda: 1)
+    service._displays = SimpleNamespace(get=lambda: [MAIN])
+    monkeypatch.setattr(service, "ax_windows", lambda element: [])
+    monkeypatch.setattr(service, "read_window", lambda element: root if element == "root" else None)
+    other_space = [
+        w.CGWindow(929, 42, "Finder", "Applications", frame, 0, 1.0, False),
+        w.CGWindow(2168, 42, "Finder", "list200", frame, 0, 1.0, False),
+    ]
+    monkeypatch.setattr(w, "cg_windows", lambda *, on_screen_only=True: [] if on_screen_only else other_space)
+    info, dialogs = service.root_context(AppInfo(name="Finder", pid=42), "root")
+    assert info is not None
+    assert (info.window_id, info.title, dialogs) == (2168, "list200", [])
+    assert service._cache[2168] == (42, "root")  # window_id lookups find it again
+
+
 # =========================================================================== hit testing
 
 
