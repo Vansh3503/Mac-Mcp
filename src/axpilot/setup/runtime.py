@@ -306,6 +306,10 @@ def install_spec(version: str = axpilot.__version__, source: Path | None = None)
     return f"axpilot=={version}"
 
 
+#: Homebrew's uv on Apple silicon and Intel; tests replace this to stay hermetic.
+SYSTEM_UV_PATHS: tuple[Path, ...] = (Path("/opt/homebrew/bin/uv"), Path("/usr/local/bin/uv"))
+
+
 def find_uv() -> Path | None:
     """Locate the ``uv`` executable: ``$UV`` (set by uv itself), ``PATH``, then usual folders."""
     candidates: list[Path] = []
@@ -314,12 +318,7 @@ def find_uv() -> Path | None:
     if found := shutil.which("uv"):
         candidates.append(Path(found))
     home = Path.home()
-    candidates += [
-        home / ".local" / "bin" / "uv",
-        home / ".cargo" / "bin" / "uv",
-        Path("/opt/homebrew/bin/uv"),
-        Path("/usr/local/bin/uv"),
-    ]
+    candidates += [home / ".local" / "bin" / "uv", home / ".cargo" / "bin" / "uv", *SYSTEM_UV_PATHS]
     for candidate in candidates:
         if candidate.is_file() and os.access(candidate, os.X_OK):
             return candidate.absolute()

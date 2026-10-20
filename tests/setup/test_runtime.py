@@ -111,6 +111,8 @@ def test_find_uv_prefers_uv_variable(
     env: Path, tmp_path: Path, make_executable: Callable[[Path], Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     assert find_uv() is None
+    homebrew = make_executable(tmp_path / "homebrew" / "bin" / "uv")  # the env fixture's SYSTEM_UV_PATHS
+    assert find_uv() == homebrew
     fallback = make_executable(env / ".cargo" / "bin" / "uv")
     assert find_uv() == fallback
     explicit = make_executable(tmp_path / "custom" / "uv")
