@@ -46,7 +46,7 @@ class Call:
 
 def _kind(args: list[str]) -> str:
     if "-c" in args and "-I" in args:
-        return "probe"
+        return "warm_up" if args[-1] == runtime.WARM_UP else "probe"
     if "venv" in args[:3]:
         return "venv"
     if "install" in args[:4]:
@@ -57,7 +57,7 @@ def _kind(args: list[str]) -> str:
 @dataclass
 class SimulatedRunner(CommandRunner):
     """Pretends to be uv/venv/pip/open/codesign. ``failures`` maps a command kind (``venv``,
-    ``install``, ``probe``, ``open``, ``codesign``) to ``(exit_code, stderr)``."""
+    ``install``, ``probe``, ``warm_up``, ``open``, ``codesign``) to ``(exit_code, stderr)``."""
 
     version: str = axpilot.__version__
     failures: dict[str, tuple[int, str]] = field(default_factory=dict)

@@ -103,7 +103,7 @@ def test_full_setup_on_macos(env: Path, runner: Any, checkout: Path, make_app: C
     assert manifest["args"] == ["-m", "axpilot.host"]
     assert launcher.is_installed()
     assert login_item_installed()
-    assert runner.kinds() == ["venv", "install", "probe", "open"]
+    assert runner.kinds() == ["venv", "install", "probe", "warm_up", "open"]
     assert "Created" in report.steps[1].detail
 
 
