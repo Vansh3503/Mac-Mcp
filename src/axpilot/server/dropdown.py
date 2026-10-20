@@ -45,6 +45,7 @@ from axpilot.perception.refs import HandleIndex
 from axpilot.server.context import ServerContext
 from axpilot.server.tools.input import (
     Target,
+    activate_app,
     click_target,
     ensure_frontmost,
     require_keyboard,
@@ -192,11 +193,28 @@ async def _wait_for_options(
 
 
 # --------------------------------------------------------------------------- acting
+async def _bring_forward(ctx: ServerContext, target: Target) -> None:
+    """Make the control's window the key window, as a user's click would: menus check their items
+    against it (Finder's Action menu opened in a background window showed New Folder disabled,
+    macOS 26)."""
+    window, app = target.window, target.app
+    front = await ctx.run_engine(ctx.engine.frontmost_app)
+    in_front = front is not None and app is not None and front.pid == app.pid
+    if in_front and (window is None or window.focused):
+        return
+    if window is not None and window.window_id:
+        await ctx.run_engine(ctx.engine.window_control, window.window_id, "focus", None)
+        await ctx.sleep(ctx.config.perception.settle_ms / 1000)
+    else:
+        await activate_app(ctx, app)
+
+
 async def _open(ctx: ServerContext, target: Target, web: bool) -> str:
     """Open the control; returns the rung used (``open:ax:AXPress``, ``open:mouse``)."""
     el = target.el
     assert el is not None
     if not web:
+        await _bring_forward(ctx, target)
         action = next((a for a in ("AXPress", "AXShowMenu") if a in el.actions), None)
         if action is not None and target.handle is not None:
             await ctx.run_engine(ctx.engine.perform_action, target.handle, action)
