@@ -615,6 +615,21 @@ def test_merge_counts_pages_without_any_overlap_as_possible_gaps() -> None:
     assert merge_items(pages) == (["a", "b", "x", "y"], 1)
 
 
+def test_a_header_shared_by_every_page_does_not_hide_a_gap() -> None:
+    """Finder's list view lists its column header as a row on every page (macOS 26)."""
+    header = ("e1", "Name Date Modified Size Kind")
+    overlapping = [
+        [header, ("e2", "file-001"), ("e3", "file-002")],
+        [header, ("e3", "file-002"), ("e4", "file-003")],
+    ]
+    skipped = [
+        [header, ("e2", "file-001"), ("e3", "file-002")],
+        [header, ("e9", "file-008"), ("e10", "file-009")],
+    ]
+    assert merge_items(overlapping) == ([header[1], "file-001", "file-002", "file-003"], 0)
+    assert merge_items(skipped) == ([header[1], "file-001", "file-002", "file-008", "file-009"], 1)
+
+
 @settings(max_examples=150, deadline=None)
 @given(
     total=st.integers(min_value=1, max_value=120),

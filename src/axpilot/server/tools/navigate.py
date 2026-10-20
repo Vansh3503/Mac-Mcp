@@ -1432,13 +1432,20 @@ def _page_items(snap: Snapshot, container: Element | None, mode: Literal["rows",
     return collect_items(snap, container)
 
 
+def _shifted(previous: Sequence[Item], page: Sequence[Item]) -> bool:
+    """True if an item of ``previous`` is on ``page`` at another position: it scrolled along."""
+    before = {ref: index for index, (ref, _) in enumerate(previous) if ref is not None}
+    return any(ref in before and before[ref] != index for index, (ref, _) in enumerate(page))
+
+
 def merge_items(pages: Sequence[Sequence[Item]]) -> tuple[list[str], int]:
     """Join pages of ``(ref, text)`` items into lines; returns ``(lines, possible gaps)``.
 
     A page that shares refs with what came before is joined by ref (every element once, exact
     even when lines repeat). Otherwise, e.g. in apps that rebuild their elements on scroll,
     the longest overlap of text lines is dropped; a page without any overlap may mean a skipped
-    part (counted as a gap)."""
+    part (counted as a gap). So does a page whose only shared items kept their position, like a
+    table header that every page lists."""
     lines: list[str] = []
     seen: set[str] = set()
     gaps = 0
@@ -1447,6 +1454,8 @@ def merge_items(pages: Sequence[Sequence[Item]]) -> tuple[list[str], int]:
         if number == 0:
             new = list(page)
         elif refs & seen:
+            if not _shifted(pages[number - 1], page):
+                gaps += 1  # it shares only what stays put (a header row): no proof the pages overlap
             new = [(ref, text) for ref, text in page if ref is None or ref not in seen]
         else:
             texts = [text for _, text in page]
