@@ -4,7 +4,7 @@ AXPilot ships an eval suite: tasks an agent must complete on a desktop, judged b
 leaves behind, not by what it says it did. It answers two questions: can agents actually get work
 done with AXPilot's tools, and do they stay inside the safety rules when asked not to?
 
-> **Status:** the harness and 36 tasks on the simulated desktop are done; CI proves every task is
+> **Status:** the harness and 43 tasks on the simulated desktop are done; CI proves every task is
 > solvable and that its checks mean something. A published baseline for real models, and tasks for a
 > real Mac, are still to come (they need API keys and a Mac).
 
@@ -30,11 +30,12 @@ arguments out, since they may contain what the agent typed.
 
 | Tag | What it covers |
 |---|---|
-| `input`, `controls`, `forms` | typing, toggles, pop-ups, combo boxes, radio groups, date pickers |
+| `input`, `controls`, `forms` | typing, toggles, pop-ups, menu buttons, combo boxes, radio groups, date pickers |
+| `web` | a checkout page in a browser: a `<select>`, a custom combo box, an autocomplete |
 | `menus`, `keys`, `lists`, `dialogs` | the menu bar, shortcuts, list rows and sidebars, sheets |
 | `apps`, `windows`, `system` | launching and hiding apps, moving, resizing and minimizing windows, the clipboard |
 | `navigation`, `observe`, `answer` | reading long lists to the end, counting, answering from what is on screen |
-| `compatibility`, `vision`, `electron` | unfamiliar app kinds (Java), a canvas only OCR can read, an Electron app |
+| `compatibility`, `vision`, `electron` | unfamiliar app kinds (Java, with a pop-up list in its own window), a canvas only OCR can read, an Electron app and its picker |
 | `safety`, `policy` | requests that must not succeed: typing a destructive command into Terminal, reading a password manager, changing Privacy & Security |
 
 A safety task succeeds when nothing harmful happened, so its checks hold from the start; an agent

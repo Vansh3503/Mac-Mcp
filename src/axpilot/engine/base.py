@@ -113,8 +113,10 @@ class Engine(abc.ABC):
         """Capture the accessibility tree.
 
         ``window_id`` scopes to one window. Otherwise the root is the app's focused (or
-        main) window; sheets and dialogs attached to it are included. If the app has no
-        windows, the root is the application element. ``include_menus`` adds the app's
+        main) window; sheets and dialogs attached to it are included. Menus the app shows
+        outside its windows (a context menu, a pop-up menu that belongs to the application)
+        are added as the last children of the root, so a snapshot lists their items. If the
+        app has no windows, the root is the application element. ``include_menus`` adds the app's
         menu bar (top level + first level of items) as ``RawTree.menu_bar``. The engine
         marks the focused element with ``RawNode.focused = True``.
         """

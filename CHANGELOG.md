@@ -14,9 +14,19 @@ Pre-alpha. Nothing is published on PyPI yet.
 
 ### Added
 
-- An eval suite (`python -m axpilot.evals`): 36 tasks on the simulated desktop (input, controls,
-  menus, windows, long lists, OCR, an Electron and a Java app, and safety requests that must not
-  succeed), judged by state through read-only tools. A scripted agent replays each task's reference
+- Dropdowns in every kind of app: `select_option` opens the control, waits for its menu or list,
+  picks the option by title or index, checks that the control took it, and closes the menu again
+  if anything fails (including the kill switch). It covers pop-up buttons (also when their menu
+  belongs to the application), menu buttons such as Notes "Format" and Finder "Action" (refused
+  before), combo boxes (Java and Qt ones whose list opens in a window of its own), web `<select>`
+  elements, and custom web and Electron pickers (React Select, MUI, Slack, VS Code), which get
+  real mouse clicks; a web combo box that shows nothing on a click gets the Down arrow, and one
+  that does not list the option is typed into to filter it (the text is put back on failure).
+  `set_value` and `fill_form` choose pop-up options the same way. Snapshots taken while a menu is
+  open list its items, so opening a menu with `perform_action` and clicking an item also works.
+- An eval suite (`python -m axpilot.evals`): 43 tasks on the simulated desktop (input, controls,
+  dropdowns, menus, windows, long lists, OCR, web pages, an Electron and a Java app, and safety
+  requests that must not succeed), judged by state through read-only tools. A scripted agent replays each task's reference
   solution in CI; model-backed agents plug in as `module:factory` and get JSON and Markdown reports.
 - The kill switch and the on-screen indicator (macOS, real engine; not yet run on a Mac): ⌃⌥⌘.
   (`[safety] kill_switch`) stops the input action in progress and pauses AXPilot, and pressing it
@@ -83,8 +93,8 @@ Pre-alpha. Nothing is published on PyPI yet.
   for thirteen frameworks (OpenAI Agents SDK, LangGraph, CrewAI, Google ADK, Pydantic AI,
   LlamaIndex, smolagents, Microsoft Agent Framework, Claude Agent SDK, Agno, Strands Agents, Vercel AI
   SDK, Mastra).
-- `select_option` (pop-ups, combo boxes, radio and tab groups, segmented controls, list rows by
-  title or index) and `handle_dialog` (read a sheet or dialog; accept, cancel or press a button;
+- `select_option` (dropdowns, radio and tab groups, segmented controls, list rows by title or
+  index) and `handle_dialog` (read a sheet or dialog; accept, cancel or press a button;
   buttons that delete or discard ask first, before `text` is typed into the dialog, so a "no"
   changes nothing; in open and save panels, `path` goes to a folder or file with Go to the folder
   first).
