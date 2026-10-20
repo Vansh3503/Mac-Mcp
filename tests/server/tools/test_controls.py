@@ -207,6 +207,14 @@ async def test_inspect_a_sheet(client: Client) -> None:
     assert error == "ELEMENT_NOT_ACTIONABLE"
 
 
+def entered(engine: FakeEngine) -> list[str]:
+    """Text put into fields, set through accessibility or typed as keystrokes (apps of an unknown
+    kind, like these fixtures, get keystrokes first)."""
+    return [e["value"] for e in engine.events_of("set_value")] + [
+        e["text"] for e in engine.events_of("type_text")
+    ]
+
+
 async def test_fill_and_accept(ctx: ServerContext, client: Client) -> None:
     await ok(client, "app", {"action": "activate", "name": "Login Demo"})
     data = await ok(
@@ -215,7 +223,7 @@ async def test_fill_and_accept(ctx: ServerContext, client: Client) -> None:
     assert data["pressed"] == "Sign In"
     pressed = engine_of(ctx).events_of("press")
     assert pressed[-1]["name"] == "Sign In"
-    assert any(e.get("value") == "ada@example.com" for e in engine_of(ctx).events_of("set_value"))
+    assert "ada@example.com" in entered(engine_of(ctx))
 
 
 async def test_cancel_and_press(ctx: ServerContext, client: Client) -> None:
@@ -401,7 +409,7 @@ async def test_a_destructive_press_asks_before_filling_the_text_field(tmp_path: 
         recorder.answer = True
         data = await ok(client, "handle_dialog", {"action": "press", "button": "Delete", "text": "final"})
     assert data["pressed"] == "Delete"
-    assert [event["value"] for event in engine.events_of("set_value")] == ["final"]
+    assert entered(engine) == ["final"]
 
 
 async def test_accept_picks_the_rightmost_button_without_a_known_title(tmp_path: Path) -> None:

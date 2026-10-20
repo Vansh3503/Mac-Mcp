@@ -900,6 +900,28 @@ async def test_sliders_are_clamped_to_their_range(
     assert bad == "INVALID_ARGUMENT"
 
 
+class IgnoresSliderValues(FakeEngine):
+    """Safari (macOS 26): a range input accepts an AXValue without moving; AXIncrement works."""
+
+    def set_value(self, handle: Any, value: str | float | bool) -> None:
+        if self.refresh_element(handle).role == "AXSlider":
+            return
+        super().set_value(handle, value)
+
+
+async def test_a_slider_that_ignores_its_value_is_stepped_instead() -> None:
+    engine = IgnoresSliderValues.from_dict(CONTROLS)
+    ctx = fast(make_test_context({"tools.profile": "full"}, engine=engine))
+    async with connected_client(ctx) as client:
+        refs = await refs_of(client, "Controls")
+        result, error = await call(client, "set_value", {"ref": refs["Volume"], "value": "53"})
+        assert error is None, text_of(result)
+        assert structured(result)["strategy"] == "ax:step"  # not "ax_value", which changed nothing
+        snapshot, _ = await call(client, "snapshot", {"app": "Controls"})
+    volume = next(el for el in structured(snapshot)["elements"] if el["name"] == "Volume")
+    assert volume["value"] == "53"
+
+
 async def test_read_only_steppers_are_stepped_to_the_value(
     controls: tuple[ServerContext, Client, dict[str, str]],
 ) -> None:
@@ -995,6 +1017,19 @@ async def test_drag_between_points_and_policy_on_both_ends(ctx: ServerContext, c
     engine_of(ctx).app_control("activate", "1Password")
     result, blocked = await call(client, "drag", {"from_x": 300, "from_y": 300, "to_x": 1950, "to_y": 840})
     assert blocked == "BLOCKED_BY_POLICY", text_of(result)
+
+
+async def test_fill_form_types_into_web_text_fields(ctx: ServerContext, client: Client) -> None:
+    """Safari (macOS 26) took an AXValue change of a form field without changing the page:
+    fill_form said "filled" and the form was sent empty. Browsers get keystrokes, like type_text."""
+    engine_of(ctx).app_control("launch", "Google Chrome")
+    refs = await refs_of(client, "Google Chrome")
+    fields = [{"ref": refs["Address and search bar"], "value": "example.com"}]
+    result, error = await call(client, "fill_form", {"fields": fields})
+    assert error is None, text_of(result)
+    assert structured(result)["warnings"] == []
+    assert [e["text"] for e in events(ctx, "type_text")] == ["example.com"]
+    assert not [e for e in events(ctx, "set_value") if e.get("value") == "example.com"]
 
 
 async def test_a_dragged_list_row_is_grabbed_by_its_text(ctx: ServerContext, client: Client) -> None:

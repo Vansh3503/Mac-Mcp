@@ -97,6 +97,8 @@ keystrokes into them instead."""
 TOGGLE_ROLES = frozenset({"checkbox", "switch", "toggle", "radio"})
 NUMERIC_ROLES = frozenset({"slider", "stepper", "indicator"})
 TEXT_ROLES = frozenset({"field", "search", "secure", "textarea", "combobox", "date"})
+TYPED_ROLES = frozenset({"field", "search", "secure", "textarea"})
+"""Plain text inputs: ``set_value`` enters their text like ``type_text`` (combo boxes choose)."""
 DATE_ROLES = frozenset({"date", "time"})
 DISCLOSURE_ROLES = frozenset({"disclosure"})
 _TRUE = frozenset({"true", "on", "yes", "1", "checked", "selected", "expanded"})
@@ -1208,6 +1210,17 @@ def parse_number(value: str) -> float:
     return number
 
 
+def _as_number(value: Any) -> float | None:
+    """A control's current value as a number, ``None`` when it is not one (nothing to check)."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
 @dataclass
 class _SetOutcome:
     strategy: str
@@ -1292,14 +1305,20 @@ async def _set_number(ctx: ServerContext, target: Target, wanted: float) -> _Set
     if clamped != wanted:
         warnings.append(f"{wanted:g} is outside the range {low:g}…{high:g}; used {clamped:g}.")
     value: float | int = int(clamped) if clamped.is_integer() else clamped
+    steppable = target.el is not None and {"AXIncrement", "AXDecrement"} <= set(target.el.actions)
     try:
         await ctx.run_engine(ctx.engine.set_value, target.handle, value)
-        return _SetOutcome("ax_value", True, f"set to {value:g}", warnings)
     except AXPilotError as err:
-        if err.code is not ErrorCode.ELEMENT_NOT_ACTIONABLE or target.el is None:
+        if err.code is not ErrorCode.ELEMENT_NOT_ACTIONABLE or not steppable:
             raise
-        if not {"AXIncrement", "AXDecrement"} <= set(target.el.actions):
-            raise
+    else:
+        # Safari (macOS 26) accepts an AXValue for a range input without moving it: check
+        now = _as_number(await _current(ctx, target))
+        if now is None or math.isclose(now, clamped, abs_tol=1e-6):
+            return _SetOutcome("ax_value", True, f"set to {value:g}", warnings)
+        if not steppable:
+            warnings.append(f"{target.describe()} shows {now:g} after setting it to {value:g}.")
+            return _SetOutcome("ax_value", False, f"set to {value:g}, but it shows {now:g}", warnings)
     return await _step_to(ctx, target, clamped, warnings)
 
 
@@ -1357,6 +1376,20 @@ async def set_control(ctx: ServerContext, target: Target, value: str) -> _SetOut
         return _SetOutcome(chosen.strategy or "none", chosen.changed, chosen.message, chosen.warnings)
     if role in TEXT_ROLES or role == "secure":
         ctx.policy.check_secure_target(el.secure)
+    if role in TYPED_ROLES:
+        # type_text's ladder: web views (Safari, macOS 26) accept an AXValue change for a text
+        # field without changing the page, so they get keystrokes; native fields keep AXValue
+        warnings: list[str] = []
+        used, _ = await _type(
+            ctx, target, value, clear=True, strategy="auto", app=target.app, warnings=warnings
+        )
+        if el.secure:
+            return _SetOutcome(used, True, "set (secure field)", warnings)
+        after = await _current(ctx, target)
+        if after is not None and str(after) != value:
+            warnings.append(f"{target.describe()} shows {quote(str(after), 60)} after setting it.")
+        shown = quote(str(after) if after is not None else value, 60)
+        return _SetOutcome(used, True, f"set to {shown}", warnings)
     await ctx.run_engine(ctx.engine.set_value, target.handle, value)
     if el.secure:
         return _SetOutcome("ax_value", True, "set (secure field)")
