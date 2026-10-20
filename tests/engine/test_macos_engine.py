@@ -928,6 +928,32 @@ class TestMacEngine:
         finally:
             engine.clipboard_set(text=saved.text, image_png=saved.image_png, files=saved.files or None)
 
+    @pytest.mark.skipif(not MUTATE, reason="changes the clipboard; set AXPILOT_MACOS_TESTS_MUTATE=1")
+    def test_clipboard_save_and_restore_keep_every_type(self, engine: Any, tmp_path: Path) -> None:
+        """A paste must leave the clipboard exactly as it was: rich text keeps its RTF, and a
+        file reference to a deleted file (restoring it used to fail) comes back too."""
+        import importlib
+
+        AppKit: Any = importlib.import_module("AppKit")
+        users = engine.clipboard_save()
+        pasteboard = AppKit.NSPasteboard.generalPasteboard()
+        gone = tmp_path / "deleted.png"
+        gone.write_bytes(b"x")
+        rich = AppKit.NSPasteboardItem.alloc().init()
+        rich.setString_forType_("AXPilot ✓", AppKit.NSPasteboardTypeString)
+        rich.setData_forType_(b"{\\rtf1 AXPilot}", AppKit.NSPasteboardTypeRTF)
+        try:
+            pasteboard.clearContents()
+            assert pasteboard.writeObjects_([rich, AppKit.NSURL.fileURLWithPath_(str(gone))])
+            gone.unlink()
+            before = engine.clipboard_save()
+            engine.clipboard_set(text="pasted text")
+            engine.clipboard_restore(before)
+            assert engine.clipboard_save() == before
+            assert ("public.rtf", b"{\\rtf1 AXPilot}") in before[0]
+        finally:
+            engine.clipboard_restore(users)
+
 
 @pytest.mark.macos
 @mac_only

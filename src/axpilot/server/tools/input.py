@@ -39,7 +39,6 @@ from axpilot.input.keys import parse_sequence
 from axpilot.models import (
     AppInfo,
     Capture,
-    ClipboardContent,
     KeyCombo,
     MenuNode,
     MouseButton,
@@ -786,24 +785,21 @@ async def _press(ctx: ServerContext, combo: KeyCombo) -> None:
     await ctx.run_engine(ctx.engine.press_key, combo)
 
 
-async def _paste(ctx: ServerContext, text: str) -> None:
-    """Paste ``text`` with ⌘V, restoring the previous clipboard afterwards (even on failure)."""
+async def _paste(ctx: ServerContext, text: str, warnings: list[str]) -> None:
+    """Paste ``text`` with ⌘V, restoring the previous clipboard afterwards (even on failure).
+    A restore that fails is logged and added to ``warnings``."""
     await require_keyboard(ctx)
-    saved: ClipboardContent = await ctx.run_engine(ctx.engine.clipboard_get)
+    saved = await ctx.run_engine(ctx.engine.clipboard_save)
     try:
         await ctx.run_engine(functools.partial(ctx.engine.clipboard_set, text=text))
         await _press(ctx, KeyCombo("v", frozenset({"cmd"})))
         await ctx.sleep(PASTE_SETTLE_S)
     finally:
-        with contextlib.suppress(AXPilotError):
-            await ctx.run_engine(
-                functools.partial(
-                    ctx.engine.clipboard_set,
-                    text=saved.text,
-                    image_png=saved.image_png,
-                    files=saved.files or None,
-                )
-            )
+        try:
+            await ctx.run_engine(ctx.engine.clipboard_restore, saved)
+        except AXPilotError as exc:
+            ctx.logger.warning("could not restore the clipboard after pasting: %s", exc)
+            warnings.append("The clipboard could not be restored after pasting; it holds the typed text.")
 
 
 def _prefers_keystrokes(app: AppInfo | None) -> bool:
@@ -853,6 +849,7 @@ async def _type(
     clear: bool,
     strategy: TypeStrategy,
     app: AppInfo | None,
+    warnings: list[str],
 ) -> tuple[str, list[str]]:
     attempts: list[str] = []
     ax_first = strategy == "ax_value" or (strategy == "auto" and not _prefers_keystrokes(app))
@@ -875,7 +872,7 @@ async def _type(
         return "clear", attempts
     if strategy == "paste" or (strategy == "auto" and len(text) > PASTE_THRESHOLD):
         attempts.append("paste")
-        await _paste(ctx, text)
+        await _paste(ctx, text, warnings)
         return "paste", attempts
     attempts.append("keystrokes")
     await type_keystrokes(ctx, text)
@@ -932,7 +929,9 @@ def type_text_tool(ctx: ServerContext) -> ToolFn:
             warnings.append(
                 f"{target.describe()} is not a text field; the keystrokes went to whatever it focuses."
             )
-        used, attempts = await _type(ctx, target, text, clear=clear, strategy=strategy, app=app)
+        used, attempts = await _type(
+            ctx, target, text, clear=clear, strategy=strategy, app=app, warnings=warnings
+        )
         if submit:
             await require_keyboard(ctx)
             await _press(ctx, KeyCombo("return"))

@@ -708,6 +708,14 @@ class MacEngine(Engine):
     ) -> None:
         clipboard_.write_clipboard(text=text, image_png=image_png, files=files)
 
+    @_guarded("Saving the clipboard")
+    def clipboard_save(self) -> Any:
+        return clipboard_.save_clipboard()
+
+    @_guarded("Restoring the clipboard")
+    def clipboard_restore(self, saved: Any) -> None:
+        clipboard_.restore_clipboard(saved)
+
     @_guarded("Posting a notification")
     def notify(self, title: str, message: str, subtitle: str | None = None) -> None:
         notify_.post_notification(self._runner, title, message, subtitle)

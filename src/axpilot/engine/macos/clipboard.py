@@ -10,6 +10,9 @@ items; the type list still tells the caller that something concealed is there.
 Images are returned as PNG: ``public.png`` data as is, otherwise TIFF data converted with
 ``NSBitmapImageRep``. Writing an image puts both PNG and TIFF representations on the
 pasteboard, so older apps can paste it too.
+
+:func:`save_clipboard` and :func:`restore_clipboard` copy the pasteboard byte for byte around a
+paste, so nothing the user copied is lost (the other functions only know text, PNG and files).
 """
 
 from __future__ import annotations
@@ -118,3 +121,35 @@ def write_clipboard(
     pasteboard.clearContents()
     if objects and not pasteboard.writeObjects_(objects):
         raise AXPilotError(ErrorCode.INTERNAL, "macOS refused to write to the clipboard.")
+
+
+SavedClipboard = list[list[tuple[str, bytes]]]
+"""Every pasteboard item as ``(type, raw data)`` pairs, in order."""
+
+
+def save_clipboard() -> SavedClipboard:
+    """A faithful copy of the pasteboard: every item with all its types (rich text, file references
+    to missing files, private and concealed types), for :func:`restore_clipboard`."""
+    items: SavedClipboard = []
+    for item in list(_pasteboard().pasteboardItems() or ()):
+        entries = []
+        for kind in list(item.types() or ()):
+            data = item.dataForType_(kind)
+            if data is not None:
+                entries.append((str(kind), bytes(data)))
+        items.append(entries)
+    return items
+
+
+def restore_clipboard(saved: SavedClipboard) -> None:
+    """Put back what :func:`save_clipboard` copied (an empty copy clears the pasteboard)."""
+    objects = []
+    for entries in saved:
+        item = AppKit.NSPasteboardItem.alloc().init()
+        for kind, data in entries:
+            item.setData_forType_(_nsdata(data), kind)
+        objects.append(item)
+    pasteboard = _pasteboard()
+    pasteboard.clearContents()
+    if objects and not pasteboard.writeObjects_(objects):
+        raise AXPilotError(ErrorCode.INTERNAL, "macOS refused to restore the clipboard.")

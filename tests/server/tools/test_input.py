@@ -497,6 +497,24 @@ async def test_the_clipboard_is_restored_even_when_pasting_fails() -> None:
     assert faulty.inner.clipboard_get().text == "keep me"
 
 
+async def test_a_clipboard_that_cannot_be_restored_is_a_warning_not_silence() -> None:
+    """On a Mac a restore can fail (it used to, for a copied file that was deleted since);
+    the paste itself worked, so the result says so and warns about the clipboard."""
+    faulty = FaultyEngine(FakeEngine.demo())
+    ctx = fast(make_test_context({"tools.profile": "full"}, engine=faulty))
+    faulty.inner.app_control("launch", "Slack")
+    async with connected_client(ctx) as client:
+        refs = await refs_of(client, "Slack")
+        faulty.set_fault("clipboard_restore", Fault.error(ErrorCode.INTERNAL, "macOS refused"))
+        result, error = await call(client, "type_text", {"ref": refs["Message #general"], "text": "x" * 500})
+        assert error is None, text_of(result)
+        assert structured(result)["strategy"] == "paste"
+        assert any("clipboard could not be restored" in w for w in structured(result)["warnings"])
+        faulty.clear_faults()
+        _, error = await call(client, "type_text", {"ref": refs["Message #general"], "text": "y" * 500})
+    assert error is None  # the server and the input lock are fine
+
+
 async def test_submit_presses_return(ctx: ServerContext, client: Client) -> None:
     refs = await refs_of(client, "Notes")
     result, error = await call(client, "type_text", {"ref": refs["Search"], "text": "milk", "submit": True})

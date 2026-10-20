@@ -282,6 +282,17 @@ class Engine(abc.ABC):
         files: Sequence[str] | None = None,
     ) -> None: ...
 
+    def clipboard_save(self) -> Any:
+        """An opaque copy of the clipboard for :meth:`clipboard_restore`, around a temporary use
+        such as pasting. The default keeps what :meth:`clipboard_get` returns; an engine that can
+        should keep every item and type exactly (rich text, file references, private types)."""
+        return self.clipboard_get()
+
+    def clipboard_restore(self, saved: Any) -> None:
+        """Put back what :meth:`clipboard_save` returned."""
+        content: ClipboardContent = saved
+        self.clipboard_set(text=content.text, image_png=content.image_png, files=content.files or None)
+
     @abc.abstractmethod
     def notify(self, title: str, message: str, subtitle: str | None = None) -> None: ...
 
