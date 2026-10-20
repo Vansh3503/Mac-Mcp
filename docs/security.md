@@ -82,12 +82,22 @@ build names at run time, so this guards against mistakes, not against a determin
 `applescript` and `shell` only when you trust the agent with what they can reach.
 
 - In launcher mode the host shows a **native dialog**, which works with every client *(v0.2)*.
-- In direct mode, AXPilot uses the client's MCP elicitation support when available *(planned)*.
+- In direct mode (`axpilot stdio --direct`, `--engine fake`, `axpilot http`), AXPilot asks in the
+  **MCP client's own window** when the client supports elicitation (`safety.elicitation`, on by
+  default): a form with one *Allow* checkbox. Only *accept* with *Allow* checked approves. On the
+  stateless 2026-07-28 protocol the call ends with the question and the client calls again with your
+  answer; that answer counts once, only for the same call (same tool, same arguments, same question)
+  and only within `confirm_timeout_s`. A client without elicitation, or one that fails to show the
+  question, falls back to the dialog (on a Mac) or to "no". `--yes` approves without asking.
 - With no way to ask, the answer is **no** (`USER_DENIED`). Unanswered confirmations time out after
   120 seconds, also as `USER_DENIED`.
 - While a question is on screen, every tool that acts (clicks, typing, scrolling, app and window
   changes, scripts…) waits with `NEEDS_USER`, for every connected client, so an agent can't answer
-  the dialog itself with a parallel tool call. Reading tools keep working.
+  the dialog itself with a parallel tool call. Reading tools keep working. This includes a question
+  shown in the MCP client, which is itself a window on the same Mac.
+- Elicitation is only as trustworthy as the client: a client may show the question to you, or
+  answer it by itself (some agent frameworks do). Use clients that show it, or turn
+  `safety.elicitation` off to keep the dialog or the safe "no".
 
 `confirm = "always"` asks before every call except the read-only `observe` tools; `"never"`
 disables confirmations and is only appropriate in a disposable environment such as a VM.

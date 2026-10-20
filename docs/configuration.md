@@ -70,6 +70,7 @@ allow_secure_fields = false
 max_actions_per_minute = 120
 require_pairing = true
 confirm_timeout_s = 120.0
+elicitation = true        # direct mode: ask in the MCP client when it supports that
 
 [capture]
 max_edge = 1280
@@ -140,6 +141,7 @@ Unknown tool or toolset names are an error (with a "did you mean" suggestion).
 | `max_actions_per_minute` | `120` | Input rate limit (1–10000); excess calls get `RATE_LIMITED` |
 | `require_pairing` | `true` | Ask before a new client app may connect to the host; the answer is remembered |
 | `confirm_timeout_s` | `120.0` | How long a confirmation waits for your answer (5–120 s); no answer counts as `USER_DENIED` |
+| `elicitation` | `true` | Direct mode (`axpilot stdio --direct`, `axpilot http`): ask confirmations in the MCP client's own window when the client supports elicitation. `--yes` turns it off |
 
 Setting `deny_apps` or `deny_windows` **replaces** the default list. Copy the defaults from the example
 above if you only want to add an entry.

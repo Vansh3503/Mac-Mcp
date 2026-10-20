@@ -14,6 +14,12 @@ Pre-alpha. Nothing is published on PyPI yet.
 
 ### Added
 
+- Confirmations through the MCP client in direct mode: a client that supports elicitation shows
+  AXPilot's question in its own window (`[safety] elicitation`, on by default; off with `--yes`).
+  On protocol 2026-07-28 the question ends the call with an `InputRequiredResult` and the
+  client's retry carries the answer, which counts once, for the same call and question, within
+  the confirmation timeout. While the question is open every acting tool waits with
+  `NEEDS_USER`. Clients without elicitation keep the dialog or the safe "no".
 - Project plan ([docs/PLAN.md](docs/PLAN.md)) and architecture decision records for language,
   architecture, minimum macOS, MCP surface, signing and distribution, privacy, and the name
   ([docs/adr/](docs/adr/README.md)).
@@ -65,8 +71,9 @@ Pre-alpha. Nothing is published on PyPI yet.
   LlamaIndex, smolagents, Microsoft Agent Framework, Claude Agent SDK, Vercel AI SDK, Mastra).
 - `select_option` (pop-ups, combo boxes, radio and tab groups, segmented controls, list rows by
   title or index) and `handle_dialog` (read a sheet or dialog; accept, cancel or press a button;
-  buttons that delete or discard ask first; in open and save panels, `path` goes to a folder or
-  file with Go to the folder first).
+  buttons that delete or discard ask first, before `text` is typed into the dialog, so a "no"
+  changes nothing; in open and save panels, `path` goes to a folder or file with Go to the folder
+  first).
 - Menu bar extras: `select_menu` with `extras: true` lists and chooses status items (Wi‑Fi,
   Battery, an app's icon; Control Center by default); a one-title path clicks the item. Menu
   titles match across hyphen variants ("wi-fi" finds "Wi‑Fi").

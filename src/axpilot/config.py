@@ -91,6 +91,8 @@ class SafetyConfig(_Section):
     require_pairing: bool = True
     confirm_timeout_s: float = Field(default=120.0, ge=5.0, le=120.0)
     """How long a confirmation waits for the user; no answer in time counts as ``USER_DENIED``."""
+    elicitation: bool = True
+    """Direct mode: ask confirmations through the MCP client (elicitation) when it supports that."""
 
 
 class CaptureConfig(_Section):

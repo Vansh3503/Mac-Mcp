@@ -228,6 +228,7 @@ def _context(
         instance,
         confirmer=_confirmer(yes, kind),
         log_path=default_log_file() if log else None,
+        elicitation=False if yes else None,  # --yes approves without asking anyone
     )
 
 

@@ -361,10 +361,15 @@ class DenyConfirmer:  # always False (headless default when no UI is available)
 ### `axpilot/policy/control.py`
 ```python
 class ControlState:
-    def __init__(self, engine: Engine, *, yield_to_user: bool = True, idle_threshold_s: float = 1.0) -> None
+    def __init__(self, engine: Engine, *, yield_to_user: bool = True, idle_threshold_s: float = 1.0,
+                 clock: Callable[[], float] = time.monotonic) -> None
     paused: bool; pause_reason: str | None
     def pause(self, reason: str = "kill switch") -> None
     def resume(self) -> None
+    def asking_user(self) -> ContextManager[None]       # a question is open: actions get NEEDS_USER
+    def hold_question(self, key: str, ttl_s: float) -> None   # same, for a question the MCP client shows
+    def release_question(self, key: str) -> bool         #   between two rounds of a call (until released/expired)
+    waiting_for_user: bool
     @asynccontextmanager
     async def input_turn(self, timeout_s: float = 5.0)   # serializes input (one virtual hand);
         # raises PAUSED_BY_USER if paused, USER_ACTIVE if engine.hid_idle_seconds() < threshold,
@@ -450,7 +455,15 @@ guard: it validates the call, applies the policy, then calls `confirm_action` on
 command, script or page and code in the question (`destructive=False` on harmless paths such as `shortcuts` list
 and `defaults` read, so only `[safety] confirm = "always"` asks there). A shared guard wraps
 each tool: tool-enabled check → rate limit (input tools) → policy → confirmation (destructive) →
-`control.input_turn()` (input tools) → engine call in a worker thread → audit. `AXPilotError` becomes
+`control.input_turn()` (input tools) → engine call in a worker thread → audit. Confirmations go through
+`ServerContext.ask_user`: in direct mode (`ctx.elicitation`, from `[safety] elicitation`, off with `--yes`) a client
+that declared form elicitation is asked first (`axpilot/server/elicit.py`): on protocol ≤ 2025-11-25 with an
+`elicitation/create` request during the call; on 2026-07-28 by raising `elicit.InputRequired`, which the guard
+returns as the round's `InputRequiredResult` (audited as `INPUT_REQUIRED`). The client's retry re-runs the call, and
+`ask_user` accepts the answer only if its sealed `request_state` names a nonce issued here and not yet used, younger
+than the confirmation timeout, for the same question digest; meanwhile `control.hold_question` blocks every acting
+tool (`NEEDS_USER`). Tools therefore ask before any side effect. Without the capability, or when the client fails
+the request, the context's `Confirmer` decides (`DenyConfirmer` when nobody can be asked). `AXPilotError` becomes
 `CallToolResult(is_error=True, content=[TextContent(text=err.to_text())], meta={"axpilot/error": err.to_dict()})`.
 Success returns `CallToolResult(content=[TextContent, (ImageContent)], structured_content=...)` with the
 return annotation `Annotated[CallToolResult, <PydanticOutputModel>]` so `outputSchema` is advertised.

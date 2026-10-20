@@ -414,6 +414,7 @@ async def test_cancelling_a_call_releases_the_input_lock_and_is_audited() -> Non
     assert not ctx.control.busy
     assert audit_lines(ctx)[-1]["error_code"] == "CANCELLED"
     result = await guarded(text="again")
+    assert isinstance(result, CallToolResult)
     assert not result.is_error
 
 

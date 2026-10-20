@@ -14,7 +14,9 @@ Tools use the helpers here instead of calling the engine directly:
   ``observe`` policy before and after reading an app's accessibility tree;
   :meth:`ServerContext.build_snapshot` numbers every snapshot with session refs that stay
   with their element across snapshots (see :mod:`axpilot.perception.refs`).
-* :meth:`ServerContext.confirm_action` asks the user (bounded wait, ``USER_DENIED``).
+* :meth:`ServerContext.confirm_action` asks the user (bounded wait, ``USER_DENIED``): in direct
+  mode through the MCP client when it supports elicitation (:mod:`axpilot.server.elicit`),
+  otherwise through the context's confirmer.
 * :meth:`ServerContext.report_progress` sends MCP progress notifications for the current call.
 """
 
@@ -51,6 +53,7 @@ from axpilot.policy.control import ControlState
 from axpilot.policy.profiles import enabled_tools
 from axpilot.policy.ratelimit import RateLimiter
 from axpilot.policy.rules import AccessKind, Policy
+from axpilot.server import elicit
 from axpilot.system.runner import CommandRunner
 
 __all__ = [
@@ -131,6 +134,9 @@ class CallState:
     progress: ProgressFn | None = None
     confirmed: bool = False
     """True once the user approved this call (so a tool does not ask twice)."""
+    mcp: Any = None
+    """The MCP SDK's request context of this call (client capabilities, protocol version and the
+    answers of an elicitation retry), when the call came through MCP."""
 
 
 _CURRENT_CALL: ContextVar[CallState | None] = ContextVar("axpilot_current_call", default=None)
@@ -179,6 +185,11 @@ class ServerContext:
     """``direct``: tools run in this process; ``host``: behind AXPilot.app's socket."""
     host_info: Callable[[], Mapping[str, Any]] | None = None
     """Host mode only: returns ``{"pairing": str, "clients": [...]}`` for ``status``."""
+    elicitation: bool = False
+    """Direct mode: ask confirmations through the MCP client when it supports elicitation
+    (``[safety] elicitation``; off with ``--yes``, which approves without asking)."""
+    questions: elicit.QuestionBook = field(default_factory=elicit.QuestionBook)
+    """Open elicitation questions (shared by every scoped copy)."""
     engine_timeout_s: float = 20.0
     capture_timeout_s: float = 5.0
     confirm_timeout_s: float = CONFIRM_TIMEOUT_MAX_S
@@ -199,11 +210,14 @@ class ServerContext:
         runner: CommandRunner | None = None,
         audit_path: Path | None = None,
         log_path: Path | None = None,
+        elicitation: bool | None = None,
     ) -> ServerContext:
         """Build the context for ``config`` and ``engine``.
 
         ``confirmer`` defaults to :class:`DenyConfirmer` (nobody can be asked, so calls that
-        need a confirmation fail with ``USER_DENIED``). ``audit_path``
+        need a confirmation fail with ``USER_DENIED``). ``elicitation`` (default
+        ``[safety] elicitation``) lets direct mode ask through the MCP client first; pass
+        ``False`` when the confirmer approves on the user's behalf (``--yes``). ``audit_path``
         overrides ``config.audit_path()``. ``log_path`` additionally sends AXPilot's log
         (including tracebacks of ``INTERNAL`` errors) to that file; the CLI passes
         :func:`default_log_file`. Raises ``INVALID_ARGUMENT`` for an invalid tool selection
@@ -239,6 +253,7 @@ class ServerContext:
             capture_timeout_s=config.perception.capture_timeout_s,
             confirm_timeout_s=min(config.safety.confirm_timeout_s, CONFIRM_TIMEOUT_MAX_S),
             input_lock_timeout_s=config.server.input_lock_timeout_s,
+            elicitation=config.safety.elicitation if elicitation is None else elicitation,
         )
 
     def scoped(
@@ -303,19 +318,44 @@ class ServerContext:
             self.logger.debug("progress notification failed: %s", exc)
 
     async def ask_user(self, request: ConfirmRequest) -> None:
-        """Ask the confirmer; raise ``USER_DENIED`` on a "no" or when nobody answers within
-        :attr:`confirm_timeout_s` (at most 120 s)."""
+        """Ask the user; raise ``USER_DENIED`` on a "no" or when nobody answers within
+        :attr:`confirm_timeout_s` (at most 120 s).
+
+        In direct mode, a client that supports elicitation is asked first (see
+        :mod:`axpilot.server.elicit`): during the call on older protocols, or by ending this
+        round with an ``InputRequiredResult`` (:class:`~axpilot.server.elicit.InputRequired`)
+        on 2026-07-28 and newer. Otherwise, and when the client fails the request, the
+        context's confirmer decides."""
         timeout = min(self.confirm_timeout_s, CONFIRM_TIMEOUT_MAX_S)
+        state = current_call()
+        mcp = state.mcp if state is not None else None
+        if self.elicitation and self.mode == "direct" and mcp is not None and elicit.client_can_elicit(mcp):
+            if elicit.uses_input_required(mcp):
+                if elicit.answer_from_retry(mcp, request, self.questions, self.clock()):
+                    return
+                nonce = self.questions.issue(self.clock(), timeout)
+                self.control.hold_question(nonce, timeout)  # no tool may answer it meanwhile
+                raise elicit.InputRequired(elicit.question_result(request, nonce))
+            answer: bool | None = None
+            with self.control.asking_user(), anyio.move_on_after(timeout) as scope:
+                answer = await elicit.ask_during_call(mcp, request)
+            if scope.cancelled_caught:
+                raise self._unanswered(request, timeout)
+            if answer:
+                return
+            if answer is not None:
+                raise AXPilotError(
+                    ErrorCode.USER_DENIED,
+                    f"The user did not approve: {request.summary}",
+                    hint="The user declined in the client. Do not retry the same action; ask them what "
+                    "to do instead.",
+                    details={"tool": request.tool, "via": "elicitation"},
+                )
         approved = False
         with self.control.asking_user(), anyio.move_on_after(timeout) as scope:
             approved = await self.confirmer.confirm(request)
         if scope.cancelled_caught:
-            raise AXPilotError(
-                ErrorCode.USER_DENIED,
-                f"Nobody answered the confirmation within {timeout:g} s: {request.summary}",
-                hint="The user did not respond. Ask them in the chat before trying again.",
-                details={"tool": request.tool, "timed_out": True},
-            )
+            raise self._unanswered(request, timeout)
         if not approved:
             hint = getattr(self.confirmer, "denial_hint", None) or (
                 "The user declined. Do not retry the same action; ask them what to do instead."
@@ -326,6 +366,15 @@ class ServerContext:
                 hint=hint,
                 details={"tool": request.tool},
             )
+
+    @staticmethod
+    def _unanswered(request: ConfirmRequest, timeout: float) -> AXPilotError:
+        return AXPilotError(
+            ErrorCode.USER_DENIED,
+            f"Nobody answered the confirmation within {timeout:g} s: {request.summary}",
+            hint="The user did not respond. Ask them in the chat before trying again.",
+            details={"tool": request.tool, "timed_out": True},
+        )
 
     async def confirm_action(
         self, summary: str, detail: str | None = None, *, destructive: bool = True, tool: str | None = None

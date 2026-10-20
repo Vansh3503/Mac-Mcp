@@ -477,3 +477,43 @@ async def test_a_question_opened_during_a_turn_stops_its_next_step() -> None:
             control.ensure_running()  # what long actions call between steps
     assert info.value.code is ErrorCode.NEEDS_USER
     assert not control.busy
+
+
+# --------------------------------------------------------------------------- held questions
+def test_a_held_question_blocks_actions_until_released() -> None:
+    now = [0.0]
+    control, _ = make(clock=lambda: now[0])
+    control.hold_question("q1", 30.0)
+    assert control.waiting_for_user
+    with pytest.raises(AXPilotError) as info:
+        control.ensure_running()
+    assert info.value.code is ErrorCode.NEEDS_USER
+    assert control.release_question("q1") is True
+    assert not control.waiting_for_user
+    control.ensure_running()
+    assert control.release_question("q1") is False  # already closed
+
+
+def test_a_held_question_expires() -> None:
+    now = [0.0]
+    control, _ = make(clock=lambda: now[0])
+    control.hold_question("q1", 30.0)
+    control.hold_question("q2", 60.0)
+    now[0] = 31.0
+    assert control.waiting_for_user  # q2 is still open
+    assert control.release_question("q1") is False  # expired, and already forgotten
+    now[0] = 61.0
+    assert not control.waiting_for_user
+    control.ensure_running()
+
+
+async def test_input_turns_wait_for_held_questions() -> None:
+    control, _ = make(yield_to_user=False)
+    control.hold_question("q", 30.0)
+    with pytest.raises(AXPilotError) as info:
+        async with control.input_turn(label="click"):
+            pass
+    assert info.value.code is ErrorCode.NEEDS_USER
+    control.release_question("q")
+    async with control.input_turn(label="click"):
+        pass

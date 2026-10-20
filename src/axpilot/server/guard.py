@@ -8,7 +8,10 @@ For each call, in this order:
 3. **confirmation**: when :meth:`Policy.requires_confirmation` says so, the user is asked
    (bounded wait; a "no" or no answer is ``USER_DENIED``). A destructive tool with harmless
    actions too counts as destructive only for the calls its ``confirm_when`` picks; a tool that
-   ``confirms_itself`` asks in its body instead, once it can show exactly what will run;
+   ``confirms_itself`` asks in its body instead, once it can show exactly what will run. In
+   direct mode on protocol 2026-07-28 the question may end the round with an
+   ``InputRequiredResult`` (:mod:`axpilot.server.elicit`); the client's retry runs the call again
+   from step 1 with the answer;
 4. **input turn**: input tools hold the single input lock
    (:meth:`ControlState.input_turn`: ``PAUSED_BY_USER``, ``USER_ACTIVE``, ``BUSY``);
 5. **the tool body**, which applies the app/window policy and calls the engine through
@@ -28,17 +31,18 @@ import inspect
 import json
 import time
 import typing
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Annotated, Any
 
 import anyio
 from mcp.server.mcpserver import Context
-from mcp_types import CallToolResult
+from mcp_types import CallToolResult, InputRequiredResult
 from pydantic import BaseModel, ValidationError
 
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.policy.audit import AuditEvent
 from axpilot.policy.confirm import ConfirmRequest
+from axpilot.server import elicit
 from axpilot.server.context import CallState, ProgressFn, ServerContext, call_scope
 from axpilot.server.registry import ToolFn, ToolSpec
 from axpilot.server.results import error_code_of, error_result
@@ -46,6 +50,8 @@ from axpilot.server.results import error_code_of, error_result
 __all__ = [
     "CANCELLED",
     "CONTEXT_PARAM",
+    "INPUT_REQUIRED",
+    "GuardedFn",
     "guard_tool",
     "internal_error",
     "output_model_of",
@@ -56,6 +62,11 @@ CONTEXT_PARAM = "mcp_context"
 """Name of the keyword parameter through which the MCP SDK injects its request context."""
 CANCELLED = "CANCELLED"
 """Audit ``error_code`` of a call the client cancelled."""
+INPUT_REQUIRED = "INPUT_REQUIRED"
+"""Audit ``error_code`` of a round that ended by asking the user through the client."""
+GuardedFn = Callable[..., Awaitable[CallToolResult | InputRequiredResult]]
+"""A guarded tool: like :data:`~axpilot.server.registry.ToolFn`, but a round may end with an
+``InputRequiredResult`` (a question for the user, see :mod:`axpilot.server.elicit`)."""
 _DETAIL_MAX_CHARS = 2000
 
 
@@ -98,6 +109,16 @@ def _as_axpilot_error(exc: BaseException) -> AXPilotError | None:
         leaves = exc.exceptions
         if len(leaves) == 1:
             return _as_axpilot_error(leaves[0])
+    return None
+
+
+def _as_input_required(exc: BaseException) -> elicit.InputRequired | None:
+    """The :class:`~axpilot.server.elicit.InputRequired` behind ``exc`` (also inside a one-error
+    exception group)."""
+    if isinstance(exc, elicit.InputRequired):
+        return exc
+    if isinstance(exc, BaseExceptionGroup) and len(exc.exceptions) == 1:
+        return _as_input_required(exc.exceptions[0])
     return None
 
 
@@ -173,6 +194,9 @@ class _Call:
 
     async def run(self, state: CallState, args: dict[str, Any]) -> CallToolResult:
         spec, ctx = self.spec, self.ctx
+        answered = elicit.pending_nonce(state.mcp)
+        if answered is not None:  # the retry carries the answer: the question is no longer open
+            ctx.control.release_question(answered)
         ctx.policy.check_tool(spec.name)
         if not spec.read_only:  # the kill switch stops every tool that changes something
             ctx.control.ensure_running()
@@ -214,7 +238,9 @@ class _Call:
         return result
 
 
-def guard_tool(spec: ToolSpec, ctx: ServerContext, fn: ToolFn, *, public_name: str | None = None) -> ToolFn:
+def guard_tool(
+    spec: ToolSpec, ctx: ServerContext, fn: ToolFn, *, public_name: str | None = None
+) -> GuardedFn:
     """Wrap ``fn`` (built by ``spec.factory(ctx)``) in the guard.
 
     The wrapper keeps ``fn``'s parameters and return annotation (so the MCP SDK derives the
@@ -228,13 +254,14 @@ def guard_tool(spec: ToolSpec, ctx: ServerContext, fn: ToolFn, *, public_name: s
     hints = typing.get_type_hints(fn, include_extras=True)
     call = _Call(spec, ctx, fn, output_model_of(fn))
 
-    async def guarded(**kwargs: Any) -> CallToolResult:
+    async def guarded(**kwargs: Any) -> CallToolResult | InputRequiredResult:
         mcp_context = kwargs.pop(CONTEXT_PARAM, None)
         state = CallState(
             tool=spec.name,
             public_name=name,
             client=ctx.client_name or _client_from(mcp_context),
             progress=_progress_from(mcp_context),
+            mcp=mcp_context,
         )
         started = time.perf_counter()
         ok, code, summary = False, CANCELLED, None
@@ -246,6 +273,10 @@ def guard_tool(spec: ToolSpec, ctx: ServerContext, fn: ToolFn, *, public_name: s
         except anyio.get_cancelled_exc_class():
             raise
         except Exception as exc:
+            asked = _as_input_required(exc)
+            if asked is not None:
+                code, summary = INPUT_REQUIRED, "asked the user through the client"
+                return asked.result
             err = _as_axpilot_error(exc) or internal_error(ctx, spec.name, exc)
             code = err.code.value
             if err.code is ErrorCode.INTERNAL:
