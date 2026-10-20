@@ -27,6 +27,9 @@ Pre-alpha. Nothing is published on PyPI yet.
 - The first time a tool finds Accessibility missing (or a screenshot finds Screen Recording
   missing), AXPilot shows macOS's own permission prompt, which also lists AXPilot in System
   Settings, ready to be switched on. Before, a new user had to add AXPilot.app there by hand.
+- `axpilot doctor` in launcher mode no longer judges Accessibility and Screen Recording by the app
+  it runs in (a terminal without them showed a failure although AXPilot.app worked); it says it
+  did not check AXPilot.app and shows the terminal's grants as information for direct mode.
 - `axpilot stdio` completes the MCP handshake even when it cannot reach the AXPilot host
   (AXPilot.app not installed, the host does not start, or it refused this client): it prints the
   error on stderr, lists the usual tools and returns the error with its hint ("Run `axpilot setup`
