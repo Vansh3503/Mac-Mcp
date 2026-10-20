@@ -122,7 +122,7 @@ CI ran for the first time on PR #14 (`feature/axpilot-foundation` → `main`, ru
 - **Green:** lint, typecheck, build (wheel + sdist, twine, wheel smoke test), and the Linux tests on Python 3.11,
   3.12 and 3.13 with the 90% coverage gate.
 - **Docs failed:** `mkdocs build --strict` stopped on `docs/tools.md`: the `browser_read` parameter description
-  "Write links as [text](url)." became an unresolvable link. Fixed in `cef4ba9` (the generator escapes brackets in
+  `"Write links as [text](url)."` became an unresolvable link. Fixed in `cef4ba9` (the generator escapes brackets in
   table cells; test added).
 - **macOS 14 and macOS 15 (GitHub's arm64 runners), the first time any of the code ran on macOS:** 3035 passed,
   56 skipped, and two failures, both in `tests/test_doctor.py` (`AF_UNIX path too long`: macOS's pytest
