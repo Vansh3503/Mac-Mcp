@@ -1,10 +1,11 @@
 """Controls with choices and dialogs: ``select_option`` and ``handle_dialog``.
 
-``select_option`` picks one option of a control the way its role expects: pop-up buttons and combo
-boxes take the option's title (AXPilot opens the menu and chooses the item); radio groups, tab
-groups and segmented controls press the matching child; lists, tables and outlines select the
-matching row. Options match by title (exact, then prefix, then substring; ambiguous matches are an
-error that lists them) or by 1-based index.
+``select_option`` picks one option of a control the way its role expects: pop-up buttons, menu
+buttons and web or Electron pickers are opened and the option is chosen from the menu or list
+that appears (:mod:`axpilot.server.dropdown`); native combo boxes take the option's text; radio
+groups, tab groups and segmented controls press the matching child; lists, tables and outlines
+select the matching row. Options match by title (exact, then prefix, then substring; ambiguous
+matches are an error that lists them) or by 1-based index.
 
 ``handle_dialog`` finds the sheet or dialog in front of an app and reports its text, fields and
 buttons; it can fill its first text field and press a button: the default one (``accept``), the
@@ -15,7 +16,6 @@ discards something (Delete, Replace, Don't Save…) asks the user first.
 # No ``from __future__ import annotations`` here: the MCP SDK evaluates tool annotations.
 
 import re
-from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
 from mcp_types import CallToolResult
@@ -23,11 +23,14 @@ from pydantic import Field
 
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.input.keys import KeyCombo
+from axpilot.perception.dropdown import fold as _fold
+from axpilot.perception.dropdown import match_option
 from axpilot.perception.format import quote
 from axpilot.perception.model import Element, Snapshot
 from axpilot.perception.navigate import descendants, element_text
 from axpilot.perception.roles import DIALOG_SUBROLES
 from axpilot.server.context import ServerContext
+from axpilot.server.dropdown import DropdownOutcome, choose_option, in_web
 from axpilot.server.registry import ToolFn, tool
 from axpilot.server.results import ok_result
 from axpilot.server.schemas import ActionResult, ElementBriefModel, SnapshotIdArg
@@ -48,13 +51,13 @@ from axpilot.server.tools.input import (
 
 __all__ = ["DESTRUCTIVE_BUTTON_RE", "match_option"]
 
-MAX_LISTED = 30
 GROUP_ROLES = frozenset({"radiogroup", "tabs", "segmentedcontrol", "group", "toolbar"})
 GROUP_CHOICES = frozenset({"radio", "tab", "button", "toggle", "checkbox"})
 COLLECTION_ROLES = frozenset({"list", "table", "outline"})
 SELF_SELECTABLE = frozenset({"radio", "tab", "row"})
 """Option elements that may be passed themselves (they have a selected state)."""
-VALUE_ROLES = frozenset({"popup", "combobox"})
+DROPDOWN_ROLES = frozenset({"popup", "menubutton"})
+"""Controls whose options appear only once they are opened."""
 DIALOG_ROLES = frozenset({"sheet", "dialog"})
 FIELD_ROLES = frozenset({"field", "search", "textarea", "combobox", "secure"})
 
@@ -90,48 +93,24 @@ _ACCEPT_ORDER = (
 )
 
 
-def _fold(text: str | None) -> str:
-    return (text or "").strip().rstrip("…").rstrip(".").casefold()
-
-
-def match_option(names: Sequence[str], option: str) -> int:
-    """Index of the name matching ``option``: exact (case-insensitive), then unique prefix, then
-    unique substring. Raises ``INVALID_ARGUMENT`` (listing the choices) otherwise."""
-    wanted = _fold(option)
-    folded = [_fold(name) for name in names]
-    for matches in (
-        [i for i, name in enumerate(folded) if name == wanted],
-        [i for i, name in enumerate(folded) if name.startswith(wanted)],
-        [i for i, name in enumerate(folded) if wanted in name],
-    ):
-        if len(matches) == 1:
-            return matches[0]
-        if len(matches) > 1:
-            shown = ", ".join(quote(names[i], 40) for i in matches[:MAX_LISTED])
-            raise AXPilotError(ErrorCode.INVALID_ARGUMENT, f"{option!r} matches several options: {shown}.")
-    shown = ", ".join(quote(name, 40) for name in names[:MAX_LISTED]) or "none"
-    raise AXPilotError(
-        ErrorCode.INVALID_ARGUMENT,
-        f"No option matches {option!r}. Options: {shown}.",
-        hint="Pass the exact title (or index, 1-based).",
-    )
-
-
 def _label(el: Element) -> str:
     return element_text(el) or el.name or el.value or ""
 
 
 # =========================================================================== select_option
 SELECT_DESCRIPTION = """\
-Choose an option of a control by its title (or 1-based index): a pop-up button or combo box
-(AXPilot opens it and picks the item), a radio group, tab group or segmented control (presses the
-matching button), or a list, table or outline (selects the matching row).
-Params: ref (the control, from a snapshot), option (title: exact, then prefix, then substring; pop-ups
-and combo boxes need the exact title, since their items are listed only while open) or index (not
-for pop-ups); snapshot_id; report. Choosing the option that is already selected changes nothing.
+Choose an option of a dropdown or choice control by its title (or 1-based index), in one call:
+pop-up buttons, menu buttons (Format, Action…), combo boxes, web <select> elements and custom web
+or Electron pickers (React Select, MUI, Slack, VS Code): AXPilot opens the control, waits for its
+menu or list, picks the option (typing to filter a web combo box when the option is not listed),
+and checks that the control took it; the menu is closed again if anything fails. Also radio groups,
+tab groups and segmented controls (presses the matching button) and lists, tables and outlines
+(selects the matching row).
+Params: ref (the control, from a snapshot), option (title: exact, then prefix, then substring) or
+index; snapshot_id; report. Choosing the option that is already selected changes nothing.
 Errors: INVALID_ARGUMENT (no or several matching options: the message lists them), STALE_REF,
-ELEMENT_NOT_ACTIONABLE (disabled, or not a control with options; menu buttons: use
-perform_action AXShowMenu), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER."""
+ELEMENT_NOT_ACTIONABLE (disabled control or option, nothing opened, or the control did not take
+the option), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER."""
 
 
 def _choices(snap: Snapshot, el: Element) -> list[Element]:
@@ -172,7 +151,7 @@ def select_option_tool(ctx: ServerContext) -> ToolFn:
         ref: Annotated[
             str,
             Field(
-                description='The control: a pop-up, combo box, radio/tab group or list ("e7").',
+                description='The control: a pop-up, menu button, combo box, radio/tab group or list ("e7").',
                 min_length=2,
                 max_length=48,
             ),
@@ -195,21 +174,21 @@ def select_option_tool(ctx: ServerContext) -> ToolFn:
         if not el.enabled:
             raise AXPilotError(ErrorCode.ELEMENT_NOT_ACTIONABLE, f"{target.describe()} is disabled.")
         before = await snapshot_before(ctx, target, report)
-        if el.role in VALUE_ROLES:
-            if option is None:
-                raise AXPilotError(
-                    ErrorCode.INVALID_ARGUMENT,
-                    f"{target.describe()} lists its options only while open: pass option (the title).",
-                )
-            outcome = await set_control(ctx, target, option)
+        if el.role in DROPDOWN_ROLES or el.role == "combobox":
+            if el.role == "combobox" and option is not None and not in_web(ctx, target):
+                outcome = await _native_combo(ctx, target, option)
+            else:
+                outcome = await choose_option(ctx, target, option=option, index=index)
             observation = await observe_after(ctx, app=target.app, before=before, report=report)
             return action_result(
                 "select_option",
                 f"{target.describe()}: {outcome.message}",
                 observation,
                 strategy=outcome.strategy,
-                attempts=[outcome.strategy],
+                attempts=outcome.attempts,
                 target=target,
+                message=outcome.message,
+                warnings=outcome.warnings,
             )
         if el.role in GROUP_ROLES or el.role in COLLECTION_ROLES:
             choices = _choices(snap, el)
@@ -222,17 +201,12 @@ def select_option_tool(ctx: ServerContext) -> ToolFn:
             chosen = _pick(choices, option, index)
         elif el.role in SELF_SELECTABLE:
             chosen = el
-        elif el.role == "menubutton":
-            raise AXPilotError(
-                ErrorCode.ELEMENT_NOT_ACTIONABLE,
-                f"{target.describe()} opens a menu whose items are not listed until it is open.",
-                hint="perform_action AXShowMenu (or AXPress) on it, take a snapshot, and click the item.",
-            )
         else:
             raise AXPilotError(
                 ErrorCode.ELEMENT_NOT_ACTIONABLE,
                 f"{target.describe()} is not a control with options (it is a {el.role}).",
-                hint="Use set_value for fields, checkboxes and sliders, or click.",
+                hint="Use set_value for fields, checkboxes and sliders. A button that opens a list: click "
+                "it, take a snapshot and click the option.",
             )
         name = quote(_label(chosen), 60)
         if _is_chosen(chosen):
@@ -255,6 +229,18 @@ def select_option_tool(ctx: ServerContext) -> ToolFn:
         )
 
     return select_option
+
+
+async def _native_combo(ctx: ServerContext, target: Target, option: str) -> DropdownOutcome:
+    """A native combo box takes the option's text; one whose text cannot be set (Java, Qt) is
+    opened and the option chosen from its list instead."""
+    try:
+        outcome = await set_control(ctx, target, option)
+    except AXPilotError as err:
+        if err.code is not ErrorCode.ELEMENT_NOT_ACTIONABLE:
+            raise
+        return await choose_option(ctx, target, option=option, index=None)
+    return DropdownOutcome(outcome.strategy, option, outcome.message, [outcome.strategy], outcome.warnings)
 
 
 # =========================================================================== handle_dialog

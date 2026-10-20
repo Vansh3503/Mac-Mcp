@@ -1310,14 +1310,17 @@ async def set_control(ctx: ServerContext, target: Target, value: str) -> _SetOut
         )
     if role in NUMERIC_ROLES:
         return await _set_number(ctx, target, parse_number(value))
+    if role == "popup":  # open its menu and choose the item, like a user (see axpilot.server.dropdown)
+        from axpilot.server.dropdown import choose_option  # noqa: PLC0415 - it imports this module
+
+        chosen = await choose_option(ctx, target, option=value, index=None)
+        return _SetOutcome(chosen.strategy or "none", chosen.changed, chosen.message, chosen.warnings)
     if role in TEXT_ROLES or role == "secure":
         ctx.policy.check_secure_target(el.secure)
     await ctx.run_engine(ctx.engine.set_value, target.handle, value)
     if el.secure:
         return _SetOutcome("ax_value", True, "set (secure field)")
     after = await _current(ctx, target)
-    if role == "popup" and str(after).casefold() != value.casefold():
-        raise _not_actionable(target, f"choose {value!r} in", ["ax_value"], [f"it shows {after!r}"])
     return _SetOutcome("ax_value", True, f"set to {quote(str(after) if after is not None else value, 60)}")
 
 

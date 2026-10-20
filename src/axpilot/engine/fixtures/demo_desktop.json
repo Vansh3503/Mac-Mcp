@@ -46,6 +46,10 @@
     },
     {"name": "Safari", "bundle_id": "com.apple.Safari", "running": false, "path": "/Applications/Safari.app"},
     {
+      "name": "Google Chrome", "bundle_id": "com.google.Chrome", "running": false,
+      "path": "/Applications/Google Chrome.app"
+    },
+    {
       "name": "Slack", "bundle_id": "com.tinyspeck.slackmacgap", "running": false,
       "path": "/Applications/Slack.app",
       "bundle": {
@@ -164,8 +168,21 @@
                 "actions": ["AXPress"]
               },
               {
-                "role": "AXMenuButton", "description": "Action", "frame": [815, 102, 40, 28],
-                "actions": ["AXPress", "AXShowMenu"]
+                "id": "finder.action", "role": "AXMenuButton", "description": "Action",
+                "frame": [815, 102, 40, 28], "actions": ["AXPress", "AXShowMenu"],
+                "menu": [
+                  {
+                    "title": "New Folder",
+                    "on_select": [{"show": "finder.row.untitled"}, {"select": "finder.row.untitled"}]
+                  },
+                  {"title": "New Folder with Selection", "enabled": false},
+                  {"separator": true},
+                  {"title": "Get Info"},
+                  {"title": "Rename…"},
+                  {"title": "Compress"},
+                  {"separator": true},
+                  {"title": "Show View Options"}
+                ]
               },
               {
                 "id": "finder.search", "role": "AXTextField", "subrole": "AXSearchField",
@@ -509,6 +526,32 @@
                             ]
                           }
                         ]
+                      },
+                      {
+                        "id": "finder.row.untitled", "role": "AXRow", "subrole": "AXOutlineRow",
+                        "visible": false, "frame": [301, 296, 704, 26],
+                        "children": [
+                          {
+                            "role": "AXCell", "frame": [301, 296, 300, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "untitled folder", "frame": [323, 301, 270, 16]}
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [601, 296, 180, 26],
+                            "children": [
+                              {"role": "AXStaticText", "value": "Today at 10:02", "frame": [623, 301, 150, 16]}
+                            ]
+                          },
+                          {
+                            "role": "AXCell", "frame": [781, 296, 100, 26],
+                            "children": [{"role": "AXStaticText", "value": "--", "frame": [803, 301, 70, 16]}]
+                          },
+                          {
+                            "role": "AXCell", "frame": [881, 296, 124, 26],
+                            "children": [{"role": "AXStaticText", "value": "Folder", "frame": [903, 301, 94, 16]}]
+                          }
+                        ]
                       }
                     ]
                   },
@@ -648,9 +691,9 @@
                 ]
               },
               {
-                "role": "AXPopUpButton", "description": "Line and Paragraph Spacing", "value": "1.0",
-                "frame": [852, 172, 56, 22], "actions": ["AXPress", "AXShowMenu"],
-                "options": ["1.0", "1.15", "1.5", "2.0"]
+                "id": "textedit.spacing", "role": "AXPopUpButton", "description": "Line and Paragraph Spacing",
+                "value": "1.0", "frame": [852, 172, 56, 22], "actions": ["AXPress", "AXShowMenu"],
+                "options": ["1.0", "1.15", "1.5", "2.0"], "menu_at": "app"
               },
               {
                 "role": "AXMenuButton", "description": "Lists", "frame": [914, 172, 56, 22],
@@ -719,8 +762,21 @@
                 ]
               },
               {
-                "role": "AXMenuButton", "description": "Format", "frame": [560, 38, 28, 28],
-                "actions": ["AXPress", "AXShowMenu"]
+                "id": "notes.format", "role": "AXMenuButton", "description": "Format", "frame": [560, 38, 28, 28],
+                "actions": ["AXPress", "AXShowMenu"],
+                "menu": [
+                  {"title": "Title"},
+                  {"title": "Heading"},
+                  {"title": "Subheading"},
+                  {"title": "Body", "checked": true},
+                  {"title": "Monostyled"},
+                  {"separator": true},
+                  {"title": "Bulleted List"},
+                  {"title": "Dashed List"},
+                  {"title": "Numbered List"},
+                  {"separator": true},
+                  {"title": "Block Quote", "toggle": true}
+                ]
               },
               {
                 "role": "AXButton", "description": "Checklist", "frame": [596, 38, 28, 28],
@@ -736,8 +792,15 @@
                 "actions": ["AXPress", "AXShowMenu"]
               },
               {
-                "role": "AXMenuButton", "description": "Share", "frame": [1210, 38, 28, 28],
-                "actions": ["AXPress", "AXShowMenu"]
+                "id": "notes.share", "role": "AXMenuButton", "description": "Share", "frame": [1210, 38, 28, 28],
+                "actions": ["AXPress", "AXShowMenu"], "menu_at": "app",
+                "menu": [
+                  {"title": "Mail"},
+                  {"title": "Messages"},
+                  {"title": "Reminders"},
+                  {"separator": true},
+                  {"title": "Copy Link", "enabled": false}
+                ]
               },
               {
                 "id": "notes.search", "role": "AXTextField", "subrole": "AXSearchField",
@@ -2171,6 +2234,11 @@
                             "actions": ["AXPress"]
                           },
                           {
+                            "id": "slack.notify", "role": "AXPopUpButton", "description": "Notifications",
+                            "value": "All new messages", "frame": [1060, 82, 170, 28], "actions": ["AXPress"],
+                            "pointer_only": true, "on_press": {"show": "slack.notify.list"}
+                          },
+                          {
                             "role": "AXGroup", "description": "Messages", "frame": [400, 130, 960, 620],
                             "children": [
                               {
@@ -2257,6 +2325,37 @@
                           {
                             "role": "AXButton", "description": "Send now", "frame": [1300, 786, 28, 28],
                             "actions": ["AXPress"], "enabled": false
+                          },
+                          {
+                            "id": "slack.notify.list", "role": "AXList", "description": "Notification options",
+                            "visible": false, "frame": [1060, 112, 220, 96],
+                            "keys": {"⎋": {"hide": "slack.notify.list"}},
+                            "children": [
+                              {
+                                "role": "AXStaticText", "value": "All new messages", "frame": [1060, 112, 220, 32],
+                                "actions": ["AXPress"], "pointer_only": true,
+                                "on_press": [
+                                  {"set_value": {"id": "slack.notify", "value": "All new messages"}},
+                                  {"hide": "slack.notify.list"}
+                                ]
+                              },
+                              {
+                                "role": "AXStaticText", "value": "Mentions only", "frame": [1060, 144, 220, 32],
+                                "actions": ["AXPress"], "pointer_only": true,
+                                "on_press": [
+                                  {"set_value": {"id": "slack.notify", "value": "Mentions only"}},
+                                  {"hide": "slack.notify.list"}
+                                ]
+                              },
+                              {
+                                "role": "AXStaticText", "value": "Nothing", "frame": [1060, 176, 220, 32],
+                                "actions": ["AXPress"], "pointer_only": true,
+                                "on_press": [
+                                  {"set_value": {"id": "slack.notify", "value": "Nothing"}},
+                                  {"hide": "slack.notify.list"}
+                                ]
+                              }
+                            ]
                           }
                         ]
                       }
@@ -2332,6 +2431,11 @@
           {
             "role": "AXGroup", "frame": [40, 58, 1360, 832],
             "children": [
+              {
+                "id": "idea.runconfig", "role": "AXComboBox", "description": "Run/Debug Configurations",
+                "value": "Main", "frame": [1000, 64, 180, 28], "actions": ["AXPress"], "settable": false,
+                "on_press": {"open_window": 1302}
+              },
               {
                 "role": "AXButton", "description": "Run 'Main'", "frame": [1200, 64, 28, 28],
                 "actions": ["AXPress"], "id": "idea.run"
@@ -2447,6 +2551,265 @@
         {"text": "UTF-8", "frame": [1200, 864, 40, 14], "confidence": 0.9},
         {"text": "4 spaces", "frame": [1260, 864, 56, 14], "confidence": 0.9}
       ]
+    },
+    {
+      "window_id": 1501, "app": "com.google.Chrome", "title": "Checkout – Example Store",
+      "frame": [120, 60, 1100, 780],
+      "tree": {
+        "role": "AXWindow", "subrole": "AXStandardWindow", "actions": ["AXRaise"],
+        "children": [
+          {
+            "role": "AXButton", "subrole": "AXCloseButton", "frame": [128, 66, 14, 16], "actions": ["AXPress"],
+            "on_press": {"close_window": true}
+          },
+          {"role": "AXButton", "subrole": "AXMinimizeButton", "frame": [148, 66, 14, 16], "actions": ["AXPress"]},
+          {"role": "AXButton", "subrole": "AXFullScreenButton", "frame": [168, 66, 14, 16], "actions": ["AXPress"]},
+          {
+            "role": "AXToolbar", "frame": [120, 60, 1100, 80],
+            "children": [
+              {"role": "AXButton", "description": "Back", "frame": [140, 100, 28, 28], "actions": ["AXPress"]},
+              {
+                "id": "chrome.address", "role": "AXTextField", "description": "Address and search bar",
+                "value": "store.example.com/checkout", "frame": [220, 102, 700, 26],
+                "actions": ["AXConfirm", "AXShowMenu"]
+              }
+            ]
+          },
+          {
+            "role": "AXGroup", "frame": [120, 140, 1100, 700],
+            "children": [
+              {
+                "id": "store.page", "role": "AXWebArea", "description": "Checkout – Example Store",
+                "frame": [120, 140, 1100, 700],
+                "children": [
+                  {"role": "AXHeading", "title": "Checkout", "frame": [160, 160, 300, 32]},
+                  {"role": "AXStaticText", "value": "Country", "frame": [160, 214, 120, 18]},
+                  {
+                    "id": "store.country", "role": "AXPopUpButton", "description": "Country", "value": "Canada",
+                    "frame": [300, 208, 260, 28], "actions": ["AXPress", "AXShowMenu"],
+                    "children": [
+                      {
+                        "id": "store.country.menu", "role": "AXMenu", "visible": false,
+                        "frame": [300, 238, 260, 88], "actions": ["AXCancel"],
+                        "children": [
+                          {
+                            "role": "AXMenuItem", "title": "Canada", "frame": [300, 238, 260, 22],
+                            "actions": ["AXPress", "AXCancel"],
+                            "on_press": {"set_value": {"id": "store.country", "value": "Canada"}}
+                          },
+                          {
+                            "role": "AXMenuItem", "title": "Japan", "frame": [300, 260, 260, 22],
+                            "actions": ["AXPress", "AXCancel"],
+                            "on_press": {"set_value": {"id": "store.country", "value": "Japan"}}
+                          },
+                          {
+                            "role": "AXMenuItem", "title": "Portugal", "frame": [300, 282, 260, 22],
+                            "actions": ["AXPress", "AXCancel"],
+                            "on_press": {"set_value": {"id": "store.country", "value": "Portugal"}}
+                          },
+                          {
+                            "role": "AXMenuItem", "title": "United States", "frame": [300, 304, 260, 22],
+                            "actions": ["AXPress", "AXCancel"],
+                            "on_press": {"set_value": {"id": "store.country", "value": "United States"}}
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {"role": "AXStaticText", "value": "Shipping method", "frame": [160, 264, 130, 18]},
+                  {
+                    "id": "store.shipping.control", "role": "AXGroup", "frame": [300, 258, 320, 30],
+                    "children": [
+                      {
+                        "id": "store.shipping.value", "role": "AXStaticText", "value": "Select…",
+                        "frame": [310, 264, 220, 18]
+                      },
+                      {
+                        "id": "store.shipping", "role": "AXComboBox", "description": "Shipping method", "value": "",
+                        "expanded": false, "frame": [300, 258, 320, 30], "actions": ["AXPress", "AXShowMenu"],
+                        "pointer_only": true, "on_press": {"show": "store.shipping.list"}
+                      }
+                    ]
+                  },
+                  {
+                    "id": "store.shipping.list", "role": "AXList", "description": "Shipping options",
+                    "visible": false, "frame": [300, 290, 320, 96], "keys": {"⎋": {"hide": "store.shipping.list"}},
+                    "children": [
+                      {
+                        "role": "AXStaticText", "value": "Standard (5–7 days)", "frame": [300, 290, 320, 32],
+                        "actions": ["AXPress"], "pointer_only": true,
+                        "on_press": [
+                          {"set_value": {"id": "store.shipping.value", "value": "Standard (5–7 days)"}},
+                          {"hide": "store.shipping.list"}
+                        ]
+                      },
+                      {
+                        "role": "AXStaticText", "value": "Express (2 days)", "frame": [300, 322, 320, 32],
+                        "actions": ["AXPress"], "pointer_only": true,
+                        "on_press": [
+                          {"set_value": {"id": "store.shipping.value", "value": "Express (2 days)"}},
+                          {"hide": "store.shipping.list"}
+                        ]
+                      },
+                      {
+                        "role": "AXStaticText", "value": "Overnight (sold out)", "frame": [300, 354, 320, 32],
+                        "actions": ["AXPress"], "pointer_only": true, "enabled": false,
+                        "on_press": [
+                          {"set_value": {"id": "store.shipping.value", "value": "Overnight (sold out)"}},
+                          {"hide": "store.shipping.list"}
+                        ]
+                      }
+                    ]
+                  },
+                  {"role": "AXStaticText", "value": "Pickup store", "frame": [160, 406, 130, 18]},
+                  {
+                    "id": "store.pickup", "role": "AXComboBox", "description": "Pickup store", "value": "",
+                    "frame": [300, 400, 320, 30], "actions": ["AXConfirm"],
+                    "filters": {"list": "store.pickup.list", "limit": 3},
+                    "keys": {"↓": {"show": "store.pickup.list"}}
+                  },
+                  {
+                    "id": "store.pickup.list", "role": "AXList", "description": "Pickup stores", "visible": false,
+                    "frame": [300, 432, 320, 192], "keys": {"⎋": {"hide": "store.pickup.list"}},
+                    "children": [
+                      {
+                        "role": "AXStaticText", "value": "Lisbon – Chiado", "frame": [300, 432, 320, 32],
+                        "actions": ["AXPress"],
+                        "on_press": [
+                          {"set_value": {"id": "store.pickup", "value": "Lisbon – Chiado"}},
+                          {"hide": "store.pickup.list"}
+                        ]
+                      },
+                      {
+                        "role": "AXStaticText", "value": "London – Soho", "frame": [300, 464, 320, 32],
+                        "actions": ["AXPress"],
+                        "on_press": [
+                          {"set_value": {"id": "store.pickup", "value": "London – Soho"}},
+                          {"hide": "store.pickup.list"}
+                        ]
+                      },
+                      {
+                        "role": "AXStaticText", "value": "Los Angeles – Downtown", "frame": [300, 496, 320, 32],
+                        "actions": ["AXPress"],
+                        "on_press": [
+                          {"set_value": {"id": "store.pickup", "value": "Los Angeles – Downtown"}},
+                          {"hide": "store.pickup.list"}
+                        ]
+                      },
+                      {
+                        "visible": false, "role": "AXStaticText", "value": "Osaka – Umeda", "frame": [300, 528, 320, 32],
+                        "actions": ["AXPress"],
+                        "on_press": [
+                          {"set_value": {"id": "store.pickup", "value": "Osaka – Umeda"}},
+                          {"hide": "store.pickup.list"}
+                        ]
+                      },
+                      {
+                        "visible": false, "role": "AXStaticText", "value": "Oslo – Sentrum", "frame": [300, 560, 320, 32],
+                        "actions": ["AXPress"],
+                        "on_press": [
+                          {"set_value": {"id": "store.pickup", "value": "Oslo – Sentrum"}},
+                          {"hide": "store.pickup.list"}
+                        ]
+                      },
+                      {
+                        "visible": false, "role": "AXStaticText", "value": "Toronto – Queen St", "frame": [300, 592, 320, 32],
+                        "actions": ["AXPress"],
+                        "on_press": [
+                          {"set_value": {"id": "store.pickup", "value": "Toronto – Queen St"}},
+                          {"hide": "store.pickup.list"}
+                        ]
+                      }
+                    ]
+                  },
+                  {"role": "AXStaticText", "value": "Sort reviews", "frame": [160, 656, 130, 18]},
+                  {
+                    "id": "store.sort", "role": "AXPopUpButton", "description": "Sort reviews", "value": "Most helpful",
+                    "frame": [300, 650, 200, 30], "actions": ["AXPress"], "on_press": {"show": "store.sort.menu"}
+                  },
+                  {
+                    "id": "store.sort.menu", "role": "AXMenu", "description": "Sort reviews", "visible": false,
+                    "frame": [300, 682, 200, 66], "keys": {"⎋": {"hide": "store.sort.menu"}},
+                    "children": [
+                      {
+                        "role": "AXMenuItem", "title": "Most helpful", "frame": [300, 682, 200, 22],
+                        "actions": ["AXPress"],
+                        "on_press": [
+                          {"set_value": {"id": "store.sort", "value": "Most helpful"}},
+                          {"hide": "store.sort.menu"}
+                        ]
+                      },
+                      {
+                        "role": "AXMenuItem", "title": "Newest", "frame": [300, 704, 200, 22],
+                        "actions": ["AXPress"],
+                        "on_press": [
+                          {"set_value": {"id": "store.sort", "value": "Newest"}},
+                          {"hide": "store.sort.menu"}
+                        ]
+                      },
+                      {
+                        "role": "AXMenuItem", "title": "Highest rating", "frame": [300, 726, 200, 22],
+                        "actions": ["AXPress"],
+                        "on_press": [
+                          {"set_value": {"id": "store.sort", "value": "Highest rating"}},
+                          {"hide": "store.sort.menu"}
+                        ]
+                      }
+                    ]
+                  },
+                  {"role": "AXButton", "title": "Place order", "frame": [900, 650, 160, 36], "actions": ["AXPress"]}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "window_id": 1302, "app": "com.jetbrains.intellij", "title": "", "frame": [1000, 94, 220, 96], "open": false,
+      "tree": {
+        "role": "AXWindow", "subrole": "AXUnknown",
+        "children": [
+          {
+            "id": "idea.runconfig.list", "role": "AXList", "description": "Run configurations",
+            "frame": [1000, 94, 220, 96], "keys": {"⎋": {"close_window": true}},
+            "children": [
+              {
+                "role": "AXStaticText", "value": "Main", "frame": [1000, 94, 220, 24],
+                "actions": ["AXPress"],
+                "on_press": [
+                  {"set_value": {"id": "idea.runconfig", "value": "Main"}},
+                  {"close_window": true}
+                ]
+              },
+              {
+                "role": "AXStaticText", "value": "All Tests", "frame": [1000, 118, 220, 24],
+                "actions": ["AXPress"],
+                "on_press": [
+                  {"set_value": {"id": "idea.runconfig", "value": "All Tests"}},
+                  {"close_window": true}
+                ]
+              },
+              {
+                "role": "AXStaticText", "value": "Build Project", "frame": [1000, 142, 220, 24],
+                "actions": ["AXPress"],
+                "on_press": [
+                  {"set_value": {"id": "idea.runconfig", "value": "Build Project"}},
+                  {"close_window": true}
+                ]
+              },
+              {
+                "role": "AXStaticText", "value": "Edit Configurations…", "frame": [1000, 166, 220, 24],
+                "actions": ["AXPress"],
+                "on_press": [
+                  {"set_value": {"id": "idea.runconfig", "value": "Edit Configurations…"}},
+                  {"close_window": true}
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "window_id": 1401, "app": "com.apple.mail", "title": "Inbox – 150 messages",
