@@ -1,6 +1,6 @@
 # Release AXPilot from a `v*` tag on main: check → build (embedding the pinned launcher) → PyPI
 # (trusted publishing, attestations) → GitHub release → MCP Registry → docs. The checks live in
-# scripts/release.py; run `python3 scripts/release.py check vX.Y.Z` before pushing the tag.
+# scripts/release.py; run `uv run python scripts/release.py check vX.Y.Z` before pushing the tag.
 #
 # One-time setup by the maintainer: a PyPI trusted publisher for this repository, workflow
 # `release.yml` and environment `pypi`; GitHub Pages with source "GitHub Actions" (docs.yml).
@@ -51,7 +51,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.12"
+          python-version: "3.12" # release.py runs under uv: the runner's python3 may be older
       - name: Build the sdist (sources only, no launcher)
         run: uv build --sdist
       - name: Download the pinned launcher
@@ -60,12 +60,12 @@ jobs:
         run: gh release download "$LAUNCHER_ASSET" --repo "$GITHUB_REPOSITORY" --pattern AXPilot.app.zip --dir "$RUNNER_TEMP"
       - name: Verify and unpack it
         run: |
-          python3 scripts/release.py verify-launcher --zip "$RUNNER_TEMP/AXPilot.app.zip"
+          uv run --no-project python scripts/release.py verify-launcher --zip "$RUNNER_TEMP/AXPilot.app.zip"
           mkdir -p "$LAUNCHER_DIR"
           ditto -x -k "$RUNNER_TEMP/AXPilot.app.zip" "$LAUNCHER_DIR"
           codesign --verify --strict "$LAUNCHER_DIR/AXPilot.app"
-          python3 scripts/release.py verify-launcher --app "$LAUNCHER_DIR/AXPilot.app" --cdhash
-          python3 scripts/release.py write-cdhash "$LAUNCHER_DIR"
+          uv run --no-project python scripts/release.py verify-launcher --app "$LAUNCHER_DIR/AXPilot.app" --cdhash
+          uv run --no-project python scripts/release.py write-cdhash "$LAUNCHER_DIR"
       - name: Build the wheel (macOS 14+, universal2, because it embeds the launcher)
         run: |
           uv build --wheel
@@ -78,7 +78,7 @@ jobs:
           app="$("$RUNNER_TEMP/venv/bin/python" -c 'from axpilot.setup.launcher import bundled_app; print(bundled_app())')"
           test -x "$app/Contents/MacOS/AXPilot"
           codesign --verify --strict "$app"
-          python3 scripts/release.py verify-launcher --app "$app" --cdhash
+          uv run --no-project python scripts/release.py verify-launcher --app "$app" --cdhash
           "$RUNNER_TEMP/venv/bin/axpilot" version
       - uses: actions/upload-artifact@v4
         with:

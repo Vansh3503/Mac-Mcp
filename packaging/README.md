@@ -100,7 +100,7 @@ The workflows exist; none has run yet, because no launcher has been published.
    launcher bundle untouched.
 
 Before tagging, bump `__version__`, move the Unreleased changelog entries under
-`## [X.Y.Z] - YYYY-MM-DD`, and run `python3 scripts/release.py check vX.Y.Z`.
+`## [X.Y.Z] - YYYY-MM-DD`, and run `uv run python scripts/release.py check vX.Y.Z`.
 
 One-time setup by the maintainer: a [trusted publisher](https://docs.pypi.org/trusted-publishers/)
 on PyPI for this repository (workflow `release.yml`, environment `pypi`), and GitHub Pages with
