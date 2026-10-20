@@ -747,6 +747,40 @@ def test_resolve_languages() -> None:
     assert "de-DE" in error.hint
 
 
+@pytest.mark.skipif(sys.platform != "darwin", reason="MacEngine imports PyObjC")
+def test_a_missing_permission_asks_macos_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """macOS 26: nothing asked for Accessibility, so a new user's tools failed and AXPilot was not
+    even listed in System Settings. The first tool that finds it missing shows macOS's prompt."""
+    import threading
+    from types import SimpleNamespace
+
+    from axpilot.engine.macos import capture as capture_
+    from axpilot.engine.macos import engine as eng
+    from axpilot.engine.macos import permissions as perms
+
+    asked: list[str] = []
+    monkeypatch.setattr(perms, "request_accessibility", lambda: asked.append("ax") or False)
+    monkeypatch.setattr(perms, "request_screen_recording", lambda: asked.append("screen") or False)
+
+    def no_screen(*_: object, **__: object) -> None:
+        raise AXPilotError(
+            ErrorCode.PERMISSION_SCREEN_RECORDING, "Screen Recording permission is not granted."
+        )
+
+    monkeypatch.setattr(capture_, "take_screenshot", no_screen)
+    engine: Any = object.__new__(eng.MacEngine)  # only the parts the permission checks use
+    engine._ax = SimpleNamespace(is_trusted=lambda: False)
+    engine._trusted_until = 0.0
+    engine._asked, engine._ask_lock = set(), threading.Lock()
+    engine._responsible, engine._responsible_lock = "AXPilot", threading.Lock()
+    engine._displays = SimpleNamespace(get=lambda: None)
+    engine._apps = SimpleNamespace(bundle_id_of=lambda pid: None)
+    for _ in range(3):
+        expect(ErrorCode.PERMISSION_ACCESSIBILITY, engine._require_ax)
+        expect(ErrorCode.PERMISSION_SCREEN_RECORDING, eng.MacEngine.screenshot, engine)
+    assert asked == ["ax", "screen"]
+
+
 @pytest.mark.skipif(sys.platform != "darwin", reason="WindowService imports PyObjC")
 def test_a_root_window_on_another_space_still_gets_its_window_id(monkeypatch: pytest.MonkeyPatch) -> None:
     """macOS 26 with a full-screen app in front: the target app's AXWindows is empty (its windows
