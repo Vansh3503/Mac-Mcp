@@ -650,7 +650,8 @@ Errors: APP_NOT_FOUND, BLOCKED_BY_POLICY (protected apps), USER_DENIED, INVALID_
 
 Profiles: `standard`, `full` · Windows-MCP: `Window`
 
-Focus, move, resize, minimize, restore, zoom, toggle full screen or close a window.
+Focus, move, resize, minimize, zoom, enter full screen (fullscreen), restore (un-minimize and leave
+full screen) or close a window.
 Params: action; window_id (from list_windows) or ref (any element of a snapshot: its window);
 x + y (move: the window's new top-left corner, screen points); width + height (resize).
 Returns the window afterwards (frame and state); close returns closed=true (the app may ask to save
