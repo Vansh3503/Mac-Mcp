@@ -1,0 +1,25 @@
+id = "slack-notifications"
+title = "Pick an option in an Electron app"
+goal = "Open Slack and set the #general channel's notifications to mentions only."
+tags = ["electron", "controls", "apps"]
+max_steps = 12
+
+[[check]]
+tool = "find"
+args = { app = "Slack", text = "Notifications", role = "popup" }
+path = "matches.0.value"
+op = "equals"
+value = "Mentions only"
+
+[[solution]]
+tool = "app"
+args = { action = "launch", name = "Slack" }
+
+[[solution]]
+tool = "find"
+args = { app = "Slack", text = "Notifications", role = "popup" }
+save = { notify = "matches.0.ref" }
+
+[[solution]]
+tool = "select_option"
+args = { ref = "$notify", option = "Mentions only" }

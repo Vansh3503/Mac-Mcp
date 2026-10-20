@@ -288,7 +288,8 @@ async def _close(ctx: ServerContext, target: Target, found: dd.OptionList) -> st
                 and not await ctx.run_engine(ctx.engine.secure_input_active)
             ):
                 await ctx.run_engine(ctx.engine.press_key, ESCAPE)
-                return None
+                if not await _still_open(ctx, found):
+                    return None
         except AXPilotError as err:
             _log.warning("Could not close the options of %s: %s", target.describe(), err.message)
         if scope.cancelled_caught:

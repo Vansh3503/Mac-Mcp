@@ -2411,7 +2411,7 @@ class FakeEngine(Engine):
                 self._select_all.discard(node.handle)
             if "on_press" in self._behaviour.get(node.handle, {}):  # e.g. a web combo box opens its list
                 self._press(node, modifiers=modifiers)
-        elif node.role == "AXRow" or "AXPress" in node.actions:
+        elif node.role == "AXRow" or "AXPress" in node.actions or self._menu_source(node) is not None:
             self._press(node, modifiers=modifiers)
 
     def mouse_drag(

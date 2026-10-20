@@ -194,6 +194,11 @@ def test_visibility_and_clipping() -> None:
     assert not h.node_visible("AXMenu", Rect(0, 0, 0, 0), None)
     assert h.node_visible("AXMenu", Rect(10, 10, 200, 300), None)
     assert h.node_visible("AXButton", None, viewport)
+    # An open menu or popover outside the scroll area around its control still shows.
+    outside = Rect(viewport.x + viewport.w + 50, viewport.y, 200, 120)
+    assert h.node_visible("AXMenu", outside, viewport)
+    assert h.node_visible("AXPopover", outside, viewport)
+    assert not h.node_visible("AXButton", outside, viewport)
 
 
 # ================================================================================= menus

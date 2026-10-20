@@ -1,0 +1,25 @@
+id = "store-country"
+title = "Pick a country on a web page"
+goal = "Open Google Chrome and choose Japan as the country on the checkout page."
+tags = ["web", "controls", "apps"]
+max_steps = 10
+
+[[check]]
+tool = "find"
+args = { app = "Google Chrome", text = "Country", role = "popup" }
+path = "matches.0.value"
+op = "equals"
+value = "Japan"
+
+[[solution]]
+tool = "app"
+args = { action = "launch", name = "Google Chrome" }
+
+[[solution]]
+tool = "find"
+args = { app = "Google Chrome", text = "Country", role = "popup" }
+save = { country = "matches.0.ref" }
+
+[[solution]]
+tool = "select_option"
+args = { ref = "$country", option = "Japan" }
