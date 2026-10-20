@@ -453,6 +453,22 @@ def test_automation_not_asked_yet_is_not_a_denial(env: Path, runner: Runner) -> 
     assert check.detail == "Denied for com.apple.mail. Not asked yet for com.apple.finder."
 
 
+def test_launcher_mode_does_not_judge_the_terminals_permissions(
+    env: Path, runner: Runner, make_app: Callable[..., Path]
+) -> None:
+    """macOS 26: doctor said Accessibility was granted "to Claude" (the app running the terminal);
+    a new user's Terminal without it would have shown a failure although AXPilot.app worked."""
+    terminal = StubEngine(PermissionStatus(False, False, {"Mail": False}, responsible_app="Terminal"))
+    assert mac_checks(runner, terminal)["Accessibility"].status == "fail"  # direct mode: it counts
+    make_app("apps")  # AXPilot.app installed: launcher mode
+    checks = mac_checks(runner, terminal)
+    for name in ("Accessibility", "Screen Recording"):
+        assert checks[name].status == "skip", name
+        assert "Not checked for AXPilot.app" in checks[name].detail
+        assert "For direct mode: not granted (macOS attributes it to Terminal)." in checks[name].detail
+    assert "Automation" not in checks
+
+
 def test_permissions_without_automation_entries(env: Path, runner: Runner) -> None:
     checks = linux_checks(runner, StubEngine(PermissionStatus(True, False)))
     assert "Automation" not in checks

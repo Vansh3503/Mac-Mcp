@@ -45,6 +45,7 @@ from axpilot.system.runner import CommandRunner
 
 if TYPE_CHECKING:
     from axpilot.engine.base import Engine
+    from axpilot.models import PermissionStatus
 
 __all__ = ["Check", "CheckStatus", "checks_payload", "format_report", "run_checks", "worst_status"]
 
@@ -296,7 +297,24 @@ def _check_host() -> Check:
     return Check("Host", "fail", f"Cannot connect to {label}: {os.strerror(result)}.", "Restart AXPilot.")
 
 
-def _check_permissions(engine: Engine | None) -> list[Check]:
+def _launcher_mode_permissions(perms: PermissionStatus, responsible: str) -> list[Check]:
+    """Doctor sees the grants of the app it runs in (usually a terminal), not AXPilot.app's. In
+    launcher mode they matter for direct mode only, so a terminal without them is not a problem."""
+    # ponytail: AXPilot.app's own grants stay unchecked; reading them needs the host protocol to report them.
+
+    def line(name: str, granted: bool) -> Check:
+        state = "granted" if granted else "not granted"
+        return Check(
+            name,
+            "skip",
+            "Not checked for AXPilot.app, which asks for it the first time a tool needs it. "
+            f"For direct mode: {state}{responsible}.",
+        )
+
+    return [line("Accessibility", perms.accessibility), line("Screen Recording", perms.screen_recording)]
+
+
+def _check_permissions(engine: Engine | None, launcher_mode: bool = False) -> list[Check]:
     if engine is None:
         return [
             Check(
@@ -308,6 +326,8 @@ def _check_permissions(engine: Engine | None) -> list[Check]:
     except AXPilotError as exc:
         return [Check("Permissions", "fail", exc.message, exc.hint)]
     responsible = f" (macOS attributes it to {perms.responsible_app})" if perms.responsible_app else ""
+    if launcher_mode:
+        return _launcher_mode_permissions(perms, responsible)
     notes = "".join(f" {note}" for note in perms.notes)
     checks = [
         Check("Accessibility", "ok", f"Granted{responsible}.{notes}")
@@ -425,6 +445,7 @@ def run_checks(
     ``runner`` runs ``codesign`` (macOS). ``launcher_source`` overrides the bundled launcher and
     ``system``/``os_version``/``machine`` the platform detection (for tests)."""
     info = platform_info(system=system, os_version=os_version, machine=machine)
+    launcher_mode = info.is_macos and paths.launcher_app_path().is_dir()
     steps: list[tuple[str, Callable[[], Check | list[Check]]]] = [
         ("Platform", lambda: _check_platform(info)),
         ("Python", _check_python),
@@ -433,7 +454,7 @@ def run_checks(
         ("Launcher", lambda: _check_launcher(info, runner, launcher_source)),
         ("Runtime", lambda: _check_runtime(info)),
         ("Host", _check_host),
-        ("Permissions", lambda: _check_permissions(engine)),
+        ("Permissions", lambda: _check_permissions(engine, launcher_mode)),
         ("Clients", _check_clients),
     ]
     checks: list[Check] = []
