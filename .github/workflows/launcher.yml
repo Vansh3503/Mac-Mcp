@@ -1,0 +1,65 @@
+# Build and publish a launcher release (`launcher-vN`). Manual and rare: a new launcher has a new
+# cdhash, so every user must grant permissions again (launcher/README.md, "Changing the launcher").
+#
+# After it runs, copy the values from the release's BUILDINFO.txt and SHA256SUMS into a new row of
+# launcher/CDHASH.md. release.yml embeds only the launcher that row pins.
+name: Launcher
+
+on:
+  workflow_dispatch:
+    inputs:
+      number:
+        description: "Launcher release number N (publishes launcher-vN; never reuse one)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: launcher
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build, test and publish launcher-v${{ inputs.number }}
+    runs-on: macos-14
+    timeout-minutes: 30
+    permissions:
+      contents: write # create the launcher-vN release
+      id-token: write # build-provenance attestation
+      attestations: write
+    env:
+      NUMBER: ${{ inputs.number }}
+    steps:
+      - name: Check the release number
+        run: |
+          case "$NUMBER" in
+            ''|*[!0-9]*|0*) echo "::error::number must be a positive integer without leading zeros"; exit 1 ;;
+          esac
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - name: Build the launcher (universal2, ad-hoc signed)
+        run: launcher/build.sh
+      - name: Test the built launcher
+        run: |
+          uv sync --locked
+          uv run pytest launcher/tests -q -p no:cacheprovider
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: launcher/build/AXPilot.app.zip
+      - name: Publish launcher-v${{ inputs.number }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "launcher-v$NUMBER" \
+            launcher/build/AXPilot.app.zip launcher/build/SHA256SUMS launcher/build/BUILDINFO.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
+            --title "Launcher v$NUMBER" \
+            --notes "AXPilot.app launcher build $NUMBER from $GITHUB_SHA. Record BUILDINFO.txt and SHA256SUMS in launcher/CDHASH.md before a release embeds it."

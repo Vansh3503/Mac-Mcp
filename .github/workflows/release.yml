@@ -1,0 +1,168 @@
+# Release AXPilot from a `v*` tag on main: check → build (embedding the pinned launcher) → PyPI
+# (trusted publishing, attestations) → GitHub release → MCP Registry → docs. The checks live in
+# scripts/release.py; run `python3 scripts/release.py check vX.Y.Z` before pushing the tag.
+#
+# One-time setup by the maintainer: a PyPI trusted publisher for this repository, workflow
+# `release.yml` and environment `pypi`; GitHub Pages with source "GitHub Actions" (docs.yml).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check the release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      prerelease: ${{ steps.check.outputs.prerelease }}
+      launcher_asset: ${{ steps.check.outputs.launcher_asset }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: The tag must be on main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - name: Version, changelog, launcher pin and server.json
+        id: check
+        run: python3 scripts/release.py check "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build distributions
+    needs: check
+    runs-on: macos-14
+    timeout-minutes: 20
+    env:
+      LAUNCHER_DIR: src/axpilot/_launcher
+      LAUNCHER_ASSET: ${{ needs.check.outputs.launcher_asset }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Build the sdist (sources only, no launcher)
+        run: uv build --sdist
+      - name: Download the pinned launcher
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$LAUNCHER_ASSET" --repo "$GITHUB_REPOSITORY" --pattern AXPilot.app.zip --dir "$RUNNER_TEMP"
+      - name: Verify and unpack it
+        run: |
+          python3 scripts/release.py verify-launcher --zip "$RUNNER_TEMP/AXPilot.app.zip"
+          mkdir -p "$LAUNCHER_DIR"
+          ditto -x -k "$RUNNER_TEMP/AXPilot.app.zip" "$LAUNCHER_DIR"
+          codesign --verify --strict "$LAUNCHER_DIR/AXPilot.app"
+          python3 scripts/release.py verify-launcher --app "$LAUNCHER_DIR/AXPilot.app" --cdhash
+          python3 scripts/release.py write-cdhash "$LAUNCHER_DIR"
+      - name: Build the wheel (macOS 14+, universal2, because it embeds the launcher)
+        run: |
+          uv build --wheel
+          uvx wheel tags --platform-tag macosx_14_0_universal2 --remove dist/axpilot-*-py3-none-any.whl
+          uvx twine check --strict dist/*
+      - name: The installed wheel carries the exact launcher
+        run: |
+          uv venv "$RUNNER_TEMP/venv"
+          uv pip install --python "$RUNNER_TEMP/venv/bin/python" dist/axpilot-*.whl
+          app="$("$RUNNER_TEMP/venv/bin/python" -c 'from axpilot.setup.launcher import bundled_app; print(bundled_app())')"
+          test -x "$app/Contents/MacOS/AXPilot"
+          codesign --verify --strict "$app"
+          python3 scripts/release.py verify-launcher --app "$app" --cdhash
+          "$RUNNER_TEMP/venv/bin/axpilot" version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 30
+
+  pypi:
+    name: Publish to PyPI
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/p/axpilot
+    permissions:
+      id-token: write # trusted publishing and attestations
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: Create the GitHub release
+    needs: [check, pypi]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      PRERELEASE: ${{ needs.check.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Release with the changelog section as notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/release.py notes "$VERSION" > "$RUNNER_TEMP/notes.md"
+          flags=""
+          if [ "$PRERELEASE" = "true" ]; then flags="--prerelease"; fi
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "AXPilot $VERSION" --notes-file "$RUNNER_TEMP/notes.md" $flags
+
+  mcp-registry:
+    name: Publish to the MCP Registry
+    needs: [check, pypi]
+    if: needs.check.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      id-token: write # mcp-publisher login github-oidc
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set the version in server.json
+        run: python3 scripts/release.py server-json "$VERSION"
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
+            | tar xz -C "$RUNNER_TEMP" mcp-publisher
+      - name: Publish packaging/server.json
+        working-directory: packaging
+        run: |
+          "$RUNNER_TEMP/mcp-publisher" login github-oidc
+          "$RUNNER_TEMP/mcp-publisher" publish
+
+  docs:
+    name: Deploy the docs
+    needs: [check, github-release]
+    if: needs.check.outputs.prerelease == 'false'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/docs.yml
