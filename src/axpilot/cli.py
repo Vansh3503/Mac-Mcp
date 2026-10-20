@@ -42,7 +42,7 @@ import typer
 
 from axpilot import __version__, paths
 from axpilot.errors import AXPilotError, ErrorCode
-from axpilot.runloop import main_thread_pump, run_with_pump
+from axpilot.runloop import Pump, main_thread_pump, run_with_pump
 
 __all__ = ["app", "exit_code_for", "main"]
 
@@ -176,9 +176,24 @@ def _setup_logging(debug: bool) -> None:
     logger.propagate = False
 
 
-def _run(coroutine: Callable[[], Coroutine[Any, Any, Any]]) -> Any:
-    # On macOS the main thread's Cocoa run loop must keep turning (keyboard layout, app list).
-    return anyio.run(run_with_pump, coroutine, main_thread_pump())
+def _run(coroutine: Callable[[], Coroutine[Any, Any, Any]], pump: Pump | None = None) -> Any:
+    # On macOS the main thread's Cocoa run loop must keep turning (keyboard layout, app list);
+    # ``pump`` (the UI's, which also dispatches AppKit events) replaces the plain one.
+    return anyio.run(run_with_pump, coroutine, pump or main_thread_pump())
+
+
+def _start_ui(ctx: Any) -> Any:
+    """The kill switch and the on-screen indicator (``axpilot.host.ui``) for a server that drives
+    the real Mac; ``None`` elsewhere, for the simulated desktop, or when both are off or AppKit
+    fails (the server then runs without them)."""
+    from axpilot.engine.fake import FakeEngine  # noqa: PLC0415
+
+    if sys.platform != "darwin" or isinstance(ctx.engine, FakeEngine):
+        return None
+    from axpilot.host import ui  # noqa: PLC0415 - imports PyObjC lazily, macOS only
+
+    safety = ctx.config.safety
+    return ui.start(ctx.control, kill_switch=safety.kill_switch, indicator=safety.indicator)
 
 
 @app.callback()
@@ -278,10 +293,13 @@ def stdio(
         from axpilot.server.app import build_server  # noqa: PLC0415
 
         ctx = _context(engine, fixture, yes=yes, overrides={"tools.profile": profile, "tools.naming": naming})
+        ui = _start_ui(ctx)
         try:
             server = build_server(ctx)
-            _run(server.run_stdio_async)
+            _run(server.run_stdio_async, ui.pump if ui is not None else None)
         finally:
+            if ui is not None:
+                ui.close()
             ctx.close()
         return
     from axpilot.bridge.launch import ensure_host_running, identify_parent  # noqa: PLC0415
@@ -308,9 +326,15 @@ def host(
 
     ctx = _context(engine, fixture, yes=yes)
     ctx.mode = "host"
+    ui = _start_ui(ctx)
     try:
-        _run(lambda: _until_signalled(lambda: serve(ctx, socket, max_clients=max_clients)))
+        _run(
+            lambda: _until_signalled(lambda: serve(ctx, socket, max_clients=max_clients)),
+            ui.pump if ui is not None else None,
+        )
     finally:
+        if ui is not None:
+            ui.close()
         ctx.close()
 
 

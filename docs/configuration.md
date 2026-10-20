@@ -51,6 +51,7 @@ confirm = "destructive"   # never | destructive | always
 yield_to_user = true
 user_idle_threshold_s = 1.0
 indicator = true
+kill_switch = "ctrl+option+cmd+."   # "" turns the hotkey off
 deny_apps = [
   "com.apple.keychainaccess",
   "com.apple.Passwords",
@@ -134,7 +135,8 @@ Unknown tool or toolset names are an error (with a "did you mean" suggestion).
 | `confirm` | `"destructive"` | When to ask the human before running a tool: `never`, `destructive` (shell, AppleScript, JS eval, force quit, `defaults` write, process kill) or `always` |
 | `yield_to_user` | `true` | Pause input actions (`USER_ACTIVE`) while you are using the mouse or keyboard |
 | `user_idle_threshold_s` | `1.0` | Seconds of hardware inactivity required before AXPilot sends input (0–30) |
-| `indicator` | `true` | Show the on-screen "agent is controlling" indicator *(planned, v0.2)* |
+| `indicator` | `true` | Show a frame and a status pill on screen while AXPilot acts (orange while paused); macOS, real engine only *(not yet run on a Mac)* |
+| `kill_switch` | `"ctrl+option+cmd+."` | Global hotkey (⌃⌥⌘.) that stops the current action and pauses AXPilot; press it again to resume. Needs cmd, ctrl or option; `""` turns it off *(not yet run on a Mac)* |
 | `deny_apps` | password managers, Keychain Access | Apps that can't be observed, controlled or captured: bundle ids or names, case-insensitive, `*` as a wildcard (`"com.agilebits.*"`) |
 | `deny_windows` | System Settings → Privacy & Security | `"<bundle id>::<title substring>"` entries that block one window of an otherwise allowed app |
 | `allow_apps` | `[]` | If non-empty, **only** these apps can be observed or controlled |

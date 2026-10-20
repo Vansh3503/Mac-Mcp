@@ -97,6 +97,25 @@ class ControlState:
         self._held = False
         self._questions = 0
         self._held_questions: dict[str, float] = {}
+        self._listeners: list[Callable[[str, str | None], None]] = []
+
+    # -------------------------------------------------------------- listeners
+    def add_listener(self, listener: Callable[[str, str | None], None]) -> None:
+        """Call ``listener(event, detail)`` on ``"turn_start"`` and ``"turn_end"`` (detail: the
+        turn's label), ``"paused"`` (the reason) and ``"resumed"`` (``None``); the on-screen
+        indicator listens. A listener runs in the thread that caused the event and must return
+        quickly; its exceptions are logged, never raised. Thread-safe."""
+        with self._state:
+            self._listeners.append(listener)
+
+    def _notify(self, event: str, detail: str | None) -> None:
+        with self._state:
+            listeners = list(self._listeners)
+        for listener in listeners:
+            try:
+                listener(event, detail)
+            except Exception:  # a broken indicator never breaks input (QUALITY.md A7)
+                _log.warning("A control-state listener failed on %s", event, exc_info=True)
 
     # -------------------------------------------------------------- pause / resume
     def pause(self, reason: str = "kill switch") -> None:
@@ -107,12 +126,25 @@ class ControlState:
             turns = list(self._turns)
         for turn in turns:
             self._cancel(turn)
+        self._notify("paused", reason)
 
     def resume(self) -> None:
         """Allow input again. Thread-safe."""
         with self._state:
             self.paused = False
             self.pause_reason = None
+        self._notify("resumed", None)
+
+    def toggle_pause(self, reason: str = "kill switch") -> bool:
+        """Pause when running, resume when paused (the kill-switch hotkey); returns the new
+        ``paused`` state. Thread-safe."""
+        with self._state:
+            paused = self.paused
+        if paused:
+            self.resume()
+            return False
+        self.pause(reason)
+        return True
 
     def ensure_running(self) -> None:
         """Raise ``PAUSED_BY_USER`` if paused, or ``NEEDS_USER`` while a question to the user is
@@ -206,6 +238,7 @@ class ControlState:
         self._refuse_nesting()
         await self._acquire(timeout_s)
         self._held, self._holder, self._owner = True, label, anyio.get_current_task().id
+        started = False
         try:
             turn = self._begin(label)
             try:
@@ -215,6 +248,8 @@ class ControlState:
                     # happened meanwhile before the action starts.
                     await anyio.lowlevel.checkpoint_if_cancelled()
                     self.ensure_running()
+                    started = True
+                    self._notify("turn_start", label)
                     yield
             finally:
                 with self._state:
@@ -228,6 +263,8 @@ class ControlState:
         finally:
             self._held, self._holder, self._owner = False, None, None
             self._lock.release()
+            if started:
+                self._notify("turn_end", label)
 
     # ---------------------------------------------------------------- internals
     def _paused_error(self) -> AXPilotError:

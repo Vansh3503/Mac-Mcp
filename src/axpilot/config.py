@@ -18,10 +18,11 @@ from pathlib import Path
 from typing import Any, Literal
 
 import tomli_w
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from axpilot import paths
 from axpilot.errors import AXPilotError, ErrorCode
+from axpilot.input.hotkeys import DEFAULT_KILL_SWITCH, parse_hotkey
 
 Profile = Literal["minimal", "standard", "full", "computer"]
 Naming = Literal["default", "windows-mcp"]
@@ -96,6 +97,19 @@ class SafetyConfig(_Section):
     """How long a confirmation waits for the user; no answer in time counts as ``USER_DENIED``."""
     elicitation: bool = True
     """Direct mode: ask confirmations through the MCP client (elicitation) when it supports that."""
+    kill_switch: str = Field(default=DEFAULT_KILL_SWITCH, max_length=64)
+    """Global hotkey that pauses AXPilot (press again to resume); ``""`` turns it off."""
+
+    @field_validator("kill_switch")
+    @classmethod
+    def _valid_kill_switch(cls, value: str) -> str:
+        text = value.strip()
+        if text:
+            try:
+                parse_hotkey(text)
+            except AXPilotError as err:
+                raise ValueError(err.message) from None
+        return text
 
 
 class CaptureConfig(_Section):

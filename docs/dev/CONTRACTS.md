@@ -366,6 +366,8 @@ class ControlState:
     paused: bool; pause_reason: str | None
     def pause(self, reason: str = "kill switch") -> None
     def resume(self) -> None
+    def toggle_pause(self, reason: str = "kill switch") -> bool   # the kill switch; returns the new state
+    def add_listener(self, listener: Callable[[str, str | None], None]) -> None  # turn_start/turn_end/paused/resumed
     def asking_user(self) -> ContextManager[None]       # a question is open: actions get NEEDS_USER
     def hold_question(self, key: str, ttl_s: float) -> None   # same, for a question the MCP client shows
     def release_question(self, key: str) -> bool         #   between two rounds of a call (until released/expired)
@@ -555,6 +557,19 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
 - `axpilot/bridge/client.py`: `host_transport(socket_path=None, hello=None)`, an async context manager yielding
   MCP `(read_stream, write_stream)` to the host, for `mcp.Client(host_transport())` in-process (the SDK's
   `Desktop.connect()` and the tests).
+- `axpilot/input/hotkeys.py`: `parse_hotkey(text) -> Hotkey(key, key_code, modifiers)` (US-ANSI key code,
+  `carbon_modifiers`, `label` such as `⌃⌥⌘.`); a key needs cmd, ctrl or option, never fn (`INVALID_ARGUMENT`).
+  `[safety] kill_switch` is validated with it at config load.
+- `axpilot/host/killswitch.py` (pure): `KillSwitch(control, hotkey).pressed() -> bool` toggles
+  `ControlState.toggle_pause` (presses < 0.5 s apart count once; never raises). `Indicator(view, hotkey_label)`
+  listens to `ControlState.add_listener` events (`turn_start`/`turn_end`/`paused`/`resumed`) and its `tick()`
+  (main thread) shows "controlling" while a turn runs and 2 s after, "paused" while paused, else hides.
+- `axpilot/host/ui/` (PyObjC, macOS only, not yet run on a Mac): `start(control, *, kill_switch, indicator) ->
+  UI | None` starts `AppKitPump` (accessory `NSApplication`; `pump()` dispatches queued events, turns the run
+  loop and runs the ticks), registers `CarbonHotkey` (`RegisterEventHotKey` through ctypes) and the `Overlay`
+  (one click-through, all-Spaces window per screen, `NSWindowSharingNone`). Each part degrades to a warning;
+  `None` when nothing runs. The CLI starts it for `stdio --direct` and `host` with a non-fake engine on macOS
+  and passes `ui.pump` to `axpilot.runloop`.
 - `axpilot/host/daemon.py`: `async def serve(ctx, socket_path=None, *, pairing=None, pairing_confirmer=None,
   max_clients=8, task_status=...)` and the `Host` class behind it. The socket is created `0600` inside a `0700`
   folder; a live host on the path is `HOST_UNAVAILABLE`, a stale socket is removed, any other file in the way

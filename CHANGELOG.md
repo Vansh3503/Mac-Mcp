@@ -14,6 +14,11 @@ Pre-alpha. Nothing is published on PyPI yet.
 
 ### Added
 
+- The kill switch and the on-screen indicator (macOS, real engine; not yet run on a Mac): ⌃⌥⌘.
+  (`[safety] kill_switch`) stops the input action in progress and pauses AXPilot, and pressing it
+  again resumes; a frame around the screen and a status pill show while AXPilot acts
+  (`[safety] indicator`), orange while paused. The hotkey is a Carbon hotkey (no permission
+  needed); the UI is best effort, so the server runs on without it if AppKit fails.
 - The HTTP bearer token lives in the macOS login keychain (`[server] token_store`, `auto` by
   default). A token from the old file moves there, so configured clients keep working; a locked
   or unavailable keychain falls back to the private file with a warning. The token is written

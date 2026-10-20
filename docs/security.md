@@ -6,9 +6,10 @@ what it protects against, its default controls, and their limits. To report a vu
 public issue).
 
 > **Status:** pre-alpha. The policy layer (deny-lists, Terminal rule, secure fields, confirmations,
-> rate limit, audit, yield-to-user) is being built first, for v0.1. Controls that belong to the host
-> app (kill switch, indicator, client pairing) arrive with v0.2, and the HTTP transport and release
-> hardening with v0.2 and v0.3. Each control below is marked accordingly.
+> rate limit, audit, yield-to-user), client pairing, the HTTP transport, the kill-switch hotkey and the
+> on-screen indicator are implemented and tested on Linux with a simulated desktop. None of it has
+> run on a real Mac yet (the macOS UI of the kill switch and indicator in particular); the menu-bar
+> app and release hardening come later. Each control below is marked accordingly.
 
 ## Principles
 
@@ -27,7 +28,7 @@ public issue).
 |---|---|---|---|
 | 1 | **Prompt injection from screen content.** A web page, email or document contains text that tries to steer the agent ("ignore your instructions and…"). | Risky toolsets off by default; confirmations for destructive actions; app and window deny-lists; Terminal rule; rate limit; audit log; server `instructions` and the Agent Skill tell agents that screen content is untrusted. | v0.1 |
 | 2 | **Confused deputy / local TCC bypass.** Another local process uses AXPilot's permissions through its socket or HTTP port. | Unix socket with mode `0600` and a same-uid peer check; **client pairing**: the first connection from a new client app asks *"Allow Claude to see and control this Mac through AXPilot?"* (Allow or Deny, remembered per app); the HTTP token is kept in the login keychain (a private `0600` file where the keychain can't be used). | v0.2 |
-| 3 | **Runaway agent.** An agent loops, acts too fast, or keeps going after you want it to stop. | Rate limit (120 input actions/min); yield-to-user; confirmations; **kill switch** (⌃⌥⌘. or menu-bar *Stop*: cancels in-flight work and pauses, so tools return `PAUSED_BY_USER`); Trash rather than delete. | Rate limit and yield v0.1; kill switch v0.2 |
+| 3 | **Runaway agent.** An agent loops, acts too fast, or keeps going after you want it to stop. | Rate limit (120 input actions/min); yield-to-user; confirmations; **kill switch** (⌃⌥⌘.: cancels in-flight work and pauses, so tools return `PAUSED_BY_USER`; press again to resume; menu-bar *Stop* later); Trash rather than delete. | Rate limit and yield v0.1; kill switch implemented, not yet run on a Mac |
 | 4 | **Data exfiltration.** Reading secrets through the UI, screenshots or the clipboard. | Secure-field values are never returned; deny-listed apps are excluded from snapshots and screenshots, and deny-listed windows from snapshots and window captures; clipboard reads are audited and can be disabled; audit log redacts typed text. | v0.1 |
 | 5 | **Network exposure.** The optional HTTP transport is reached by other machines or by web pages (DNS rebinding). | Binds to `127.0.0.1`; bearer token required; `Origin` and `Host` checked; no CORS. Remote access needs `--allow-remote` plus TLS; SSH or Tailscale are recommended instead. | v0.2 |
 | 6 | **Supply chain and launcher integrity.** A tampered package, dependency or launcher. | PyPI trusted publishing with attestations; locked dependencies (`uv.lock`); Dependabot; code scanning; a published cdhash per launcher version, verified by `axpilot doctor`. The launcher is ad-hoc signed, so there is no signing key to leak. | v0.3 |
@@ -109,9 +110,13 @@ you used them within the last second (`safety.user_idle_threshold_s`), the actio
 `USER_ACTIVE`, so you and the agent don't fight over the cursor. Input actions are serialized: one
 "virtual hand" at a time.
 
-The kill switch *(v0.2)*, **⌃⌥⌘.** or *Stop* in the menu bar, cancels in-flight work and pauses
-AXPilot until you resume it. While paused, every tool that changes something returns
-`PAUSED_BY_USER`; reading tools keep working.
+The kill switch, **⌃⌥⌘.** (`safety.kill_switch`), cancels the input action in progress and pauses
+AXPilot; press it again to resume. While paused, every tool that changes something returns
+`PAUSED_BY_USER`; reading tools keep working. Because no tool can press keys while AXPilot is
+paused, an agent can't resume itself. While AXPilot acts, a frame around the screen and a pill at
+the top say so (`safety.indicator`); they turn orange while it is paused. Both run in the host and in
+direct mode with the real engine on macOS. *(The hotkey and the indicator are implemented but have not
+run on a real Mac yet; a Stop item in the menu bar comes with the menu-bar app.)*
 
 ## Audit log
 
