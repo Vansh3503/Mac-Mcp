@@ -1,0 +1,21 @@
+id = "finder-documents"
+title = "Open Documents in Finder"
+goal = "In the Finder window, go to the Documents folder using the sidebar."
+tags = ["finder", "lists"]
+max_steps = 10
+
+[[check]]
+tool = "find"
+args = { app = "Finder", text = "Documents", role = "row" }
+path = "matches.0.states"
+op = "contains"
+value = "selected"
+
+[[solution]]
+tool = "find"
+args = { app = "Finder", text = "Documents", role = "row" }
+save = { folder = "matches.0.ref" }
+
+[[solution]]
+tool = "click"
+args = { ref = "$folder" }

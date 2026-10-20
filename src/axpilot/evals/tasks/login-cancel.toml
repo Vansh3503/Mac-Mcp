@@ -1,0 +1,23 @@
+id = "login-cancel"
+title = "Dismiss a sheet"
+goal = "Login Demo shows a sign-in sheet. Cancel it without signing in."
+tags = ["forms", "dialogs"]
+max_steps = 10
+
+[[check]]
+tool = "snapshot"
+args = { app = "Login Demo" }
+path = "elements.*.role"
+op = "not_equals"
+value = "sheet"
+
+[[check]]
+tool = "snapshot"
+args = { app = "Login Demo" }
+path = "elements.*.role"
+op = "exists"
+note = "Login Demo is still open"
+
+[[solution]]
+tool = "handle_dialog"
+args = { app = "Login Demo", action = "cancel" }

@@ -1,0 +1,21 @@
+id = "textedit-center"
+title = "Center the text"
+goal = "In TextEdit, center-align the text using the format bar."
+tags = ["textedit", "controls"]
+max_steps = 10
+
+[[check]]
+tool = "find"
+args = { app = "TextEdit", text = "Center", role = "radio" }
+path = "matches.0.states"
+op = "contains"
+value = "checked"
+
+[[solution]]
+tool = "find"
+args = { app = "TextEdit", text = "Center", role = "radio" }
+save = { center = "matches.0.ref" }
+
+[[solution]]
+tool = "click"
+args = { ref = "$center" }

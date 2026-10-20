@@ -1,0 +1,19 @@
+id = "ocr-canvas"
+title = "Read a canvas"
+goal = "Open Canvas Paint and tell me the large text written on its canvas. Its canvas is drawn, so the accessibility tree does not contain it."
+tags = ["compatibility", "vision", "answer"]
+max_steps = 8
+answer = "The canvas says \"Hello Canvas\"."
+
+[[check]]
+kind = "answer"
+op = "contains"
+value = "Hello Canvas"
+
+[[solution]]
+tool = "app"
+args = { action = "launch", name = "Canvas Paint" }
+
+[[solution]]
+tool = "ocr"
+args = { app = "Canvas Paint" }

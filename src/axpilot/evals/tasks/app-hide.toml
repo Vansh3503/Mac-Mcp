@@ -1,0 +1,22 @@
+id = "app-hide"
+title = "Hide an app"
+goal = "Hide TextEdit (don't quit it)."
+tags = ["apps"]
+max_steps = 6
+
+[[check]]
+tool = "list_apps"
+path = "apps[name=TextEdit].hidden"
+op = "equals"
+value = true
+
+[[check]]
+tool = "list_apps"
+path = "apps[name=TextEdit].running"
+op = "equals"
+value = true
+note = "TextEdit is still running"
+
+[[solution]]
+tool = "app"
+args = { action = "hide", name = "TextEdit" }

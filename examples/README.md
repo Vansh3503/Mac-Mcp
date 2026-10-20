@@ -47,6 +47,7 @@ expects.
 | `ts/mastra_example.ts` | Mastra (`@mastra/mcp`) |
 
 The files end in `_example` so that running them does not shadow the framework's own package.
+`evals/openai_compatible_agent.py` is an agent for AXPilot's eval suite (see [docs/evals.md](../docs/evals.md)).
 These frameworks move quickly: the examples follow their documented MCP integrations at the time
 of writing, and CI only checks that they parse. If an import has moved, the framework's MCP guide
 has the current name.

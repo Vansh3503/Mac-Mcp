@@ -1,0 +1,33 @@
+id = "textedit-append"
+title = "Add an agenda item"
+goal = "In the open TextEdit document, add a fourth agenda item \"4. Wrap-up\" on a new line at the end."
+tags = ["textedit", "input"]
+max_steps = 10
+
+[[check]]
+tool = "snapshot"
+args = { app = "TextEdit" }
+path = "elements[role=textarea].value"
+op = "contains"
+value = "4. Wrap-up"
+
+[[check]]
+tool = "snapshot"
+args = { app = "TextEdit" }
+path = "elements[role=textarea].value"
+op = "contains"
+value = "1. Roadmap review"
+note = "the existing agenda is kept"
+
+[[solution]]
+tool = "snapshot"
+args = { app = "TextEdit" }
+save = { body = "elements[role=textarea].ref" }
+
+[[solution]]
+tool = "press_keys"
+args = { app = "TextEdit", keys = "cmd+down" }
+
+[[solution]]
+tool = "type_text"
+args = { text = "\n4. Wrap-up" }

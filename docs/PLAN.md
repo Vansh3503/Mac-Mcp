@@ -593,7 +593,7 @@ Tooling: `uv`, `ruff` (lint + format), `pyright`, `pytest` (+ `anyio`, `hypothes
 | Real-app smoke | Finder, TextEdit, Notes, Safari, Chrome, System Settings, Calculator, an Electron app | Nightly self-hosted or a pre-release checklist |
 | Security | Policy bypass attempts (coordinate click onto a deny-listed app, typing into Terminal, secure field, unpaired client), HTTP auth/Origin/Host, fuzzing | Linux + macOS |
 | Clean install | Every channel on a **fresh macOS VM** (Tart/UTM), timed against the 2-minute goal; check for no quarantine and no Gatekeeper prompt | Pre-release |
-| Evals | ~30 YAML tasks (setup → goal → state-based success check); runner drives an agent framework; reports success, steps, tokens, time. A macOSWorld subset is optional | Nightly/manual; results published per release |
+| Evals | ~30 TOML tasks (goal → state-based checks through read-only tools, plus a reference solution); `python -m axpilot.evals` runs an agent (scripted, or model-backed via `module:factory`) on a fresh simulated desktop per task and reports success, steps, tokens and time (36 tasks done; see docs/evals.md). A macOSWorld subset is optional | CI (scripted agent); model baselines manual, published per release |
 | Performance | Snapshot p50/p95, action latency, tokens per snapshot | CI trend |
 
 **v1 targets (calibrated in Phase 1):** snapshot p50 < 400 ms on typical windows (a Python budget; S2 may tighten it); a default snapshot < ~2.5k tokens; first action within 2 minutes of install.

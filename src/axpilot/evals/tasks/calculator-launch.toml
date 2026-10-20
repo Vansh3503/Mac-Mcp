@@ -1,0 +1,15 @@
+id = "calculator-launch"
+title = "Launch an app"
+goal = "Open the Calculator app."
+tags = ["apps"]
+max_steps = 6
+
+[[check]]
+tool = "list_apps"
+path = "apps[name=Calculator].running"
+op = "equals"
+value = true
+
+[[solution]]
+tool = "app"
+args = { action = "launch", name = "Calculator" }

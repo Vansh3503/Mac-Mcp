@@ -1,0 +1,17 @@
+id = "notes-new-note"
+title = "Create a note"
+goal = "Create a new, empty note in Notes."
+tags = ["notes", "menus"]
+max_steps = 10
+
+[[check]]
+tool = "snapshot"
+args = { app = "Notes" }
+path = "elements[role=row].name"
+op = "matches"
+value = "^New Note — "
+note = "the new note shows up at the top of the list"
+
+[[solution]]
+tool = "select_menu"
+args = { app = "Notes", path = ["File", "New Note"] }

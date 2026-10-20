@@ -1,0 +1,21 @@
+id = "textedit-font-size"
+title = "Change the font size"
+goal = "In TextEdit, set the font size in the format bar to 18."
+tags = ["textedit", "controls"]
+max_steps = 10
+
+[[check]]
+tool = "find"
+args = { app = "TextEdit", text = "Font Size", role = "combobox" }
+path = "matches.0.value"
+op = "equals"
+value = "18"
+
+[[solution]]
+tool = "find"
+args = { app = "TextEdit", text = "Font Size", role = "combobox" }
+save = { size = "matches.0.ref" }
+
+[[solution]]
+tool = "set_value"
+args = { ref = "$size", value = "18" }

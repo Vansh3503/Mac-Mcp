@@ -1,0 +1,21 @@
+id = "notes-search"
+title = "Search Notes"
+goal = "In Notes, search for notes containing the word pasta."
+tags = ["notes", "input"]
+max_steps = 10
+
+[[check]]
+tool = "find"
+args = { app = "Notes", text = "Search", role = "search" }
+path = "matches.0.value"
+op = "equals"
+value = "pasta"
+
+[[solution]]
+tool = "find"
+args = { app = "Notes", text = "Search", role = "search" }
+save = { search = "matches.0.ref" }
+
+[[solution]]
+tool = "type_text"
+args = { ref = "$search", text = "pasta" }

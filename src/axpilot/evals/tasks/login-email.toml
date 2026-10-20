@@ -1,0 +1,21 @@
+id = "login-email"
+title = "Enter an email address"
+goal = "In Login Demo's sign-in sheet, enter the email address alex@example.com. Do not sign in."
+tags = ["forms", "input"]
+max_steps = 10
+
+[[check]]
+tool = "find"
+args = { app = "Login Demo", text = "Email", role = "field" }
+path = "matches.0.value"
+op = "equals"
+value = "alex@example.com"
+
+[[solution]]
+tool = "find"
+args = { app = "Login Demo", text = "Email", role = "field" }
+save = { email = "matches.0.ref" }
+
+[[solution]]
+tool = "type_text"
+args = { ref = "$email", text = "alex@example.com" }

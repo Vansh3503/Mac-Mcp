@@ -1,0 +1,26 @@
+id = "window-move"
+title = "Move a window"
+goal = "Move the TextEdit window \"Untitled\" so that its top-left corner is at x=100, y=100 (screen points)."
+tags = ["windows"]
+max_steps = 8
+
+[[check]]
+tool = "list_windows"
+path = "windows[title=Untitled].frame.0"
+op = "equals"
+value = 100
+
+[[check]]
+tool = "list_windows"
+path = "windows[title=Untitled].frame.1"
+op = "equals"
+value = 100
+
+[[solution]]
+tool = "list_windows"
+args = { app = "TextEdit" }
+save = { window = "windows[title=Untitled].window_id" }
+
+[[solution]]
+tool = "window"
+args = { action = "move", window_id = "$window", x = 100, y = 100 }

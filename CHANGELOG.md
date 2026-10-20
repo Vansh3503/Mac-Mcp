@@ -14,6 +14,10 @@ Pre-alpha. Nothing is published on PyPI yet.
 
 ### Added
 
+- An eval suite (`python -m axpilot.evals`): 36 tasks on the simulated desktop (input, controls,
+  menus, windows, long lists, OCR, an Electron and a Java app, and safety requests that must not
+  succeed), judged by state through read-only tools. A scripted agent replays each task's reference
+  solution in CI; model-backed agents plug in as `module:factory` and get JSON and Markdown reports.
 - The kill switch and the on-screen indicator (macOS, real engine; not yet run on a Mac): ⌃⌥⌘.
   (`[safety] kill_switch`) stops the input action in progress and pauses AXPilot, and pressing it
   again resumes; a frame around the screen and a status pill show while AXPilot acts
