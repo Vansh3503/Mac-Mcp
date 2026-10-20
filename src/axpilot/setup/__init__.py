@@ -27,6 +27,7 @@ import axpilot
 from axpilot import paths
 from axpilot.clients.fileops import display_path
 from axpilot.errors import AXPilotError
+from axpilot.setup import launcher
 from axpilot.setup.launcher import (
     QUARANTINE_XATTR,
     install_launcher,
@@ -198,9 +199,18 @@ def _step_manifest(report: SetupReport, install: RuntimeInstall | None) -> bool:
     return True
 
 
-def _step_launcher(report: SetupReport, source: Path | None) -> bool:
+def _checkout_launcher(dev_source: Path | None) -> Path | None:
+    """The source checkout's own build (``launcher/build.sh``), for a package that bundles none."""
+    checkout = dev_source if dev_source is not None else detect_dev_source()
+    if checkout is None or launcher.bundled_app() is not None:
+        return None
+    app = Path(checkout).expanduser() / "launcher" / "build" / launcher.APP_BUNDLE_NAME
+    return app if app.is_dir() else None
+
+
+def _step_launcher(report: SetupReport, source: Path | None, dev_source: Path | None) -> bool:
     try:
-        result = install_launcher(source=source)
+        result = install_launcher(source=source or _checkout_launcher(dev_source))
     except AXPilotError as exc:
         report.add("launcher", False, _error_detail(exc))
         return False
@@ -263,8 +273,9 @@ def run_setup(
 
     ``dev_source`` installs the runtime from a source checkout or wheel (default for development
     builds: the checkout this package was imported from). ``launcher_source`` overrides the
-    bundled ``AXPilot.app``. ``launch_app`` starts the app at the end. ``system``, ``os_version``
-    and ``machine`` override platform detection (for tests).
+    bundled ``AXPilot.app``; a package without one uses the checkout's ``launcher/build``.
+    ``launch_app`` starts the app at the end. ``system``, ``os_version`` and ``machine`` override
+    platform detection (for tests).
 
     Never raises for a failing step; on a system other than macOS 14+ the report contains only the
     ``platform`` step and ``supported`` is False.
@@ -278,7 +289,7 @@ def run_setup(
         return report
     install = _step_runtime(report, runner, dev_source, use_uv)
     manifest_ok = _step_manifest(report, install)
-    launcher_ok = _step_launcher(report, launcher_source)
+    launcher_ok = _step_launcher(report, launcher_source, dev_source)
     if login_item:
         _step_login_item(report)
     if launch_app:

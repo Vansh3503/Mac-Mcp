@@ -320,8 +320,8 @@ def _require_source(source: Path | None) -> Path:
         raise AXPilotError(
             ErrorCode.NOT_SUPPORTED,
             "This AXPilot build does not include the launcher app (development install).",
-            hint="Use direct mode (`axpilot stdio --direct`), or build the launcher with "
-            "`launcher/build.sh` and pass it to setup.",
+            hint="Use direct mode (`axpilot stdio --direct`), or in a source checkout run "
+            "`launcher/build.sh`, then `axpilot setup --dev-source .`.",
         )
     if not is_installed(app):
         raise AXPilotError(
