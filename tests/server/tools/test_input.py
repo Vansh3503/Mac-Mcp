@@ -997,6 +997,22 @@ async def test_drag_between_points_and_policy_on_both_ends(ctx: ServerContext, c
     assert blocked == "BLOCKED_BY_POLICY", text_of(result)
 
 
+async def test_a_dragged_list_row_is_grabbed_by_its_text(ctx: ServerContext, client: Client) -> None:
+    """Finder (macOS 26) drags a file only from its name or icon: the row's center (another
+    column) started a selection rectangle instead, and the file stayed put."""
+    engine_of(ctx).app_control("launch", "com.apple.mail")
+    result, error = await call(client, "snapshot", {"app": "Mail", "mode": "full"})
+    assert error is None, text_of(result)
+    elements = structured(result)["elements"]
+    row = next(el for el in elements if el["role"] == "row" and el["name"].startswith("Alice Chen"))
+    assert row["center"] == [432.5, 91.0]  # the middle column (subject)
+    _, error = await call(
+        client, "drag", {"from_ref": row["ref"], "to_x": 300, "to_y": 300, "duration_ms": 0}
+    )
+    assert error is None
+    assert events(ctx, "mouse_drag")[-1]["start"] == [277.5, 91.0]  # the sender, the first text
+
+
 async def test_move_mouse_hovers_without_clicking(ctx: ServerContext, client: Client) -> None:
     refs = await refs_of(client, "Notes")
     _, error = await call(client, "move_mouse", {"ref": refs["New Note"]})

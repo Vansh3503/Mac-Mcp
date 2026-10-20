@@ -50,7 +50,7 @@ from axpilot.perception.appkind import detect_app_kind
 from axpilot.perception.diff import diff_snapshots
 from axpilot.perception.format import diff_payload, format_diff, format_snapshot, quote, snapshot_payload
 from axpilot.perception.model import Element, Snapshot
-from axpilot.perception.navigate import scroll_container_for, viewport_of
+from axpilot.perception.navigate import descendants, scroll_container_for, viewport_of
 from axpilot.perception.refs import ROW_AX_ROLES
 from axpilot.perception.resolve import live_handle
 from axpilot.perception.vision import is_vision_element
@@ -524,6 +524,20 @@ async def activate_app(ctx: ServerContext, app: AppInfo | None) -> None:
         return
     await ctx.run_engine(ctx.engine.app_control, "activate", _app_key(app) or app.name)
     await ctx.sleep(ctx.config.perception.settle_ms / 1000)
+
+
+def grab_row_by_its_content(target: Target) -> None:
+    """Point a drag that starts on a list row at the row's first text or image: Finder (macOS 26)
+    drags a file only from its name or icon; elsewhere in the row a drag draws a selection."""
+    el, snap = target.el, target.snap
+    if el is None or snap is None or el.ax_role not in ROW_AX_ROLES:
+        return
+    for child in descendants(snap, el):
+        if child.role in ("field", "text", "image"):
+            visible = _visible_rect(snap, child)
+            if visible is not None and visible.area > 0:
+                target.point = visible.center
+                return
 
 
 async def ensure_frontmost(ctx: ServerContext, app: AppInfo | None) -> None:
@@ -1075,6 +1089,7 @@ def drag_tool(ctx: ServerContext) -> ToolFn:
             ctx, ref=to_ref, snapshot_id=snapshot_id, x=to_x, y=to_y,
             space=coordinate_space, screenshot_id=screenshot_id,
         )  # fmt: skip
+        grab_row_by_its_content(start)
         before = await snapshot_before(ctx, start, report)
         await ensure_uncovered(ctx, start)
         await activate_app(ctx, start.app)
