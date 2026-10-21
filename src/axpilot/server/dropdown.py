@@ -159,6 +159,8 @@ def _locate(tree: RawTree, target: Target, baseline: _Baseline, web: bool) -> dd
         if control.role == "AXComboBox":
             listing = dd.combo_list(control, in_web=dd.in_web_content(ancestors))
             if listing is not None:
+                # macOS 26 keeps a closed AppKit combo list valid and "visible": the box's AXExpanded tells
+                listing.control = control
                 return listing
     menus = dd.new_menus(tree.root, baseline.visible)
     if menus:

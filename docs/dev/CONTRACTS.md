@@ -294,8 +294,8 @@ open. `focusable: false`: `focus` fails (`ELEMENT_NOT_ACTIONABLE`), a click stil
 "limit": n}` on a text field: when its text changes, the list shows the first `n` children whose label
 contains it. An AppKit combo box (`AXComboBox` with `options`, no `on_press`/`pointer_only`) shows its options
 as an `AXList` child of `AXTextField` rows (as on macOS 26) without `AXPress` (they take clicks) after `AXShowMenu`, a press of
-its `AXButton` child or a click on its right-hand 18 pt, and reports itself `expanded` while it is open; a
-click elsewhere only focuses it. A pick from that
+its `AXButton` child or a click on its right-hand 18 pt, and reports itself `expanded` while it is open (once closed,
+the list leaves the tree but stays valid, as on macOS 26); a click elsewhere only focuses it. A pick from that
 list or Return in it records `("combo_commit", {"handle", "value"})`; `set_value` only changes what it shows
 (like `NSComboBox`, issue #33). Clicks reach elements inside zero-size wrappers. Test helpers: `menu_state()` (the open
 menu's owner and item titles) and `set_enabled(ref, enabled)`. The demo desktop also has menus on Notes'

@@ -581,6 +581,10 @@ async def test_a_combo_box_takes_the_option_picked_from_its_list(ctx: ServerCont
     assert data["attempts"] == ["open:ax:AXShowMenu", "pick:mouse"]  # its rows take clicks
     assert commits(ctx, "textedit.size") == ["24"]
     assert_closed(ctx, kind)
+    # its closed list stays valid (macOS 26): the box's AXExpanded tells it closed, so no stray Escape,
+    # which opens TextEdit's completion window
+    assert data["warnings"] == []
+    assert not [e for e in fake(ctx).events_of("press_key") if e["key"] == "escape"]
 
 
 async def test_a_combo_box_showing_a_value_it_was_never_told_gets_it_picked(

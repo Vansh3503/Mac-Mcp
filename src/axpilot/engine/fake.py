@@ -50,7 +50,8 @@ An AppKit combo box (an ``AXComboBox`` with ``options``, without ``on_press`` or
 shows its options as an ``AXList`` child of ``AXTextField`` rows (as on macOS 26; no ``AXPress``:
 they take clicks) after ``AXShowMenu``, a press of its ``AXButton`` child (the arrow) or a click on
 its right-hand :data:`_COMBO_ARROW_WIDTH` points, and reports itself ``expanded`` while that list is
-open; a click anywhere else only puts the text cursor in it. Like ``NSComboBox``, it acts on its value
+open (once closed, the list leaves the tree but its elements stay valid, as on macOS 26); a click
+anywhere else only puts the text cursor in it. Like ``NSComboBox``, it acts on its value
 only when an option is picked from that list or Return is pressed in it, which records
 ``("combo_commit", {"handle", "value"})``; setting its text (``set_value``) only changes what it shows.
 
@@ -1764,7 +1765,8 @@ class FakeEngine(Engine):
         else:
             if menu.node in menu.parent.children:
                 menu.parent.children.remove(menu.node)
-            self._unregister_subtree(menu.node, menu.window.app)
+            if not self._appkit_combo(menu.owner):  # like macOS 26, a closed combo list stays valid
+                self._unregister_subtree(menu.node, menu.window.app)
         self._record("menu_close", owner=menu.owner.handle, reason=reason)
 
     def _in_open_menu(self, node: RawNode) -> bool:

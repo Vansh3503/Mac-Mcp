@@ -173,6 +173,9 @@ Pre-alpha. Nothing is published on PyPI yet.
 - `set_value` with a size TextEdit's font-size box does not list (15) failed with "cannot take
   keyboard focus": on macOS 26 that box refuses focus through accessibility. AXPilot now clicks its
   text instead, then presses Return.
+- After a pick from TextEdit's font-size list, `select_option` warned that the list "may still be
+  open" and pressed Escape, which opened TextEdit's word-completion popup: macOS 26 keeps the closed
+  list's elements valid. The box's own expanded state now tells whether its list is open.
 
 - `explore` listed the files of Finder's list view as sidebar sections: every outline's rows
   counted. Only an outline named like a sidebar, or a narrow one along a window edge, is a sidebar
