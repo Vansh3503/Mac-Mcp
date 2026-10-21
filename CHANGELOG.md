@@ -10,7 +10,12 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 
 ## [Unreleased]
 
-Pre-alpha. Nothing is published on PyPI yet.
+## [0.1.0a1] - 2026-10-21
+
+The first alpha, for early testers: AXPilot on PyPI for macOS 14 or later. It is verified on
+macOS 26 on Apple silicon; macOS 14 and 15 and Intel Macs are not tested yet. Expect breaking
+changes until 1.0. The wheel embeds launcher 1.0.0 (`launcher-v1`, pinned in `launcher/CDHASH.md`):
+the `AXPilot.app` you grant Accessibility and Screen Recording to once.
 
 ### Added
 
@@ -196,7 +201,6 @@ Pre-alpha. Nothing is published on PyPI yet.
   the year to 2. Each digit is now its own keystroke.
 - In Chrome, a web date field that took the date was then reported as failed: the parts read back
   as numbers (2026.0), which AXPilot compared as 20260. They are read as numbers now.
-
 - `explore` listed the files of Finder's list view as sidebar sections: every outline's rows
   counted. Only an outline named like a sidebar, or a narrow one along a window edge, is a sidebar
   now; a wide one is the window's content and stays under scroll areas (#19).
@@ -221,4 +225,5 @@ Pre-alpha. Nothing is published on PyPI yet.
   default button and a warning says so instead. `set_value` also works on Java and Qt combo boxes,
   whose text cannot be set (#33).
 
-[Unreleased]: https://github.com/vansh3503/Mac-Mcp/commits/main
+[Unreleased]: https://github.com/vansh3503/Mac-Mcp/compare/v0.1.0a1...HEAD
+[0.1.0a1]: https://github.com/vansh3503/Mac-Mcp/releases/tag/v0.1.0a1

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-__version__ = "0.1.0.dev0"
+__version__ = "0.1.0a1"
 
 SERVER_NAME = "axpilot"
 BUNDLE_ID = "io.github.vansh3503.axpilot"
