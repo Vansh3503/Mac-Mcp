@@ -158,5 +158,10 @@ Pre-alpha. Nothing is published on PyPI yet.
 - `explore` listed the files of Finder's list view as sidebar sections: every outline's rows
   counted. Only an outline named like a sidebar, or a narrow one along a window edge, is a sidebar
   now; a wide one is the window's content and stays under scroll areas (#19).
+- AXPilot could switch on the full accessibility tree (`AXManualAccessibility`) of an Electron or
+  Chromium app the agent never targeted: after an action whose app quit, the report of whatever
+  app came forward (often the MCP client itself) did so, and a call without `app` could read an app
+  that came forward after the policy check. Reports of an untargeted app now read it as it is, and
+  a call without `app` stays on the frontmost app the policy checked (#23).
 
 [Unreleased]: https://github.com/vansh3503/Mac-Mcp/commits/main

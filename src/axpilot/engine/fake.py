@@ -2078,7 +2078,10 @@ class FakeEngine(Engine):
         max_depth: int = 40,
         max_nodes: int = 4000,
         timeout_s: float = 5.0,
+        enhance: bool = True,
     ) -> RawTree:
+        """See :meth:`Engine.capture_tree`. Simulated apps have their whole tree from the start,
+        so ``enhance`` changes nothing here."""
         with self._lock:
             self._require_accessibility()
             if max_depth < 0 or max_nodes < 1 or timeout_s <= 0:

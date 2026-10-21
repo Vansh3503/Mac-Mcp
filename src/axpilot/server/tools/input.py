@@ -451,8 +451,8 @@ async def observe_after(
         after = await ctx.take_snapshot(app=_app_key(app), previous=before, mode=mode)
     except AXPilotError as err:
         if err.code is ErrorCode.APP_NOT_FOUND and app is not None:
-            try:  # the app quit or another app came forward: report the frontmost one
-                after = await ctx.take_snapshot(previous=before, mode=mode)
+            try:  # the app quit or another app came forward: report the frontmost one, as it is
+                after = await ctx.take_snapshot(previous=before, mode=mode, enhance=False)
             except AXPilotError as again:
                 return Observation(warnings=[f"Could not observe the result: {again.message}"])
         else:

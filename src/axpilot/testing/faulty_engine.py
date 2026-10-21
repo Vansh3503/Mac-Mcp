@@ -297,6 +297,7 @@ class FaultyEngine(Engine):
         max_depth: int = 40,
         max_nodes: int = 4000,
         timeout_s: float = 5.0,
+        enhance: bool = True,
     ) -> RawTree:
         return self._call(
             "capture_tree",
@@ -306,6 +307,7 @@ class FaultyEngine(Engine):
             max_depth=max_depth,
             max_nodes=max_nodes,
             timeout_s=timeout_s,
+            enhance=enhance,
         )
 
     def element_valid(self, handle: Any) -> bool:

@@ -444,10 +444,18 @@ class ServerContext:
         window_id: int | None = None,
         include_menus: bool = False,
         kind: AccessKind = "observe",
+        enhance: bool = True,
     ) -> RawTree:
         """Capture an app's accessibility tree with the policy checked before (target app and
-        window) and after (the app and window actually captured)."""
-        await self.check_target(app=app, window_id=window_id, kind=kind)
+        window) and after (the app and window actually captured).
+
+        Without ``app`` and ``window_id`` the target is the frontmost app, pinned by pid once the
+        policy has checked it: an app that comes forward in between is neither read nor has its
+        tree switched on. ``enhance=False`` is for captures that only report on an app the call
+        did not target (see :meth:`Engine.capture_tree`)."""
+        target, _ = await self.check_target(app=app, window_id=window_id, kind=kind)
+        if app is None and window_id is None and target is not None:
+            app = str(target.pid)
         perception = self.config.perception
         capture = functools.partial(
             self.engine.capture_tree,
@@ -457,6 +465,7 @@ class ServerContext:
             max_depth=perception.max_depth,
             max_nodes=perception.max_nodes,
             timeout_s=self.capture_timeout_s,
+            enhance=enhance,
         )
         tree = await self.run_engine(capture, timeout_s=self.capture_timeout_s + self.engine_timeout_s)
         title = tree.window.title if tree.window is not None else None
@@ -506,12 +515,15 @@ class ServerContext:
         include_menus: bool = False,
         store: bool = True,
         previous: Snapshot | None = None,
+        enhance: bool = True,
     ) -> Snapshot:
         """:meth:`capture_tree` + :meth:`build_snapshot` (AX only; the ``snapshot`` tool adds
         the app profile, OCR and screenshots on top). ``previous`` is the snapshot whose refs
         to carry (default: the latest stored one of the same window). ``window_id`` 0 is what
         an engine reports for a window it could not identify: that captures the app's front window."""
-        tree = await self.capture_tree(app=app, window_id=window_id or None, include_menus=include_menus)
+        tree = await self.capture_tree(
+            app=app, window_id=window_id or None, include_menus=include_menus, enhance=enhance
+        )
         return self.build_snapshot(
             tree, mode=mode, max_elements=max_elements, offset=offset, store=store, previous=previous
         )

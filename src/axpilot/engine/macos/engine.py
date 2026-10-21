@@ -361,6 +361,7 @@ class MacEngine(Engine):
         max_depth: int = 40,
         max_nodes: int = 4000,
         timeout_s: float = 5.0,
+        enhance: bool = True,
     ) -> RawTree:
         self._require_ax()
         if max_depth < 0 or max_nodes < 1 or not timeout_s > 0:
@@ -377,14 +378,16 @@ class MacEngine(Engine):
                 raise AXPilotError(
                     ErrorCode.WINDOW_NOT_FOUND, f"Window {window_id} belongs to {target.name}, not {app!r}."
                 )
-            self._enhancer.ensure(target)
+            if enhance:
+                self._enhancer.ensure(target)
             app_element = self._ax.application(target.pid)
             root_element: AXElement | None = ax_window.element
             focused_window = self._windows.focused_window(target)
             window = self._windows.info(target, ax_window, cg, focused_element=focused_window)
         else:
             target = self._target_app(app)
-            self._enhancer.ensure(target)
+            if enhance:
+                self._enhancer.ensure(target)
             app_element = self._ax.application(target.pid)
             try:
                 root_element = self._root_window(app_element)

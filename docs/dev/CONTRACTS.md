@@ -473,8 +473,12 @@ class ServerContext:
         # build_snapshot + refs.carry_refs from the store's counter (stored and unstored snapshots alike);
         # previous defaults to the latest stored snapshot of the same app window, and up to 8 older stored
         # snapshots of that window are searched by handle
+    async def capture_tree(self, *, app=None, window_id=None, include_menus=False, kind="observe",
+                           enhance=True) -> RawTree
+        # policy checked before (the target) and after (what was captured); with neither app nor window_id
+        # the frontmost app is pinned by pid once checked, so an app that comes forward in between is not read
     async def take_snapshot(self, *, app=None, window_id=None, mode="interactive", max_elements=None,
-                            offset=0, include_menus=False, store=True, previous=None) -> Snapshot
+                            offset=0, include_menus=False, store=True, previous=None, enhance=True) -> Snapshot
 
 # axpilot/server/app.py
 def build_server(ctx: ServerContext, *, profile: str | None = None, naming: str | None = None,
@@ -708,8 +712,10 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
     server passes `SnapshotStore.refs.allocator("o")`) o-refs are session-unique, never reused; otherwise they
     continue after the snapshot's own. o-refs cannot be re-validated, so they resolve only until their window
     is captured again.
-- Engines: `MacEngine.capture_tree` keeps enabling AX for Electron/Chromium (already implemented); the server decides
-  when to add vision (`mode="auto"`: `ax_quality == "poor"` and screen recording permitted; `mode="vision"`: always).
+- Engines: `MacEngine.capture_tree` keeps enabling AX for Electron/Chromium (already implemented) for the app it
+  captures, unless the caller passes `enhance=False` (`Engine.capture_tree`): captures that only report on an app
+  the call did not target pass it (`observe_after` reporting the frontmost app after the target quit). The server
+  decides when to add vision (`mode="auto"`: `ax_quality == "poor"` and screen recording permitted; `mode="vision"`: always).
 
 ## 9. Navigation helpers (PLAN §6.9) — `axpilot/perception/navigate.py`
 - `def scroll_container_for(snap: Snapshot, el: Element | None) -> Element | None` — nearest ancestor scrollarea/

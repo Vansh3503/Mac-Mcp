@@ -109,6 +109,7 @@ class Engine(abc.ABC):
         max_depth: int = 40,
         max_nodes: int = 4000,
         timeout_s: float = 5.0,
+        enhance: bool = True,
     ) -> RawTree:
         """Capture the accessibility tree.
 
@@ -119,6 +120,10 @@ class Engine(abc.ABC):
         app has no windows, the root is the application element. ``include_menus`` adds the app's
         menu bar (top level + first level of items) as ``RawTree.menu_bar``. The engine
         marks the focused element with ``RawNode.focused = True``.
+
+        An engine may switch on the full tree of an app that builds it lazily (Chromium and
+        Electron apps), which changes that app's state. ``enhance=False`` reads the app as it is:
+        callers pass it for captures that only report on an app the call did not target.
         """
 
     @abc.abstractmethod
