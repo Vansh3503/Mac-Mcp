@@ -2664,6 +2664,28 @@
                       }
                     ]
                   },
+                  {"role": "AXStaticText", "value": "Delivery date", "frame": [700, 214, 110, 18]},
+                  {
+                    "id": "store.delivery", "role": "AXDateField", "description": "Delivery date", "value": "",
+                    "frame": [820, 208, 180, 28], "settable": false,
+                    "children": [
+                      {
+                        "id": "store.delivery.month", "role": "AXIncrementor", "description": "Month",
+                        "placeholder": "mm", "value": "", "frame": [826, 212, 30, 20], "digits": 2,
+                        "actions": ["AXIncrement", "AXDecrement"]
+                      },
+                      {
+                        "id": "store.delivery.day", "role": "AXIncrementor", "description": "Day",
+                        "placeholder": "dd", "value": "", "frame": [862, 212, 30, 20], "digits": 2,
+                        "actions": ["AXIncrement", "AXDecrement"]
+                      },
+                      {
+                        "id": "store.delivery.year", "role": "AXIncrementor", "description": "Year",
+                        "placeholder": "yyyy", "value": "", "frame": [898, 212, 44, 20], "digits": 4,
+                        "actions": ["AXIncrement", "AXDecrement"]
+                      }
+                    ]
+                  },
                   {"role": "AXStaticText", "value": "Pickup store", "frame": [160, 406, 130, 18]},
                   {
                     "id": "store.pickup", "role": "AXComboBox", "description": "Pickup store", "value": "",

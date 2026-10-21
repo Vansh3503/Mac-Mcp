@@ -1054,3 +1054,136 @@ async def test_move_mouse_hovers_without_clicking(ctx: ServerContext, client: Cl
     assert error is None
     assert events(ctx, "mouse_move")
     assert not events(ctx, "mouse_click")
+
+
+# =========================================================================== web date fields (#26)
+async def delivery_ref(client: Client) -> str:
+    await call(client, "app", {"action": "launch", "name": "Google Chrome"})
+    return (await refs_of(client, "Google Chrome"))["Delivery date"]
+
+
+def delivery(ctx: ServerContext) -> list[Any]:
+    engine = engine_of(ctx)
+    return [
+        engine.refresh_element(engine.resolve_ref(f"store.delivery.{part}")).value
+        for part in ("month", "day", "year")
+    ]
+
+
+async def test_a_web_date_field_is_typed_part_by_part(ctx: ServerContext, client: Client) -> None:
+    """Browsers ignore an accessibility value on <input type="date">: each part is typed."""
+    ref = await delivery_ref(client)
+    result, error = await call(client, "set_value", {"ref": ref, "value": "2026-03-05"})
+    assert error is None, text_of(result)
+    data = structured(result)
+    assert data["strategy"] == "keystrokes"
+    assert "2026-03-05" in data["message"]
+    assert delivery(ctx) == ["03", "05", "2026"]
+    assert [e["text"] for e in events(ctx, "type_text")] == ["03", "05", "2026"]
+    assert not events(ctx, "set_value")  # never the ignored accessibility value
+
+
+async def test_fill_form_types_a_web_date_field(ctx: ServerContext, client: Client) -> None:
+    ref = await delivery_ref(client)
+    result, error = await call(client, "fill_form", {"fields": [{"ref": ref, "value": "2027-12-31"}]})
+    assert error is None, text_of(result)
+    assert delivery(ctx) == ["12", "31", "2027"]
+
+
+@pytest.mark.parametrize(
+    ("value", "code"),
+    [("2026-10-20 14:30", "ELEMENT_NOT_ACTIONABLE"), ("next tuesday", "INVALID_ARGUMENT")],
+)
+async def test_a_web_date_field_refuses_times_and_unreadable_dates(
+    ctx: ServerContext, client: Client, value: str, code: str
+) -> None:
+    ref = await delivery_ref(client)
+    result, error = await call(client, "set_value", {"ref": ref, "value": value})
+    assert error == code, text_of(result)
+    assert delivery(ctx) == ["", "", ""]
+    assert not events(ctx, "type_text")
+
+
+async def test_a_web_date_field_needs_the_keyboard(ctx: ServerContext, client: Client) -> None:
+    ref = await delivery_ref(client)
+    engine_of(ctx).secure_input = True
+    _, error = await call(client, "set_value", {"ref": ref, "value": "2026-03-05"})
+    assert error == "SECURE_INPUT_ACTIVE"
+    assert not events(ctx, "type_text")
+
+
+def web_date_desktop(labels: list[tuple[str | None, str | None]]) -> dict[str, Any]:
+    """A browser page with one date field whose parts carry these (description, placeholder)."""
+    parts = [
+        {
+            "id": f"part{index}",
+            "role": "AXIncrementor",
+            "description": description,
+            "placeholder": placeholder,
+            "value": "",
+            "frame": [210 + index * 40, 214, 36, 20],
+            "digits": 4 if placeholder in ("yyyy", "jjjj") else 2,
+        }
+        for index, (description, placeholder) in enumerate(labels)
+    ]
+    field = {
+        "id": "when",
+        "role": "AXDateField",
+        "description": "When",
+        "value": "",
+        "settable": False,
+        "frame": [200, 210, 140, 28],
+        "children": parts,
+    }
+    page = {"role": "AXWebArea", "frame": [100, 140, 800, 600], "children": [field]}
+    return {
+        "apps": [{"name": "Browser", "bundle_id": "com.example.browser", "pid": 700, "frontmost": True}],
+        "windows": [
+            {
+                "window_id": 1,
+                "app": "com.example.browser",
+                "title": "Page",
+                "frame": [100, 100, 800, 640],
+                "tree": {"role": "AXWindow", "children": [page]},
+            }
+        ],
+    }
+
+
+async def web_date_call(engine: FakeEngine, value: str) -> tuple[Any, str | None, FakeEngine]:
+    ctx = fast(make_test_context({"tools.profile": "full"}, engine=engine))
+    async with connected_client(ctx) as client:
+        ref = (await refs_of(client, "Browser"))["When"]
+        result, error = await call(client, "set_value", {"ref": ref, "value": value})
+    return result, error, engine
+
+
+async def test_a_web_date_field_is_typed_in_its_own_order() -> None:
+    """German pages show tt.mm.jjjj: the day goes first."""
+    engine = FakeEngine.from_dict(web_date_desktop([(None, "tt"), (None, "mm"), (None, "jjjj")]))
+    result, error, _ = await web_date_call(engine, "2026-03-05")
+    assert error is None, text_of(result)
+    assert [engine.refresh_element(f"part{i}").value for i in range(3)] == ["05", "03", "2026"]
+
+
+async def test_a_web_date_field_whose_parts_cannot_be_told_apart_is_refused() -> None:
+    engine = FakeEngine.from_dict(web_date_desktop([(None, None), (None, None), (None, None)]))
+    result, error, _ = await web_date_call(engine, "2026-03-05")
+    assert error == "ELEMENT_NOT_ACTIONABLE", text_of(result)
+    assert "month, day and year" in text_of(result)
+    assert "browser_eval_js" in text_of(result)
+    assert not [e for e in engine.events if e[0] == "type_text"]
+
+
+class IgnoresDigits(FakeEngine):
+    """A page whose date field drops what is typed into it."""
+
+    def type_text(self, text: str, interval_s: float = 0.0) -> None:
+        self.events.append(("type_text", {"target": None, "text": text}))
+
+
+async def test_a_web_date_field_that_drops_the_digits_is_reported() -> None:
+    engine = IgnoresDigits.from_dict(web_date_desktop([("Month", "mm"), ("Day", "dd"), ("Year", "yyyy")]))
+    result, error, _ = await web_date_call(engine, "2026-03-05")
+    assert error == "ELEMENT_NOT_ACTIONABLE", text_of(result)
+    assert "its parts show" in text_of(result)

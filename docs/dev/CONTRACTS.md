@@ -299,11 +299,25 @@ list or Return in it records `("combo_commit", {"handle", "value"})`; `set_value
 menu's owner and item titles) and `set_enabled(ref, enabled)`. The demo desktop also has menus on Notes'
 Format and Share and Finder's Action buttons, an app-level pop-up menu (TextEdit's line spacing), a Google
 Chrome checkout page (a `<select>`, a mouse-only combo box, an autocomplete that opens with Down and filters,
-an ARIA menu), a Slack (Electron) picker and an IntelliJ (Java) combo box whose list is a window.
+an ARIA menu, a date field), a Slack (Electron) picker and an IntelliJ (Java) combo box whose list is a window.
+A web date field is a node that cannot be set (`settable: false`) whose parts carry `digits: n` (Chrome's spin
+buttons): a part takes focus from `focus` or a click, typed digits fill it (the first after focus starts over;
+other characters are ignored), and a full part moves the focus to the next one.
 
 ---------------------------------------------------------------------------------------------------
 
 ## 3. `axpilot.input` (pure Python)
+
+### `axpilot/input/dates.py`
+- `parse_date_input(text, current=None) -> str` — an ISO 8601 date-time with the local UTC offset (see its
+  docstring); `INVALID_ARGUMENT` for anything else. `has_time(text)` — the text gives a time of day.
+- `date_part_of(*labels) -> "year"|"month"|"day"|None` — the date part a field segment holds, from its labels
+  or placeholder (English, German, French, Spanish, Portuguese, Italian, Dutch words: `Month`, `mm`, `jjjj`…);
+  `None` for none or several. `date_part_digits(iso, part)` — two digits for month and day, four for the year.
+  `set_value`/`fill_form` on a `date` element inside an `AXWebArea` (browsers ignore its `AXValue`) find the
+  parts in a fresh capture (each part named once, in the order shown), focus each and type its digits, then
+  read them back (else the field's value); a value with a time is refused (`ELEMENT_NOT_ACTIONABLE`), as is a
+  field whose parts cannot be told apart.
 
 ### `axpilot/input/keys.py`
 - `parse_combo(text: str) -> KeyCombo` — accepts `"cmd+shift+t"`, `"⌘⇧T"`, `"Command-Shift-T"`,

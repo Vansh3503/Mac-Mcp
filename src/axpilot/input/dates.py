@@ -4,16 +4,36 @@ Date pickers (``AXDateTimeArea``, ``AXDateField``, ``AXTimeField``) hold an ``NS
 send text, so :func:`parse_date_input` accepts the forms people and models use (ISO dates, with
 or without a time; a time alone for time fields) and returns an ISO 8601 string with the local
 UTC offset, which engines turn back into a date (``datetime.fromisoformat``).
+
+Web date fields (``<input type="date">``) ignore an accessibility value: their parts are typed
+one by one. :func:`date_part_of` tells which part (month, day, year) a field segment is from its
+labels or placeholder, and :func:`date_part_digits` gives the digits to type into it.
 """
 
 from __future__ import annotations
 
 import datetime as dt
 import re
+from typing import Literal
 
 from axpilot.errors import AXPilotError, ErrorCode
 
-__all__ = ["parse_date_input"]
+__all__ = ["DATE_PARTS", "DatePart", "date_part_digits", "date_part_of", "has_time", "parse_date_input"]
+
+DatePart = Literal["year", "month", "day"]
+DATE_PARTS: tuple[DatePart, ...] = ("year", "month", "day")
+
+_PART_WORDS: dict[DatePart, frozenset[str]] = {
+    "year": frozenset(
+        {"year", "yyyy", "yy", "jjjj", "aaaa", "jahr", "année", "annee", "año", "ano", "anno", "jaar"}
+    ),
+    "month": frozenset({"month", "mm", "monat", "mois", "mes", "mese", "maand"}),
+    "day": frozenset({"day", "dd", "tt", "jj", "tag", "jour", "día", "dia", "giorno", "gg", "dag"}),
+}
+"""Words that name a date part in segment labels and placeholders (English, German, French,
+Spanish, Portuguese, Italian, Dutch: ``mm/dd/yyyy``, ``tt.mm.jjjj``, ``jj/mm/aaaa``…)."""
+_WORD = re.compile(r"[^\W\d_]+")
+_TIME_IN_TEXT = re.compile(r"\d:\d|[T ]\d")
 
 _TIME_ONLY = re.compile(r"^(\d{1,2}):(\d{2})(?::(\d{2}))?$")
 _HINT = 'Use ISO 8601: "2026-10-20", "2026-10-20 14:30" or, for a time field, "14:30".'
@@ -56,3 +76,29 @@ def parse_date_input(text: str, current: str | None = None) -> str:
             ErrorCode.INVALID_ARGUMENT, f"{raw!r} is not a date or time I can read.", hint=_HINT
         ) from exc
     return _local(moment).isoformat()
+
+
+def has_time(text: str) -> bool:
+    """True if ``text`` gives a time of day (``"2026-10-20 14:30"``, ``"14:30"``), not just a date."""
+    return bool(_TIME_IN_TEXT.search(str(text).strip()))
+
+
+def date_part_of(*labels: str | None) -> DatePart | None:
+    """The part of a date that a field segment holds, from its labels and placeholder
+    (``"Month"``, ``"mm"``, ``"jjjj"``), or ``None`` when they name none or several."""
+    found: set[DatePart] = {
+        part
+        for label in labels
+        if label
+        for word in _WORD.findall(label.casefold())
+        for part, words in _PART_WORDS.items()
+        if word in words
+    }
+    return found.pop() if len(found) == 1 else None
+
+
+def date_part_digits(iso: str, part: DatePart) -> str:
+    """The digits to type into ``part`` for the ISO date ``iso``: two for month and day, four for
+    the year."""
+    moment = dt.datetime.fromisoformat(iso)
+    return {"year": f"{moment.year:04d}", "month": f"{moment.month:02d}", "day": f"{moment.day:02d}"}[part]
