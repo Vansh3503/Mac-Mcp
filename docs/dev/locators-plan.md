@@ -358,3 +358,8 @@ The owner accepted the recommended option for each (2026-10-21).
   labels, never for rows or text, where a number is usually part of what the item is.
 - The `axpilot-python` snippet uses `mac.find(locator=…)`, which exists now, instead of the planned
   `mac.locate(…)`.
+- Added after review: `locate(refs=[…])` locates the elements of one screen in one call and exports
+  them as one script, in order. Agents call `locate` only when asked (never as a step of an ordinary
+  task), and for a flow they locate each screen before acting on it, because the elements of a
+  screen that closed (a sign-in sheet) can no longer be checked. A secure field's snippet reads its
+  text from an environment variable.

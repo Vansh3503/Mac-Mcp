@@ -246,6 +246,9 @@ def default_window(windows) -> WindowInfo | None         # focused > main > fron
 def window_selector_for(windows, window) -> WindowSelector | None  # None for the default window; title if unique
 def pick_window(windows, selector, app: str) -> WindowInfo         # WINDOW_NOT_FOUND
 def export_locator(spec, fmt: ExportFormat, *, element: Element | None = None) -> str  # INVALID_ARGUMENT
+def export_locators(items: Sequence[tuple[LocatorSpec, Element | None]], fmt) -> str
+    # a flow: axpilot = JSON object of named locators; axpilot-python = constants (repeats get _2…) and one SDK
+    # call per step; a secure field types os.environ[NAME]. INVALID_ARGUMENT for no items or an unknown format.
 ```
 
 ### `axpilot/perception/store.py`
@@ -591,8 +594,12 @@ function's model (an explicit `null` is accepted). Real unions (a list or its JS
 the policy keep canonical names; calling a tool without the prefix gets `INVALID_ARGUMENT` naming the prefixed one.
 
 Locators (`axpilot/server/tools/locate.py`, observe toolset; docs/dev/locators-plan.md):
-- `locate(ref | locator, snapshot_id, formats=["axpilot"], max_candidates=3)`, read-only, exactly one of `ref`
-  and `locator` (`snapshot_id` only with `ref`). With `ref`: re-captures the ref's window as a stored `full`
+- `locate(ref | refs | locator, snapshot_id, formats=["axpilot"], max_candidates=3)`, read-only, exactly one of
+  `ref`, `refs` (1–30, repeats dropped) and `locator` (`snapshot_id` only with `ref`/`refs`). The tool description
+  tells agents to call it only when asked for locators, a script or a test, and to locate a flow screen by
+  screen. With `refs`: one capture per window, `items` (`element`, `snapshot_id`, `candidates`, `recommended`,
+  `warnings`) in the given order, snippets from `export_locators` of every recommended locator, top-level
+  `warnings` merged (`"e7, e9: …"`); any element gone → one `STALE_REF` naming all of them. With `ref`: re-captures the ref's window as a stored `full`
   snapshot (refs carried; window or app gone → `STALE_REF`; OCR ref → `NOT_SUPPORTED`), names the window with
   `window_selector_for(list_windows(app))`, and returns `perception.locators.candidates_for` with snippets of the
   recommended one. With `locator`: `locator_snapshot`, then `count`, `unique`, up to 20 `matches`, and candidates

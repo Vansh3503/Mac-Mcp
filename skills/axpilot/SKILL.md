@@ -90,10 +90,17 @@ is authoritative for its exact parameters.
 
 ## Writing automation scripts
 
-When the person wants a script, a test, or "the locator of" an element rather than a click now:
+Call `locate` only when the person asks for locators, a script or a test. In an ordinary task
+("log in and send the report") just do the task: never locate elements along the way unasked.
 
 1. Find the element (`explore`, `find`, `snapshot`), then call `locate` with its ref. Use the
    `recommended` locator: it was checked against the live window and names only that element.
+   For a flow ("open the app, log in, export the report, and give me all the locators"), do the
+   task screen by screen, and on each screen call `locate` with `refs` for every element you are
+   about to use **before** you act there: once you sign in or close a sheet, the elements of that
+   screen are gone and can't be located any more (`STALE_REF`). At the end, give the person one
+   script with every locator in the order of the steps (`formats: ["axpilot-python"]` writes each
+   screen's part).
 2. Never put refs (`e12`) or coordinates in a script: they only last for this session. Put the
    locator (a small JSON object) in the script and look it up with `find(locator=…)`; with the
    AXPilot SDK that is `mac.find(locator=LOCATOR).click()`, and `formats: ["axpilot-python"]`

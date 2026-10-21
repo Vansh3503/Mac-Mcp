@@ -4,6 +4,7 @@ warnings and exports (docs/dev/locators-plan.md)."""
 from __future__ import annotations
 
 import ast
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,7 @@ from axpilot.perception.locators import (
     candidates_for,
     default_window,
     export_locator,
+    export_locators,
     format_path,
     is_unique,
     locator_warnings,
@@ -643,6 +645,39 @@ def test_python_exports_pick_a_constant_name_and_an_action(
     ast.parse(script)
     assert f"{constant} = " in script
     assert script.endswith(f"mac.find(locator={constant}).{action}")
+
+
+def test_a_flow_exports_as_one_script_with_a_step_per_locator() -> None:
+    snap = snap_of(
+        node("AXTextField", identifier="login.email", placeholder="Email"),
+        node("AXTextField", identifier="login.password", title="Password", secure=True, y=40),
+        node("AXButton", title="Share", y=70),
+        node("AXSheet", node("AXButton", title="Share"), title="Export"),
+    )
+    elements = [named(snap, "Email"), named(snap, "Password"), named(snap, "Share"), named(snap, "Share", 1)]
+    steps = [(candidates_for(snap, el, app=APP)[0].spec, el) for el in elements]
+    script = export_locators(steps, "axpilot-python")
+    tree = ast.parse(script)
+    constants = [stmt.targets[0].id for stmt in tree.body if isinstance(stmt, ast.Assign)]  # type: ignore[attr-defined]
+    assert constants == ["EMAIL", "PASSWORD", "SHARE", "SHARE_2"]
+    assert script.splitlines()[:2] == ["import os", ""]
+    assert script.splitlines()[-4:] == [
+        '    mac.find(locator=EMAIL).type_text("your text")',
+        '    mac.find(locator=PASSWORD).type_text(os.environ["PASSWORD"])  # a secure field: needs [safety] '
+        "allow_secure_fields",
+        "    mac.find(locator=SHARE).click()",
+        "    mac.find(locator=SHARE_2).click()",
+    ]
+    named_json = json.loads(export_locators(steps, "axpilot"))
+    assert list(named_json) == constants
+    assert named_json["SHARE_2"] == steps[3][0].to_dict()
+    assert "import os" not in export_locators(steps[2:], "axpilot-python")
+
+
+def test_exporting_nothing_is_refused() -> None:
+    with pytest.raises(AXPilotError) as exc:
+        export_locators([], "axpilot")
+    assert code_of(exc) is ErrorCode.INVALID_ARGUMENT
 
 
 def test_unknown_export_formats_are_refused() -> None:

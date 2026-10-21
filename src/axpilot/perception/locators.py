@@ -49,6 +49,7 @@ __all__ = [
     "candidates_for",
     "default_window",
     "export_locator",
+    "export_locators",
     "format_path",
     "is_unique",
     "locator_warnings",
@@ -808,11 +809,54 @@ def _python_name(el: Element | None, spec: LocatorSpec) -> str:
     return name if name.isidentifier() and not keyword.iskeyword(name) else "ELEMENT"
 
 
-def _python_action(el: Element | None, spec: LocatorSpec) -> str:
+def _unique_names(items: Sequence[tuple[LocatorSpec, Element | None]]) -> list[str]:
+    """One constant name per item; repeats get ``_2``, ``_3``…"""
+    names: list[str] = []
+    seen: dict[str, int] = {}
+    for spec, el in items:
+        base = _python_name(el, spec)
+        seen[base] = seen.get(base, 0) + 1
+        names.append(base if seen[base] == 1 else f"{base}_{seen[base]}")
+    return names
+
+
+def _python_action(el: Element | None, spec: LocatorSpec, name: str) -> str:
+    """The SDK call a script most likely makes on the element. A secure field reads its text from
+    an environment variable, so no password ends up in the script."""
+    if el is not None and el.secure:
+        return f'type_text(os.environ["{name}"])  # a secure field: needs [safety] allow_secure_fields'
     role = el.ax_role if el is not None else spec.role
     if role is not None and (role in TEXT_INPUT_ROLES or short_role(role) in ("field", "textarea")):
         return 'type_text("your text")'
     return "click()"
+
+
+def export_locators(items: Sequence[tuple[LocatorSpec, Element | None]], fmt: ExportFormat) -> str:
+    """Several locators for one script, in order (the steps of a flow): ``axpilot`` is a JSON object
+    of named locators; ``axpilot-python`` a script with one constant per locator and one SDK call
+    per step. Each item's element (optional) picks its name and action. Raises
+    ``INVALID_ARGUMENT`` for an unknown format or no items."""
+    if not items:
+        raise AXPilotError(ErrorCode.INVALID_ARGUMENT, "Nothing to export: no locators were given.")
+    names = _unique_names(items)
+    if fmt == "axpilot":
+        named = {name: spec.to_dict() for name, (spec, _) in zip(names, items, strict=True)}
+        return json.dumps(named, ensure_ascii=False, indent=2)
+    if fmt == "axpilot-python":
+        actions = [_python_action(el, spec, name) for name, (spec, el) in zip(names, items, strict=True)]
+        lines = ["import os", ""] if any("os.environ" in action for action in actions) else []
+        lines += ["from axpilot import Desktop", ""]
+        lines += [f"{name} = {spec.to_dict()!r}" for name, (spec, _) in zip(names, items, strict=True)]
+        lines += ["", "with Desktop.connect() as mac:"]
+        lines += [
+            f"    mac.find(locator={name}).{action}" for name, action in zip(names, actions, strict=True)
+        ]
+        return "\n".join(lines)
+    raise AXPilotError(
+        ErrorCode.INVALID_ARGUMENT,
+        f"Unknown export format {fmt!r}.",
+        hint="Use one of: " + ", ".join(EXPORT_FORMATS) + ".",
+    )
 
 
 def export_locator(spec: LocatorSpec, fmt: ExportFormat, *, element: Element | None = None) -> str:
@@ -821,20 +865,4 @@ def export_locator(spec: LocatorSpec, fmt: ExportFormat, *, element: Element | N
     ``INVALID_ARGUMENT`` for an unknown format."""
     if fmt == "axpilot":
         return spec.to_json()
-    if fmt == "axpilot-python":
-        name = _python_name(element, spec)
-        return "\n".join(
-            [
-                "from axpilot import Desktop",
-                "",
-                f"{name} = {spec.to_dict()!r}",
-                "",
-                "with Desktop.connect() as mac:",
-                f"    mac.find(locator={name}).{_python_action(element, spec)}",
-            ]
-        )
-    raise AXPilotError(
-        ErrorCode.INVALID_ARGUMENT,
-        f"Unknown export format {fmt!r}.",
-        hint="Use one of: " + ", ".join(EXPORT_FORMATS) + ".",
-    )
+    return export_locators([(spec, element)], fmt)

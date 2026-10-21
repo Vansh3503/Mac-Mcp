@@ -481,7 +481,7 @@
    "readOnlyHint": true,
    "title": "Locate an element for scripts"
   },
-  "description": "Build a stable locator for an element, for automation scripts, or check one against the window.\nRefs (e12) only last for this session; a locator is a small JSON object that names the element by\nits AXIdentifier, role and name, its containers or its position, and works in later runs.\nUse it when the user wants a script, a test or a locator for \"the Download button\": find or\nsnapshot the element, then locate(ref=…). Params: ref (+ snapshot_id) to build locators, or\nlocator to check one (exact matching: every field must hold); formats (axpilot = the JSON,\naxpilot-python = a script with the AXPilot SDK); max_candidates.\nReturns candidates, best first, each checked against a fresh capture of the window with a grade\n(high: AXIdentifier; medium: role and name, which change with the app's language; low: position)\nand reasons; recommended; snippets; warnings (no identifier, toolbar overflow, a menu or sheet that\nmust be open). For a locator: count, unique and the matching elements. Read-only: nothing is\nclicked. Errors: INVALID_ARGUMENT, STALE_REF, SNAPSHOT_NOT_FOUND, NOT_SUPPORTED (OCR text),\nAPP_NOT_FOUND, WINDOW_NOT_FOUND, BLOCKED_BY_POLICY, TIMEOUT.",
+  "description": "Build a stable locator for an element, for automation scripts, or check one against the window.\nRefs (e12) only last for this session; a locator is a small JSON object that names the element by\nits AXIdentifier, role and name, its containers or its position, and works in later runs.\nCall it only when the person asks for locators, a script or a test, never as a step of an\nordinary task. Find or snapshot the element, then locate(ref=…). For a flow (open the app, sign\nin, …), locate each screen's elements with refs=[…] before acting on that screen: once a screen\nis gone, its elements cannot be checked. Params: ref or refs (+ snapshot_id) to build locators,\nor locator to check one (exact matching: every field must hold); formats (axpilot = the JSON,\naxpilot-python = a script with the AXPilot SDK; for refs, one script with every step);\nmax_candidates.\nReturns candidates, best first, each checked against a fresh capture of the window with a grade\n(high: AXIdentifier; medium: role and name, which change with the app's language; low: position)\nand reasons; recommended; snippets; warnings (no identifier, toolbar overflow, a menu or sheet that\nmust be open); for refs, one such entry per element in items. For a locator: count, unique and the\nmatching elements. Read-only: nothing is\nclicked. Errors: INVALID_ARGUMENT, STALE_REF, SNAPSHOT_NOT_FOUND, NOT_SUPPORTED (OCR text),\nAPP_NOT_FOUND, WINDOW_NOT_FOUND, BLOCKED_BY_POLICY, TIMEOUT.",
   "input_schema": {
    "additionalProperties": false,
    "properties": {
@@ -625,6 +625,17 @@
      "minLength": 2,
      "type": "string"
     },
+    "refs": {
+     "description": "Several element refs, e.g. [\"e3\", \"e5\", \"e9\"]: the steps of a flow on the current screen, located in one call.",
+     "items": {
+      "maxLength": 32,
+      "minLength": 2,
+      "type": "string"
+     },
+     "maxItems": 30,
+     "minItems": 1,
+     "type": "array"
+    },
     "snapshot_id": {
      "description": "Snapshot the ref belongs to. Default: the latest snapshot.",
      "maxLength": 16,
@@ -635,7 +646,7 @@
    "type": "object"
   },
   "name": "locate",
-  "output_schema": "sha256:159fb2176df18f0a",
+  "output_schema": "sha256:4c5effb2e2b16009",
   "title": "Locate an element for scripts"
  },
  {

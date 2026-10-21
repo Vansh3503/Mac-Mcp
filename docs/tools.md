@@ -234,26 +234,31 @@ read-only · Profiles: `standard`, `full` · Windows-MCP: `Locate`
 Build a stable locator for an element, for automation scripts, or check one against the window.
 Refs (e12) only last for this session; a locator is a small JSON object that names the element by
 its AXIdentifier, role and name, its containers or its position, and works in later runs.
-Use it when the user wants a script, a test or a locator for "the Download button": find or
-snapshot the element, then locate(ref=…). Params: ref (+ snapshot_id) to build locators, or
-locator to check one (exact matching: every field must hold); formats (axpilot = the JSON,
-axpilot-python = a script with the AXPilot SDK); max_candidates.
+Call it only when the person asks for locators, a script or a test, never as a step of an
+ordinary task. Find or snapshot the element, then locate(ref=…). For a flow (open the app, sign
+in, …), locate each screen's elements with refs=[…] before acting on that screen: once a screen
+is gone, its elements cannot be checked. Params: ref or refs (+ snapshot_id) to build locators,
+or locator to check one (exact matching: every field must hold); formats (axpilot = the JSON,
+axpilot-python = a script with the AXPilot SDK; for refs, one script with every step);
+max_candidates.
 Returns candidates, best first, each checked against a fresh capture of the window with a grade
 (high: AXIdentifier; medium: role and name, which change with the app's language; low: position)
 and reasons; recommended; snippets; warnings (no identifier, toolbar overflow, a menu or sheet that
-must be open). For a locator: count, unique and the matching elements. Read-only: nothing is
+must be open); for refs, one such entry per element in items. For a locator: count, unique and the
+matching elements. Read-only: nothing is
 clicked. Errors: INVALID_ARGUMENT, STALE_REF, SNAPSHOT_NOT_FOUND, NOT_SUPPORTED (OCR text),
 APP_NOT_FOUND, WINDOW_NOT_FOUND, BLOCKED_BY_POLICY, TIMEOUT.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `ref` | string | optional | Element ref from snapshot, find or explore, e.g. "e12". |
+| `refs` | list of string | optional | Several element refs, e.g. \["e3", "e5", "e9"\]: the steps of a flow on the current screen, located in one call. |
 | `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
 | `locator` | object | optional | A locator from locate, e.g. {"app": "com.apple.finder", "role": "AXButton", "name": "Back"}. Exact matching: every field given must hold. |
 | `formats` | list of `axpilot` \| `axpilot-python` | optional | Snippet formats for the recommended locator: "axpilot" (the JSON, default) and "axpilot-python" (a script with the AXPilot SDK). |
 | `max_candidates` | integer | `3` | Most locators to return for the element. |
 
-**Returns** (structured content): `snapshot_id`, `app`, `window`, `element`, `candidates`, `recommended`, `snippets`, `locator`, `count`, `unique`, `matches`, and `warnings`.
+**Returns** (structured content): `snapshot_id`, `app`, `window`, `element`, `candidates`, `recommended`, `snippets`, `locator`, `count`, `unique`, `matches`, `items`, and `warnings`.
 
 ### `ocr`: Read text with OCR
 
@@ -1071,7 +1076,7 @@ Each server exposes one naming.
 | `Explore` | `explore` | `app`, `window_id` |
 | `Read` | `read` | `target`, `app`, `window_id`, `snapshot_id`, `mode`, `from_top`, `max_pages`, `restore`, `timeout_ms` |
 | `Inspect` | `inspect` | `ref`, `snapshot_id` |
-| `Locate` | `locate` | `ref`, `snapshot_id`, `locator`, `formats`, `max_candidates` |
+| `Locate` | `locate` | `ref`, `refs`, `snapshot_id`, `locator`, `formats`, `max_candidates` |
 | `OCR` | `ocr` | `window_id`, `app`, `rect`, `display_id`, `languages` |
 | `ListApps` | `list_apps` | `include_installed` |
 | `ListWindows` | `list_windows` | `app` |

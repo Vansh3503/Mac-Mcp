@@ -5658,6 +5658,55 @@
     "title": "ElementBriefModel",
     "type": "object"
    },
+   "LocatedItemModel": {
+    "additionalProperties": false,
+    "description": "Locators for one of several elements (``locate(refs=…)``).",
+    "properties": {
+     "candidates": {
+      "description": "Best first.",
+      "items": {
+       "$ref": "#/$defs/LocatorCandidateModel"
+      },
+      "title": "Candidates",
+      "type": "array"
+     },
+     "element": {
+      "$ref": "#/$defs/ElementBriefModel"
+     },
+     "recommended": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Index of the locator to use (null: none).",
+      "title": "Recommended"
+     },
+     "snapshot_id": {
+      "description": "Snapshot the element's ref belongs to.",
+      "title": "Snapshot Id",
+      "type": "string"
+     },
+     "warnings": {
+      "description": "What to know about this element.",
+      "items": {
+       "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+     }
+    },
+    "required": [
+     "element",
+     "snapshot_id"
+    ],
+    "title": "LocatedItemModel",
+    "type": "object"
+   },
    "LocatorCandidateModel": {
     "additionalProperties": false,
     "description": "One locator for an element, checked against the live window.",
@@ -5789,6 +5838,14 @@
     ],
     "default": null,
     "description": "The element located (for a locator: when it matches exactly one)."
+   },
+   "items": {
+    "description": "With refs: one entry per element, in the order given.",
+    "items": {
+     "$ref": "#/$defs/LocatedItemModel"
+    },
+    "title": "Items",
+    "type": "array"
    },
    "locator": {
     "anyOf": [

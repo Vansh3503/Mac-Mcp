@@ -35,6 +35,7 @@ __all__ = [
     "ElementModel",
     "InspectModel",
     "LocateModel",
+    "LocatedItemModel",
     "LocatorArg",
     "LocatorCandidateModel",
     "LocatorParam",
@@ -467,6 +468,16 @@ class LocatorCandidateModel(_Strict):
     reasons: list[str] = Field(default_factory=list, description="Why it got this grade.")
 
 
+class LocatedItemModel(_Strict):
+    """Locators for one of several elements (``locate(refs=…)``)."""
+
+    element: ElementBriefModel
+    snapshot_id: str = Field(description="Snapshot the element's ref belongs to.")
+    candidates: list[LocatorCandidateModel] = Field(default_factory=list, description="Best first.")
+    recommended: int | None = Field(default=None, description="Index of the locator to use (null: none).")
+    warnings: list[str] = Field(default_factory=list, description="What to know about this element.")
+
+
 class LocateModel(OutputModel):
     """Output of ``locate``."""
 
@@ -491,6 +502,9 @@ class LocateModel(OutputModel):
     )
     matches: list[ElementBriefModel] = Field(
         default_factory=list, description="Elements the checked locator matches (at most 20)."
+    )
+    items: list[LocatedItemModel] = Field(
+        default_factory=list, description="With refs: one entry per element, in the order given."
     )
 
 

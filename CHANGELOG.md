@@ -21,7 +21,11 @@ Pre-alpha. Nothing is published on PyPI yet.
   that element, graded `high` (an identifier), `medium` (role and name, which change with the app's
   language) or `low` (a position), with warnings such as a missing identifier or a toolbar that can
   overflow; it can also write the locator as an AXPilot SDK snippet. `locate(locator=…)` checks a
-  locator against the live window. `find(locator=…)` looks one up with exact matching (also with
+  locator against the live window, and `locate(refs=[…])` locates every element of a screen in one
+  call, with one script for all of them (the steps of a flow: the agent locates each screen before
+  leaving it, since a closed screen's elements can't be checked; a secure field's text comes from
+  an environment variable). Agents call it only when asked for locators, a script or a test.
+  `find(locator=…)` looks one up with exact matching (also with
   `scroll=true`) and reports `count` and `unique`; in the SDK, `find(locator=…).click()` raises the
   new error codes `ELEMENT_NOT_FOUND` and `LOCATOR_AMBIGUOUS` instead of guessing. See
   [Locators](docs/locators.md).

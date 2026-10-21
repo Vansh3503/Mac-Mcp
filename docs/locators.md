@@ -42,7 +42,35 @@ with Desktop.connect() as mac:
     mac.find(locator=DOWNLOAD).click()
 ```
 
-`locate` and `find(locator=…)` are read-only: checking a locator never clicks anything.
+`locate` and `find(locator=…)` are read-only: checking a locator never clicks anything. The agent
+calls `locate` only when you ask for locators, a script or a test; ordinary tasks don't compute any.
+
+## A whole flow
+
+> Open MyApp, sign in, export this month's report, and give me all the locators as a script.
+
+The agent does the task screen by screen. On each screen, before acting there, it locates every
+element it is about to use in one call, `locate(refs=["e3", "e5", "e9"])`: once you sign in or a
+sheet closes, the elements of that screen are gone and can't be checked any more. Each call returns
+one entry per element in `items` and, with `formats: ["axpilot-python"]`, one script for those steps
+(a secure field reads its text from an environment variable, so no password ends up in the script):
+
+```python
+import os
+
+from axpilot import Desktop
+
+EMAIL = {'v': 1, 'app': 'com.example.MyApp', 'role': 'AXTextField', 'identifier': 'login.email'}
+PASSWORD = {'v': 1, 'app': 'com.example.MyApp', 'role': 'AXTextField', 'identifier': 'login.password'}
+SIGN_IN = {'v': 1, 'app': 'com.example.MyApp', 'role': 'AXButton', 'identifier': 'login.submit'}
+
+with Desktop.connect() as mac:
+    mac.find(locator=EMAIL).type_text("your text")
+    mac.find(locator=PASSWORD).type_text(os.environ["PASSWORD"])  # a secure field: needs [safety] allow_secure_fields
+    mac.find(locator=SIGN_IN).click()
+```
+
+At the end, the agent joins the screens' parts into one script in the order of the steps.
 
 ## Grades
 

@@ -152,6 +152,82 @@ async def test_a_capture_cut_short_cannot_prove_uniqueness() -> None:
     assert any("there may be more matches" in w for w in checked["warnings"])
 
 
+# =========================================================================== locate(refs)
+async def open_sign_in_sheet(client: Client) -> dict[str, str]:
+    """Open Login Demo's sign-in sheet; returns the refs of its elements by name."""
+    first = await ok(client, "snapshot", {"app": "Login Demo"})
+    opener = next(el["ref"] for el in first["elements"] if el["name"] == "Sign In…")
+    await ok(client, "click", {"ref": opener})
+    sheet = await ok(client, "snapshot", {"app": "Login Demo"})
+    return {el["name"]: el["ref"] for el in sheet["elements"] if el["name"]}
+
+
+async def test_locate_refs_covers_a_screen_in_one_call(client: Client) -> None:
+    by_name = await open_sign_in_sheet(client)
+    refs = [by_name["Email"], by_name["Password"], by_name["Sign In"]]
+    result, error = await call(client, "locate", {"refs": refs, "formats": ["axpilot-python", "axpilot"]})
+    assert error is None, text_of(result)
+    data = structured(result)
+    assert [item["element"]["ref"] for item in data["items"]] == refs
+    assert [item["candidates"][0]["locator"]["identifier"] for item in data["items"]] == [
+        "login.email",
+        "login.password",
+        "login.submit",
+    ]
+    assert all(item["recommended"] == 0 for item in data["items"])
+    assert data["element"] is None
+    assert data["candidates"] == []
+    assert all("inside a sheet" in item["warnings"][0] for item in data["items"])
+    assert data["warnings"] == [
+        f"{', '.join(refs)}: The element is inside a sheet: a script has to open the sheet before using it."
+    ]
+    script = data["snippets"]["axpilot-python"]
+    tree = ast.parse(script)
+    constants = [stmt.targets[0].id for stmt in tree.body if isinstance(stmt, ast.Assign)]  # type: ignore[attr-defined]
+    assert constants == ["EMAIL", "PASSWORD", "SIGN_IN"]
+    assert script.startswith("import os\n")
+    assert 'mac.find(locator=PASSWORD).type_text(os.environ["PASSWORD"])' in script
+    assert script.endswith("mac.find(locator=SIGN_IN).click()")
+    assert '"SIGN_IN": {' in data["snippets"]["axpilot"]
+    assert text_of(result).startswith("locate 3 elements · Login Demo")
+    for item in data["items"]:
+        found = await ok(client, "find", {"locator": item["candidates"][0]["locator"]})
+        assert found["unique"] is True
+
+
+async def test_a_flow_must_locate_each_screen_before_leaving_it(client: Client) -> None:
+    by_name = await open_sign_in_sheet(client)
+    await ok(client, "click", {"ref": by_name["Cancel"]})  # the sheet closes: its elements are gone
+    result, error = await call(client, "locate", {"refs": [by_name["Email"], by_name["Sign In"]]})
+    assert error == "STALE_REF"
+    text = text_of(result)
+    assert 'field "Email"' in text
+    assert 'button "Sign In"' in text
+    assert "Locate elements while their screen is open" in text
+
+
+async def test_locate_refs_in_several_windows(client: Client) -> None:
+    back = await ref_of(client, "Finder", "Back", "button")
+    sign_in = await ref_of(client, "Login Demo", "Sign In…", "button")
+    result, error = await call(client, "locate", {"refs": [back, sign_in], "formats": ["axpilot-python"]})
+    assert error is None, text_of(result)
+    data = structured(result)
+    first, second = data["items"]
+    assert first["snapshot_id"] == data["snapshot_id"]
+    assert second["snapshot_id"] != first["snapshot_id"]
+    assert data["app"]["bundle_id"] == FINDER
+    assert "(Login Demo · window" in text_of(result)
+    assert "BACK = " in data["snippets"]["axpilot-python"]
+    assert "SIGN_IN = " in data["snippets"]["axpilot-python"]
+
+
+async def test_repeated_refs_are_located_once(client: Client) -> None:
+    back = await ref_of(client, "Finder", "Back", "button")
+    snapshot_id = (await ok(client, "find", {"app": "Finder", "text": "Back"}))["snapshot_id"]
+    data = await ok(client, "locate", {"refs": [back, back, f"{snapshot_id}:{back}"]})
+    assert len(data["items"]) == 1
+
+
 # =========================================================================== locate(locator)
 async def test_checking_a_unique_locator_returns_the_element_and_better_locators(client: Client) -> None:
     result, error = await call(client, "locate", {"locator": {"app": "Finder", "name": "Back"}})
@@ -287,6 +363,11 @@ async def test_find_refuses_a_container_in_another_app_or_with_a_window(client: 
     [
         ({}, ErrorCode.INVALID_ARGUMENT),
         ({"ref": "e1", "locator": BACK}, ErrorCode.INVALID_ARGUMENT),
+        ({"ref": "e1", "refs": ["e2"]}, ErrorCode.INVALID_ARGUMENT),
+        ({"refs": ["e2"], "locator": BACK}, ErrorCode.INVALID_ARGUMENT),
+        ({"refs": []}, ErrorCode.INVALID_ARGUMENT),
+        ({"refs": [f"e{i}" for i in range(31)]}, ErrorCode.INVALID_ARGUMENT),
+        ({"refs": ["e1", "e99999"]}, ErrorCode.STALE_REF),
         ({"locator": BACK, "snapshot_id": "s_abcd"}, ErrorCode.INVALID_ARGUMENT),
         ({"locator": {**BACK, "colour": "red"}}, ErrorCode.INVALID_ARGUMENT),
         ({"locator": {**BACK, "v": 2}}, ErrorCode.INVALID_ARGUMENT),
@@ -313,9 +394,10 @@ async def test_locating_ocr_text_is_not_supported(ctx: ServerContext, client: Cl
     ctx.engine.app_control("launch", "Canvas Paint")
     data = await ok(client, "snapshot", {"app": "Canvas Paint"})
     ocr = next(el["ref"] for el in data["elements"] if el["ref"].startswith("o"))
-    result, error = await call(client, "locate", {"ref": ocr})
-    assert error == "NOT_SUPPORTED"
-    assert "OCR text" in text_of(result)
+    for args in ({"ref": ocr}, {"refs": [ocr]}):
+        result, error = await call(client, "locate", args)
+        assert error == "NOT_SUPPORTED"
+        assert "OCR text" in text_of(result)
 
 
 async def test_locating_an_element_that_is_gone_is_stale_ref(ctx: ServerContext, client: Client) -> None:
@@ -444,4 +526,8 @@ async def test_a_ref_from_an_app_denied_since_is_refused(ctx: ServerContext, cli
     strict = dataclasses.replace(ctx, config=ctx.config.model_copy(update={"safety": safety}))
     async with connected_client(strict) as strict_client:
         result, error = await call(strict_client, "locate", {"ref": ref, "snapshot_id": data["snapshot_id"]})
+        batch, batch_error = await call(
+            strict_client, "locate", {"refs": [ref], "snapshot_id": data["snapshot_id"]}
+        )
     assert error == "BLOCKED_BY_POLICY", text_of(result)
+    assert batch_error == "BLOCKED_BY_POLICY", text_of(batch)
