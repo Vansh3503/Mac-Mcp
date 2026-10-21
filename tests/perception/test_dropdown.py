@@ -134,6 +134,25 @@ def test_a_menu_that_was_hidden_before_counts_as_new() -> None:
     assert [m.handle for m, _ in dd.new_menus(before, baseline)] == ["m"]
 
 
+def test_combo_list_reads_text_field_rows() -> None:
+    """TextEdit's font-size box (macOS 26): its open list is an ``AXList`` of ``AXTextField`` rows in a
+    scroll area, which used to count as no options at all."""
+    actions = ("AXShowMenu", "AXConfirm")
+    rows = [node("AXTextField", f"r{size}", value=size, actions=actions) for size in ("9", "24")]
+    box = node(
+        "AXComboBox",
+        "box",
+        node("AXButton", "arrow", actions=("AXPress",)),
+        node("AXScrollArea", "scroll", node("AXList", "list", *rows)),
+        value="12",
+    )
+    found = dd.combo_list(box)
+    assert found is not None
+    assert found.titles() == ["9", "24"]
+    assert found.container.handle == "list"
+    assert dd.combo_arrow(box) is box.children[0]
+
+
 # =========================================================================== web lists
 def web(*children: RawNode) -> RawNode:
     return node(

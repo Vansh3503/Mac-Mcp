@@ -1078,7 +1078,7 @@ async def test_a_web_date_field_is_typed_part_by_part(ctx: ServerContext, client
     data = structured(result)
     assert data["strategy"] == "keystrokes"
     assert "2026-03-05" in data["message"]
-    assert delivery(ctx) == ["03", "05", "2026"]
+    assert delivery(ctx) == [3.0, 5.0, 2026.0]
     assert [e["text"] for e in events(ctx, "type_text")] == ["03", "05", "2026"]
     assert not events(ctx, "set_value")  # never the ignored accessibility value
 
@@ -1087,7 +1087,7 @@ async def test_fill_form_types_a_web_date_field(ctx: ServerContext, client: Clie
     ref = await delivery_ref(client)
     result, error = await call(client, "fill_form", {"fields": [{"ref": ref, "value": "2027-12-31"}]})
     assert error is None, text_of(result)
-    assert delivery(ctx) == ["12", "31", "2027"]
+    assert delivery(ctx) == [12.0, 31.0, 2027.0]
 
 
 @pytest.mark.parametrize(
@@ -1163,7 +1163,7 @@ async def test_a_web_date_field_is_typed_in_its_own_order() -> None:
     engine = FakeEngine.from_dict(web_date_desktop([(None, "tt"), (None, "mm"), (None, "jjjj")]))
     result, error, _ = await web_date_call(engine, "2026-03-05")
     assert error is None, text_of(result)
-    assert [engine.refresh_element(f"part{i}").value for i in range(3)] == ["05", "03", "2026"]
+    assert [engine.refresh_element(f"part{i}").value for i in range(3)] == [5.0, 3.0, 2026.0]
 
 
 async def test_a_web_date_field_whose_parts_cannot_be_told_apart_is_refused() -> None:

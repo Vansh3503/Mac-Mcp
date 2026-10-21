@@ -186,7 +186,8 @@ What an opened dropdown shows, over raw trees: `visible_handles(root) -> HandleI
 before opening), `find_node(root, handle) -> (node, ancestors) | None`, `in_web_content(ancestors)`,
 `option_title(node)`, `menu_options(menu) -> list[Option]` (titled visible `AXMenuItem`s; separators are
 untitled), `open_menu_of(control)` (its visible `AXMenu` child or grandchild with items), `combo_list(control,
-*, in_web=False) -> OptionList | None` (the list a combo box shows inside itself, `where="list"`),
+*, in_web=False) -> OptionList | None` (the list a combo box shows inside itself, `where="list"`; its rows may also be `AXTextField`s, as in
+AppKit on macOS 26),
 `combo_arrow(control)` (its pressable `AXButton` child, the arrow), `new_menus(root,
 baseline)` (visible menus not visible before, outermost first, menu bar excluded), `page_options(root,
 baseline, *, exclude=None) -> OptionList | None` (new titled option-like nodes in a web page, the outermost
@@ -288,12 +289,13 @@ open at a time, with fresh item handles, as the element's `AXMenu` child (`menu_
 last child of the window root (`"app"`). Pressing an item (AX or click) chooses it and closes the menu;
 `AXCancel`, Escape, Return, pressing the owner again, a click outside (swallowed), another app coming
 forward or the window closing close it without choosing; other keys and typing go nowhere while it is
-open. `pointer_only: true` (a web control whose script listens to the mouse): `AXPress`, `AXShowMenu`,
+open. `focusable: false`: `focus` fails (`ELEMENT_NOT_ACTIONABLE`), a click still focuses it. `pointer_only: true` (a web control whose script listens to the mouse): `AXPress`, `AXShowMenu`,
 `set_value` and `insert_text` change nothing (recorded as `ignored`), clicks work. `filters: {"list": id,
 "limit": n}` on a text field: when its text changes, the list shows the first `n` children whose label
 contains it. An AppKit combo box (`AXComboBox` with `options`, no `on_press`/`pointer_only`) shows its options
-as an `AXList` child of `AXStaticText` rows without `AXPress` (they take clicks) after `AXShowMenu`, a press of
-its `AXButton` child or a click on its right-hand 18 pt; a click elsewhere only focuses it. A pick from that
+as an `AXList` child of `AXTextField` rows (as on macOS 26) without `AXPress` (they take clicks) after `AXShowMenu`, a press of
+its `AXButton` child or a click on its right-hand 18 pt, and reports itself `expanded` while it is open (once closed,
+the list leaves the tree but stays valid, as on macOS 26); a click elsewhere only focuses it. A pick from that
 list or Return in it records `("combo_commit", {"handle", "value"})`; `set_value` only changes what it shows
 (like `NSComboBox`, issue #33). Clicks reach elements inside zero-size wrappers. Test helpers: `menu_state()` (the open
 menu's owner and item titles) and `set_enabled(ref, enabled)`. The demo desktop also has menus on Notes'
@@ -302,7 +304,8 @@ Chrome checkout page (a `<select>`, a mouse-only combo box, an autocomplete that
 an ARIA menu, a date field), a Slack (Electron) picker and an IntelliJ (Java) combo box whose list is a window.
 A web date field is a node that cannot be set (`settable: false`) whose parts carry `digits: n` (Chrome's spin
 buttons): a part takes focus from `focus` or a click, typed digits fill it (the first after focus starts over;
-other characters are ignored), and a full part moves the focus to the next one.
+other characters are ignored; of text typed without a pause, one key event, it keeps only the first character,
+as Safari and Chrome do; its value is then a number, `5.0`), and a full part moves the focus to the next one.
 
 ---------------------------------------------------------------------------------------------------
 
@@ -566,7 +569,8 @@ Controls (`axpilot/server/tools/controls.py`, input toolset):
   is `select_option` (`free_text=False`) and `set_value`/`fill_form` (`True`, exact titles) on a native combo
   box: setting its text alone does not make an AppKit combo box act, so the value is picked from its list,
   even when the box already shows it; with no list (or, with `free_text`, no option titled exactly so) the text
-  is set, the box focused and Return pressed (strategy `ax_value+return`), except in a sheet or `AXDialog`
+  is set, the box focused (by a click on its text when it cannot take focus through accessibility, as
+  TextEdit's on macOS 26) and Return pressed (strategy `ax_value+return`), except in a sheet or `AXDialog`
   window, where only the text is set (strategy `ax_value`, with a warning: Return would press the default
   button); a box whose text cannot be set either keeps the first error. `in_web(ctx, target)`: the control's
   locator path has an `AXWebArea`, or its app is Electron/CEF. Steps: capture the window (baseline: visible

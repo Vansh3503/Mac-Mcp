@@ -28,6 +28,8 @@ Tree nodes use the :mod:`axpilot.perception.serialize` format plus these fake-on
 * ``on_press``: effect(s) applied when the element is pressed (``AXPress`` or a click);
 * ``options``: the allowed values of a pop-up button or combo box;
 * ``settable``: overrides whether ``set_value`` works on the element;
+* ``focusable``: ``false`` on an element that cannot take keyboard focus through accessibility
+  (``focus`` fails; a click still focuses it), like TextEdit's font-size box on macOS 26;
 * ``min``/``max``/``step``: range of sliders and steppers;
 * ``default``: ``true`` on a window's or sheet's default button, which Return in a one-line text
   field of that window or sheet presses (like AppKit's default button);
@@ -45,18 +47,20 @@ Tree nodes use the :mod:`axpilot.perception.serialize` format plus these fake-on
   an autocomplete.
 
 An AppKit combo box (an ``AXComboBox`` with ``options``, without ``on_press`` or ``pointer_only``)
-shows its options as an ``AXList`` child of ``AXStaticText`` rows (no ``AXPress``: they take
-clicks) after ``AXShowMenu``, a press of its ``AXButton`` child (the arrow) or a click on its
-right-hand :data:`_COMBO_ARROW_WIDTH` points; a click anywhere else only puts the text cursor in
-it. Like ``NSComboBox``, it acts on its value only when an option is picked from that list or
-Return is pressed in it, which records ``("combo_commit", {"handle", "value"})``; setting its text
-(``set_value``) only changes what it shows.
+shows its options as an ``AXList`` child of ``AXTextField`` rows (as on macOS 26; no ``AXPress``:
+they take clicks) after ``AXShowMenu``, a press of its ``AXButton`` child (the arrow) or a click on
+its right-hand :data:`_COMBO_ARROW_WIDTH` points, and reports itself ``expanded`` while that list is
+open (once closed, the list leaves the tree but its elements stay valid, as on macOS 26); a click
+anywhere else only puts the text cursor in it. Like ``NSComboBox``, it acts on its value
+only when an option is picked from that list or Return is pressed in it, which records
+``("combo_commit", {"handle", "value"})``; setting its text (``set_value``) only changes what it shows.
 
 A web date field (``<input type="date">``) is a node whose value cannot be set (``settable:
 false``) with one child per part, each marked ``"digits": n`` (2 for month and day, 4 for the
 year), like Chrome's spin buttons: a part takes keyboard focus from ``focus`` or a click; typed
-digits fill it (the first one after it gained focus starts over), other characters are ignored,
-and once it holds ``n`` digits the focus moves on to the next part, as browsers do.
+digits fill it (the first one after it gained focus starts over; text typed without a pause is one key
+event, of which it keeps only the first character; its value is then a number, 5.0), other characters
+are ignored, and once it holds ``n`` digits the focus moves on to the next part, as browsers do.
 
 Menus that elements show (see ``menu`` above; a pop-up button with ``options`` and no
 ``on_press`` shows its options, the current one selected; an ``AXPopUpButton`` or
@@ -174,6 +178,7 @@ _FAKE_NODE_KEYS = frozenset(
         "on_press",
         "options",
         "settable",
+        "focusable",
         "min",
         "max",
         "step",
@@ -1519,7 +1524,7 @@ class FakeEngine(Engine):
             titles = [
                 item.title or "" if item.role == "AXMenuItem" else str(item.value)
                 for item in menu.node.children
-                if item.role in ("AXMenuItem", "AXStaticText")
+                if item.role in ("AXMenuItem", "AXTextField")
             ]
             return {"owner": menu.owner.handle, "name": _node_label(menu.owner), "titles": titles}
 
@@ -1580,7 +1585,7 @@ class FakeEngine(Engine):
             size = int(self._behaviour[part.handle]["digits"])
             typed = (self._typed_digits.get(part.handle, "") + char)[-size:]
             self._typed_digits[part.handle] = typed
-            part.value = typed
+            part.value = float(typed)  # browsers report a part's value as a number (2026.0)
             if len(typed) < size:
                 continue
             parent = self._parents.get(part.handle)
@@ -1693,7 +1698,7 @@ class FakeEngine(Engine):
         """The ``AXList`` an AppKit combo box shows below itself, as wide as the box."""
         items = [
             RawNode(
-                role="AXStaticText",
+                role="AXTextField",
                 value=choice,
                 selected=str(owner.value) == choice,
                 frame=Rect(at.x, at.y + index * _MENU_ITEM_HEIGHT, at.w, _MENU_ITEM_HEIGHT),
@@ -1744,6 +1749,8 @@ class FakeEngine(Engine):
             for item, choice in zip(menu.children, choices, strict=True):
                 opened.choices[item.handle] = choice
             self._open_menu = opened
+            if self._appkit_combo(owner):
+                owner.expanded = True
         self._record("menu_open", owner=owner.handle, name=_node_label(owner), placement=placement)
         return True
 
@@ -1752,12 +1759,15 @@ class FakeEngine(Engine):
         if menu is None:
             return
         self._open_menu = None
+        if self._appkit_combo(menu.owner):
+            menu.owner.expanded = False
         if menu.parent is None:
             menu.node.visible = False
         else:
             if menu.node in menu.parent.children:
                 menu.parent.children.remove(menu.node)
-            self._unregister_subtree(menu.node, menu.window.app)
+            if not self._appkit_combo(menu.owner):  # like macOS 26, a closed combo list stays valid
+                self._unregister_subtree(menu.node, menu.window.app)
         self._record("menu_close", owner=menu.owner.handle, reason=reason)
 
     def _in_open_menu(self, node: RawNode) -> bool:
@@ -2431,6 +2441,10 @@ class FakeEngine(Engine):
             node = self._node(handle)
             if not node.enabled:
                 raise AXPilotError(ErrorCode.ELEMENT_NOT_ACTIONABLE, f"This {node.role} is disabled.")
+            if self._behaviour.get(node.handle, {}).get("focusable") is False:
+                raise AXPilotError(
+                    ErrorCode.ELEMENT_NOT_ACTIONABLE, f"This {node.role} cannot take keyboard focus."
+                )
             self._record("focus", handle=node.handle)
             self._select_all.discard(node.handle)
             self._app_of(node).focused = node.handle
@@ -2684,7 +2698,9 @@ class FakeEngine(Engine):
                 part = None if self._open_menu is not None else self._focused_part(self._frontmost)
                 self._record("type_text", target=part.handle if part is not None else None, text=text)
                 if part is not None:
-                    self._type_digits(part, text)
+                    # text typed without a pause arrives as one key event, and a browser's date part
+                    # keeps only its first character (Safari, Chrome on macOS 26)
+                    self._type_digits(part, text if interval_s > 0 else text[:1])
                 return
             if node.secure:
                 self._record("type_text", target=node.handle, secure=True, length=len(text))
