@@ -18,11 +18,11 @@ from mcp import Client
 
 from axpilot.engine.fake import DEMO_FIXTURE, FakeEngine
 from axpilot.errors import AXPilotError, ErrorCode
-from axpilot.models import Point
+from axpilot.models import Point, Rect
 from axpilot.perception.navigate import scroll_container_for
 from axpilot.server.context import ServerContext
 from axpilot.server.results import error_code_of, text_of
-from axpilot.server.tools.navigate import MAX_SCROLLS, _Scroller, merge_items
+from axpilot.server.tools.navigate import MAX_SCROLLS, _is_sidebar, _Scroller, _sidebar_rows, merge_items
 from axpilot.testing import connected_client, make_test_context, structured
 from axpilot.testing.faulty_engine import Fault, FaultyEngine
 
@@ -225,6 +225,73 @@ async def test_explore_maps_mail(ctx: ServerContext, client: Client) -> None:
     # the refs belong to a stored snapshot: other tools can use them right away
     read = await ok(client, "read", {"target": table["ref"], "max_pages": 1})
     assert read["container"]["ref"] == table["ref"]
+
+
+async def test_explore_keeps_a_wide_outline_out_of_the_sidebar(client: Client) -> None:
+    """#19: Finder's list view is an AXOutline too; its files are the content, not sidebar sections."""
+    result, error = await call(client, "explore", {"app": "Finder"})
+    assert error is None, text_of(result)
+    data = structured(result)
+    names = [el["name"] for el in data["sections"]]
+    assert {"Favorites", "Desktop", "Downloads", "Macintosh HD"} <= set(names)
+    assert not any("Quarterly Report.pdf" in name for name in names)
+    assert all(el["role"] == "row" for el in data["sections"])
+    files = next(area for area in data["scroll_areas"] if area["name"] == "list view")
+    assert files["rows"] == 5
+    sidebar = next(line for line in text_of(result).splitlines() if line.startswith("sidebar: "))
+    assert "Quarterly" not in sidebar
+
+
+@pytest.mark.parametrize("app", ["Mail", "Notes", "com.jetbrains.intellij"])
+async def test_explore_keeps_narrow_outlines_as_sidebars(
+    ctx: ServerContext, client: Client, app: str
+) -> None:
+    if app != "Mail":
+        engine_of(ctx).app_control("launch", app)
+    data = await ok(client, "explore", {"app": app})
+    assert len(data["sections"]) >= 4
+
+
+async def test_explore_judges_a_pruned_outline_by_its_rows(ctx: ServerContext) -> None:
+    """When the outline itself is not in the snapshot, a row's own width stands in for it."""
+    tree = await ctx.capture_tree(app="Finder")
+    snap = ctx.build_snapshot(tree, mode="interactive", max_elements=500)
+    outlines = {el.ref for el in snap.all_elements if el.ax_role == "AXOutline"}
+    assert len(outlines) == 2
+    for orphan in (None, "e999999"):  # no parent, or a parent that is not in the snapshot
+        kept = [
+            dataclasses.replace(el, parent_ref=orphan) if el.parent_ref in outlines else el
+            for el in snap.all_elements
+            if el.ref not in outlines
+        ]
+        pruned = dataclasses.replace(snap, elements=kept, all_elements=kept)
+        names = [el.name for el in _sidebar_rows(pruned)]
+        assert "Desktop" in names
+        assert not any(name and "Quarterly Report.pdf" in name for name in names)
+        unnamed_window = dataclasses.replace(pruned, window=None)
+        assert _sidebar_rows(unnamed_window) == []
+
+
+WINDOW = Rect(100, 100, 1000, 600)
+
+
+@pytest.mark.parametrize(
+    ("name", "frame", "window", "expected"),
+    [
+        ("Sidebar", Rect(400, 100, 700, 600), WINDOW, True),  # says so, whatever its size
+        ("Source List", None, None, True),
+        ("Mailboxes", Rect(100, 150, 220, 550), WINDOW, True),  # narrow, left edge
+        ("Inspector", Rect(820, 150, 280, 550), WINDOW, True),  # narrow, right edge
+        ("Folders", Rect(110, 160, 200, 520), WINDOW, True),  # inset (floating sidebar)
+        ("list view", Rect(300, 150, 790, 550), WINDOW, False),  # Finder's list view: wide
+        ("Tree", Rect(400, 150, 300, 550), WINDOW, False),  # narrow but in the middle
+        ("Mailboxes", Rect(100, 150, 220, 550), None, False),  # no window to compare with
+        ("Mailboxes", None, WINDOW, False),
+        ("Mailboxes", Rect(100, 150, 220, 550), Rect(100, 100, 0, 0), False),
+    ],
+)
+def test_is_sidebar(name: str, frame: Rect | None, window: Rect | None, expected: bool) -> None:
+    assert _is_sidebar(name, frame, window) is expected
 
 
 @pytest.mark.parametrize(

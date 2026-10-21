@@ -107,6 +107,12 @@ and stops scrolling; weaker matches (some of the words) are returned but keep th
 FIND_LIMIT_MAX = 50
 EXPLORE_LIST_MAX = 25
 """``explore`` lists at most this many items per section (toolbar, tabs, sidebar…)."""
+SIDEBAR_MAX_SHARE = 0.4
+"""An outline at most this share of its window's width, along a window edge, is a sidebar; a wider
+one (Finder's list view) is the window's content."""
+SIDEBAR_EDGE_SHARE = 0.15
+"""A sidebar starts or ends this close to a window edge (share of the window's width): sidebars
+may be inset or float."""
 RESTORE_GRACE_S = 10.0
 """``read(restore=true)`` may scroll back for this long, even after the read used up its time."""
 _VISIBLE_SHARE = 0.98
@@ -229,7 +235,10 @@ class ExploreModel(OutputModel):
     )
     toolbar: list[ElementBriefModel] = Field(default_factory=list)
     tabs: list[ElementBriefModel] = Field(default_factory=list)
-    sections: list[ElementBriefModel] = Field(default_factory=list, description="Sidebar / outline entries.")
+    sections: list[ElementBriefModel] = Field(
+        default_factory=list,
+        description="Sidebar entries (rows of a narrow outline along a window edge, or one named Sidebar).",
+    )
     scroll_areas: list[ScrollAreaModel] = Field(default_factory=list)
     dialogs: list[ElementBriefModel] = Field(
         default_factory=list, description="Open sheets, dialogs, popovers."
@@ -1265,11 +1274,59 @@ def _briefs(elements: Sequence[Element]) -> list[ElementBriefModel]:
     return [brief for el in elements[:EXPLORE_LIST_MAX] if (brief := element_brief(el)) is not None]
 
 
+def _outline_of(snap: Snapshot, el: Element) -> Element | None:
+    """The nearest ``AXOutline`` above ``el`` in the snapshot (``None`` if it was pruned)."""
+    seen = {el.ref}
+    parent = el.parent_ref
+    while parent is not None and parent not in seen:
+        seen.add(parent)
+        found = snap.element(parent)
+        if found is None:
+            return None
+        if found.ax_role == "AXOutline":
+            return found
+        parent = found.parent_ref
+    return None
+
+
+def _is_sidebar(name: str | None, frame: Rect | None, window: Rect | None) -> bool:
+    """True if an outline with this name and frame is a sidebar of ``window``: it says so in its
+    name, or it is narrow (≤ ``SIDEBAR_MAX_SHARE`` of the window's width) and lies along the left or
+    right edge. Finder's list view is an outline too, but a wide one."""
+    if name and any(word in name.casefold() for word in ("sidebar", "source list")):
+        return True
+    if frame is None or window is None or window.w <= 0 or frame.w > window.w * SIDEBAR_MAX_SHARE:
+        return False
+    margin = window.w * SIDEBAR_EDGE_SHARE
+    return frame.x - window.x <= margin or (window.x + window.w) - (frame.x + frame.w) <= margin
+
+
+def _sidebar_rows(snap: Snapshot) -> list[Element]:
+    """Named rows of the window's sidebars. Without its outline in the snapshot, a row's own frame
+    stands in for it (a row spans its outline's width)."""
+    window = snap.window.frame if snap.window is not None else None
+    verdicts: dict[str, bool] = {}
+    rows: list[Element] = []
+    for el in snap.all_elements:
+        if el.role != "row" or not el.name or not _in_path(el, "AXOutline"):
+            continue
+        outline = _outline_of(snap, el)
+        key = outline.ref if outline is not None else el.ref
+        if key not in verdicts:
+            if outline is not None:
+                verdicts[key] = _is_sidebar(outline.name, outline.frame, window)
+            else:
+                verdicts[key] = _is_sidebar(None, el.frame, window)
+        if verdicts[key]:
+            rows.append(el)
+    return rows
+
+
 def _explore_sections(snap: Snapshot) -> dict[str, list[Element]]:
     elements = snap.all_elements
     toolbar = [el for el in elements if el.interactive and _in_path(el, "AXToolbar")]
     tabs = [el for el in elements if el.role == "tab"]
-    outline_rows = [el for el in elements if el.role == "row" and _in_path(el, "AXOutline") and el.name]
+    outline_rows = _sidebar_rows(snap)
     dialogs = [el for el in elements if el.role in ("sheet", "dialog", "popover")]
     areas = [
         el

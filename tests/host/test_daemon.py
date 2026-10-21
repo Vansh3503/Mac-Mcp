@@ -388,3 +388,68 @@ async def test_host_class_defaults(sock_dir: Path) -> None:
     assert host.max_clients == daemon.DEFAULT_MAX_CLIENTS
     info = host._info_for(CLAUDE.client)
     assert info == {"pairing": "unpaired", "clients": []}
+
+
+# =========================================================================== launcher
+def test_launcher_pid_is_the_parent_only_under_the_launcher() -> None:
+    assert daemon.launcher_pid({}) is None
+    assert daemon.launcher_pid({"AXPILOT_LAUNCHER_VERSION": ""}) is None
+    assert daemon.launcher_pid({"AXPILOT_LAUNCHER_VERSION": "1.0.0"}) == os.getppid()
+
+
+async def test_watch_parent_returns_once_the_parent_changes() -> None:
+    readings = iter([500, 500, 500, 1])
+    calls: list[int] = []
+
+    def getppid() -> int:
+        calls.append(1)
+        return next(readings)
+
+    with anyio.fail_after(5):
+        await daemon.watch_parent(500, interval_s=0, getppid=getppid)
+    assert len(calls) == 4
+
+
+@pytest.mark.parametrize("parent", [1, 777])
+async def test_watch_parent_sees_a_parent_that_is_already_gone(parent: int) -> None:
+    with anyio.fail_after(5):
+        await daemon.watch_parent(parent, interval_s=60, getppid=lambda: 1 if parent == 1 else 888)
+
+
+async def test_the_host_stops_when_its_launcher_is_gone(
+    sock_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = sock_dir / "axpilot.sock"
+    launcher = os.getppid()
+    host = Host(
+        ctx=make_ctx(),
+        socket_path=path,
+        pairing=PairingStore(sock_dir / "p.json"),
+        parent_pid=launcher,
+        parent_poll_s=0.01,
+    )
+    with anyio.fail_after(10):
+        async with anyio.create_task_group() as tg:
+            await tg.start(lambda task_status: host.serve(task_status=task_status))
+            assert socket_is_live(path)
+            await anyio.sleep(0.05)
+            assert socket_is_live(path)  # still serving while the launcher lives
+            monkeypatch.setattr(os, "getppid", lambda: 1)  # the launcher died: launchd adopts us
+            await until(lambda: not path.exists())
+    assert not path.exists()
+
+
+async def test_a_host_started_by_hand_ignores_its_parent(
+    sock_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = sock_dir / "axpilot.sock"
+    monkeypatch.setattr(os, "getppid", lambda: 1)
+    host = Host(
+        ctx=make_ctx(), socket_path=path, pairing=PairingStore(sock_dir / "p.json"), parent_poll_s=0.01
+    )
+    with anyio.fail_after(10):
+        async with anyio.create_task_group() as tg:
+            await tg.start(lambda task_status: host.serve(task_status=task_status))
+            await anyio.sleep(0.05)
+            assert socket_is_live(path)
+            tg.cancel_scope.cancel()

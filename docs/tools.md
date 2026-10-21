@@ -490,7 +490,10 @@ Set a control to a value, the way its role expects:
   it is already in that state.
 - slider / stepper: a number (clamped to the control's range; a warning says so).
 - disclosure triangle: "true" (expanded) or "false" (collapsed).
-- text field / search field / text area / combo box: the new text (replaces it).
+- text field / search field / text area: the new text (replaces it).
+- combo box: the option with exactly that title is picked from its list (so the app takes it);
+  other text is typed in and confirmed with Return (not in a dialog, where Return would press its
+  default button).
 - date picker: an ISO 8601 date, "2026-10-20" or "2026-10-20 14:30"; a time field: "14:30".
 - pop-up button: the title of the option to choose.
 Color wells can't be set: click one to open the Colors panel.
@@ -520,7 +523,8 @@ tab groups and segmented controls (presses the matching button) and lists, table
 (selects the matching row).
 Params: ref (the control, from a snapshot), option (title: exact, then unique prefix; never a word
 inside a longer title) or index; snapshot_id; report. Choosing the option that is already selected
-changes nothing.
+changes nothing, except in a native combo box, whose option is picked from its list again (it may
+show a value it was never told).
 Errors: INVALID_ARGUMENT (no or several matching options: the message lists them), STALE_REF,
 ELEMENT_NOT_ACTIONABLE (disabled control or option, nothing opened, or the control did not take
 the option), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER.

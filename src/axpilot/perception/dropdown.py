@@ -72,7 +72,7 @@ clickable roles custom pickers use."""
 WEB_AREA_ROLE = "AXWebArea"
 MENU_BAR_ROLES: frozenset[str] = frozenset({"AXMenuBar", "AXMenuBarItem"})
 
-Where = Literal["menu", "app_menu", "page", "window"]
+Where = Literal["menu", "app_menu", "page", "window", "list"]
 
 
 # --------------------------------------------------------------------------- matching
@@ -237,6 +237,29 @@ def open_menu_of(control: RawNode) -> RawNode | None:
             if node.role == MENU_ROLE and node.visible and _on_screen(node.frame) and menu_options(node):
                 return node
     return None
+
+
+def combo_list(control: RawNode, *, in_web: bool = False) -> OptionList | None:
+    """The options of the list a combo box shows inside itself (an AppKit combo box's list, possibly
+    in a scroll area), or ``None``."""
+    for node, _ in visible_nodes(control):
+        if (
+            node is control
+            or node.role == MENU_ROLE
+            or node.role not in LIST_ROLES
+            or not _on_screen(node.frame)
+        ):
+            continue
+        options = _list_children(node)
+        if options:
+            return OptionList(node, options, "list", in_web=in_web)
+    return None
+
+
+def combo_arrow(control: RawNode) -> RawNode | None:
+    """The button of a combo box that opens its list (its arrow): a pressable ``AXButton`` child."""
+    buttons = [c for c in control.children if c.role == "AXButton" and c.visible and "AXPress" in c.actions]
+    return buttons[-1] if buttons else None
 
 
 def new_menus(root: RawNode, baseline: HandleIndex) -> list[tuple[RawNode, tuple[RawNode, ...]]]:

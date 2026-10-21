@@ -153,4 +153,30 @@ Pre-alpha. Nothing is published on PyPI yet.
   Agent Skill (`skills/axpilot/SKILL.md`), MCP Registry metadata and the installer script
   (`packaging/`).
 
+### Fixed
+
+- `explore` listed the files of Finder's list view as sidebar sections: every outline's rows
+  counted. Only an outline named like a sidebar, or a narrow one along a window edge, is a sidebar
+  now; a wide one is the window's content and stays under scroll areas (#19).
+- AXPilot could switch on the full accessibility tree (`AXManualAccessibility`) of an Electron or
+  Chromium app the agent never targeted: after an action whose app quit, the report of whatever
+  app came forward (often the MCP client itself) did so, and a call without `app` could read an app
+  that came forward after the policy check. Reports of an untargeted app now read it as it is, and
+  a call without `app` stays on the frontmost app the policy checked (#23).
+- Clipboard reads and writes (the `clipboard` tool, and saving and restoring the clipboard around
+  a paste) ran on a worker thread, where macOS complains about apps fulfilling copied data
+  synchronously. They now run on the main thread, waiting at most 0.5 s for it, then as before on
+  the worker; work left waiting there is cancelled, so a late restore can never undo a newer copy
+  (#25).
+- When AXPilot.app crashed or was force-quit, the host it started kept running and held the
+  socket, with nothing left to restart it. A host started by AXPilot.app now notices within a
+  second that its launcher is gone and stops cleanly (#29).
+- `set_value` and `select_option` reported success on a native combo box such as TextEdit's font
+  size, but the text kept its size: setting a combo box's text only changes what it shows, and the
+  app acts on a pick from its list or on Return. Both tools now pick the value from the box's own
+  list (opened with its arrow), even when the box already shows it; `set_value` with text that is
+  not an option types it and presses Return, except in a dialog, where Return would press the
+  default button and a warning says so instead. `set_value` also works on Java and Qt combo boxes,
+  whose text cannot be set (#33).
+
 [Unreleased]: https://github.com/vansh3503/Mac-Mcp/commits/main

@@ -491,7 +491,7 @@ async def test_a_native_control_without_actions_is_opened_with_a_click() -> None
     data["windows"][0]["tree"]["children"][0]["actions"] = []
     ctx = context(FakeEngine(data))
     target = await target_of(ctx, "Stubborn")
-    attempt = await dropdown._open(ctx, target, web=False)
+    attempt = await dropdown._open(ctx, target, False, await dropdown._baseline(ctx, target))
     assert attempt == "open:mouse"
     assert fake(ctx).menu_state() is not None
 

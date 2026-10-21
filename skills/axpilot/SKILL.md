@@ -44,7 +44,10 @@ is authoritative for its exact parameters.
   AXPilot opens the control, waits for its menu or list, chooses the option (typing to filter a
   web combo box when the option is not listed yet) and checks that the control took it. An
   unknown option is `INVALID_ARGUMENT` with the options listed, and the menu is closed again;
-  pass one of those titles. Read the result's warnings: "could not confirm" means take a
+  pass one of those titles. A native combo box (TextEdit's font size) acts only on a pick from
+  its list or on Return, so `select_option` and `set_value` pick from its list, even when it
+  already shows the value; `set_value` with text that is not an option types it and presses
+  Return (except in a dialog, where the result warns that nothing confirmed it). Read the result's warnings: "could not confirm" means take a
   snapshot to check what the page shows. If `select_option` says the control showed no menu or
   list, open it yourself (`click`, or `perform_action` with `AXShowMenu`), take a snapshot, and
   click the option by ref; Escape closes a menu you opened and no longer need.

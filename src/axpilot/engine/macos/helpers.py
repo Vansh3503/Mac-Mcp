@@ -4,24 +4,30 @@ Nothing in this module imports PyObjC, so unlike the rest of :mod:`axpilot.engin
 it imports (and is unit-tested) on every OS. The PyObjC-facing modules stay thin and hand
 their decisions to these functions: AX error mapping, AXValue parsing, menu-title matching,
 shortcut decoding, AX↔CGWindow matching, geometry, keystroke chunking, process ancestry,
-installed-app discovery and Chromium/Electron detection.
+installed-app discovery, Chromium/Electron detection and running short jobs on the main thread.
 """
 
 from __future__ import annotations
 
+import logging
 import math
 import plistlib
 import re
+import threading
 import unicodedata
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, TypeVar
 
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.input.keys import US_ANSI_KEYCODES, US_ANSI_SHIFTED, to_glyphs
 from axpilot.models import DisplayInfo, KeyCombo, Point, Rect
 from axpilot.system.osascript import applescript_string
+
+_log = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 # =============================================================================== AX errors
 
@@ -771,6 +777,28 @@ def media_key_event_data(key_type: int, down: bool) -> tuple[int, int]:
     return state << 8, (key_type << 16) | (state << 8)
 
 
+# ============================================================================ permissions
+
+
+def automation_notes(automation: dict[str, bool], unasked: Iterable[str]) -> list[str]:
+    """Notes for :func:`~axpilot.engine.macos.permissions.permission_status`: denied targets and
+    targets macOS has not asked about."""
+    not_asked = sorted(set(unasked))
+    denied = sorted(bundle for bundle, ok in automation.items() if not ok and bundle not in not_asked)
+    notes: list[str] = []
+    if denied:
+        notes.append(
+            "Automation (Apple events) is denied for: " + ", ".join(denied) + "; allow it in System "
+            "Settings → Privacy & Security → Automation."
+        )
+    if not_asked:
+        notes.append(
+            "Automation (Apple events) has not been asked for yet for: " + ", ".join(not_asked) + "; "
+            "macOS asks the first time a tool needs it."
+        )
+    return notes
+
+
 # ======================================================================== process lineage
 
 
@@ -1366,3 +1394,105 @@ def hit_test(
                     continue
         return window
     return None
+
+
+# ============================================================================ main thread
+
+JobState = Literal["pending", "running", "done", "cancelled"]
+
+
+@dataclass(eq=False)
+class _MainJob:
+    fn: Callable[[], Any]
+    state: JobState = "pending"
+    result: Any = None
+    error: BaseException | None = None
+    done: threading.Event = field(default_factory=threading.Event)
+
+
+class MainThreadCaller:
+    """Runs short jobs on the main thread, for APIs that want to be called there (the
+    pasteboard fulfils promises synchronously and logs a complaint on other threads).
+
+    ``schedule(fn)`` queues ``fn`` on the main run loop (``AppHelper.callAfter`` on macOS) and
+    ``is_main()`` tells whether the caller already is the main thread, which runs the job
+    directly. Cancel-safe: a job the main thread has not picked up within ``start_s`` is
+    cancelled, so it never runs after its caller moved on (a late clipboard restore would undo
+    a newer copy); the call then runs it on the calling thread and logs a warning once, since
+    nothing turns the main run loop. Until the main thread picks a job up again, later calls run
+    directly without waiting. A job that started gets ``finish_s`` to finish, then the call
+    raises ``TIMEOUT`` (the job itself cannot be interrupted).
+    """
+
+    def __init__(
+        self,
+        schedule: Callable[[Callable[[], None]], None],
+        is_main: Callable[[], bool],
+        *,
+        start_s: float,
+        finish_s: float,
+        what: str,
+    ) -> None:
+        self._schedule = schedule
+        self._is_main = is_main
+        self._start_s = start_s
+        self._finish_s = finish_s
+        self._what = what
+        self._lock = threading.Lock()
+        self._unanswered = False
+        self._warned = False
+
+    def call(self, fn: Callable[[], T]) -> T:
+        """``fn()``, run on the main thread when it answers in time (see the class doc)."""
+        if self._is_main():
+            return fn()
+        with self._lock:
+            unanswered = self._unanswered
+        if unanswered:
+            return fn()
+        job = _MainJob(fn)
+        try:
+            self._schedule(lambda: self._run(job))
+        except Exception as exc:  # PyObjC raises objc.error subclasses
+            self._warn_once(f"it cannot be scheduled there ({exc})")
+            return fn()
+        job.done.wait(self._start_s)
+        with self._lock:
+            if job.state == "pending":
+                job.state = "cancelled"
+                self._unanswered = True
+        if job.state == "cancelled":
+            self._warn_once("the main thread did not answer in time (is a Cocoa run loop running?)")
+            return fn()
+        if not job.done.wait(self._finish_s):
+            raise AXPilotError(
+                ErrorCode.TIMEOUT,
+                f"{self._what} did not answer within {self._finish_s:g} s.",
+                hint="An app may be slow to provide what it copied; try again.",
+            )
+        if job.error is not None:
+            raise job.error
+        return job.result
+
+    def _run(self, job: _MainJob) -> None:
+        with self._lock:
+            self._unanswered = False
+            if job.state != "pending":
+                return  # its caller gave up waiting: never run it late
+            job.state = "running"
+        try:
+            job.result = job.fn()
+        except Exception as exc:
+            job.error = exc
+        except BaseException:
+            job.error = AXPilotError(ErrorCode.INTERNAL, f"{self._what} was interrupted.")
+            raise
+        finally:
+            job.state = "done"
+            job.done.set()
+
+    def _warn_once(self, reason: str) -> None:
+        with self._lock:
+            warned, self._warned = self._warned, True
+        if not warned:
+            _log.warning("%s runs off the main thread: %s.", self._what, reason)

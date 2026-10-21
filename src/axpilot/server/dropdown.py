@@ -1,19 +1,21 @@
 """Choose an option of a dropdown: open it, wait for its options, pick one, check that it took.
 
-This is the one flow behind ``select_option`` for pop-up buttons, menu buttons and web or
-Electron pickers, and behind ``set_value``/``fill_form`` on pop-up buttons. It works through the
-:class:`~axpilot.engine.base.Engine` API only, so the fake desktop exercises the same code that
-drives a real Mac.
+This is the one flow behind ``select_option`` for pop-up buttons, menu buttons, combo boxes and
+web or Electron pickers, and behind ``set_value``/``fill_form`` on pop-up buttons and native combo
+boxes (:func:`set_combo`). It works through the :class:`~axpilot.engine.base.Engine` API only, so
+the fake desktop exercises the same code that drives a real Mac.
 
 1. **Open.** Native controls get ``AXPress`` (``AXShowMenu`` when they have no press), with a
-   mouse click as the fallback. Controls in web content (a web area, or an Electron app) get a
-   real mouse click: page scripts (React Select, MUI, Slack, VS Code) listen to mouse events
-   and may ignore accessibility actions. A web text combo box that shows nothing on click gets
-   the Down arrow, which opens ARIA comboboxes.
+   mouse click as the fallback. A native combo box opens with its arrow: its arrow button, else
+   ``AXShowMenu``/``AXPress``, else a click on its right-hand end (a click in its middle only
+   puts the text cursor in it), and that click again when an action showed nothing. Controls in
+   web content (a web area, or an Electron app) get a real mouse click: page scripts (React
+   Select, MUI, Slack, VS Code) listen to mouse events and may ignore accessibility actions. A web
+   text combo box that shows nothing on click gets the Down arrow, which opens ARIA comboboxes.
 2. **Wait** (at most :data:`OPEN_WAIT_S`) for what appeared, re-capturing the window: the
-   control's own menu, any other new menu (application level, context menus, ARIA menus), a new
-   list of options in a web page, or a new window of the app holding a menu or list (Java and
-   Qt pop-ups). See :mod:`axpilot.perception.dropdown`.
+   control's own menu, the list a combo box shows inside itself, any other new menu (application
+   level, context menus, ARIA menus), a new list of options in a web page, or a new window of the
+   app holding a menu or list (Java and Qt pop-ups). See :mod:`axpilot.perception.dropdown`.
 3. **Pick** the option by title (exact, then unique prefix) or 1-based index. When a web text
    combo box lists no match, the title is typed to filter the list (autocomplete), once.
 4. **Press** it: menu items with ``AXPress``; options in web content with a real click.
@@ -38,11 +40,12 @@ from typing import Any
 import anyio
 
 from axpilot.errors import AXPilotError, ErrorCode
-from axpilot.models import AppInfo, KeyCombo, RawNode, RawTree, Rect
+from axpilot.models import AppInfo, KeyCombo, Point, RawNode, RawTree, Rect
 from axpilot.perception import dropdown as dd
 from axpilot.perception.appkind import detect_app_kind
 from axpilot.perception.format import quote
 from axpilot.perception.refs import HandleIndex
+from axpilot.perception.roles import DIALOG_SUBROLES
 from axpilot.server.context import ServerContext
 from axpilot.server.tools.input import (
     Target,
@@ -54,7 +57,7 @@ from axpilot.server.tools.input import (
     type_keystrokes,
 )
 
-__all__ = ["DropdownOutcome", "choose_option", "in_web"]
+__all__ = ["DropdownOutcome", "choose_option", "in_web", "set_combo"]
 
 _log = logging.getLogger(__name__)
 
@@ -72,7 +75,10 @@ OPTION_CHECKS = 3
 WEB_APP_KINDS = frozenset({"electron", "cef"})
 """App kinds whose whole window is web content."""
 TEXT_COMBO_ROLES = frozenset({"AXComboBox", "AXTextField"})
+COMBO_ARROW_INSET = 9.0
+"""A click this far from a combo box's right edge lands on its arrow."""
 OPEN_KEY = KeyCombo("down")
+RETURN = KeyCombo("return")
 ESCAPE = KeyCombo("escape")
 SELECT_ALL = KeyCombo("a", frozenset({"cmd"}))
 DELETE = KeyCombo("delete")
@@ -83,8 +89,9 @@ class DropdownOutcome:
     """What :func:`choose_option` did."""
 
     strategy: str | None
-    """``menu`` (a native menu), ``menu_window`` (a pop-up window), ``listbox`` (a web list),
-    or ``None`` when the option was already chosen."""
+    """``menu`` (a native menu), ``menu_window`` (a pop-up window), ``list`` (a combo box's own
+    list), ``listbox`` (a web list), ``ax_value+return`` or ``ax_value`` (:func:`set_combo` typed
+    the text), or ``None`` when the option was already chosen."""
     chosen: str
     message: str
     attempts: list[str] = field(default_factory=list)
@@ -149,6 +156,10 @@ def _locate(tree: RawTree, target: Target, baseline: _Baseline, web: bool) -> dd
         if menu is not None:
             options = dd.menu_options(menu)
             return dd.OptionList(menu, options, "menu", in_web=dd.in_web_content(ancestors), control=control)
+        if control.role == "AXComboBox":
+            listing = dd.combo_list(control, in_web=dd.in_web_content(ancestors))
+            if listing is not None:
+                return listing
     menus = dd.new_menus(tree.root, baseline.visible)
     if menus:
         menu, ancestors = menus[0]
@@ -213,18 +224,56 @@ async def _bring_forward(ctx: ServerContext, target: Target) -> None:
         await activate_app(ctx, app)
 
 
-async def _open(ctx: ServerContext, target: Target, web: bool) -> str:
+async def _open(ctx: ServerContext, target: Target, web: bool, baseline: _Baseline) -> str:
     """Open the control; returns the rung used (``open:ax:AXPress``, ``open:mouse``)."""
     el = target.el
     assert el is not None
     if not web:
         await _bring_forward(ctx, target)
+        if el.ax_role == "AXComboBox":
+            return await _open_combo(ctx, target, baseline)
         action = next((a for a in ("AXPress", "AXShowMenu") if a in el.actions), None)
         if action is not None and target.handle is not None:
             await ctx.run_engine(ctx.engine.perform_action, target.handle, action)
             return f"open:ax:{action}"
     used, _ = await click_target(ctx, target, button="left", count=1, modifiers=(), strategy="mouse")
     return f"open:{used}"
+
+
+async def _open_combo(ctx: ServerContext, target: Target, baseline: _Baseline) -> str:
+    """Open a native combo box with its arrow button, else ``AXShowMenu``/``AXPress``, else a click
+    on its arrow."""
+    el = target.el
+    assert el is not None
+    found = dd.find_node(baseline.tree.root, target.handle)
+    arrow = dd.combo_arrow(found[0]) if found is not None else None
+    if arrow is not None and arrow.handle is not None:
+        await ctx.run_engine(ctx.engine.perform_action, arrow.handle, "AXPress")
+        return "open:ax:arrow"
+    action = next((a for a in ("AXShowMenu", "AXPress") if a in el.actions), None)
+    if action is not None and target.handle is not None:
+        await ctx.run_engine(ctx.engine.perform_action, target.handle, action)
+        return f"open:ax:{action}"
+    return await _click_arrow(ctx, target)
+
+
+async def _click_arrow(ctx: ServerContext, target: Target) -> str:
+    """Click a combo box's arrow: its right-hand end, where AppKit draws it."""
+    el = target.el
+    assert el is not None
+    frame = el.frame
+    if frame is None or frame.w <= 0 or frame.h <= 0:
+        used, _ = await click_target(ctx, target, button="left", count=1, modifiers=(), strategy="mouse")
+        return f"open:{used}"
+    point = Point(frame.x + frame.w - min(COMBO_ARROW_INSET, frame.w / 2), frame.y + frame.h / 2)
+    arrow = await resolve_point(ctx, point.x, point.y)
+    if target.app is not None and (arrow.app is None or arrow.app.pid != target.app.pid):
+        raise AXPilotError(
+            ErrorCode.ELEMENT_NOT_ACTIONABLE,
+            f"The arrow of {target.describe()} is covered by another window.",
+        )
+    used, _ = await click_target(ctx, arrow, button="left", count=1, modifiers=(), strategy="mouse")
+    return f"open:{used}:arrow"
 
 
 async def _press_keys(ctx: ServerContext, target: Target, combo: KeyCombo) -> None:
@@ -406,7 +455,7 @@ async def _restore_text(ctx: ServerContext, target: Target, text: str) -> None:
             _log.warning("Could not restore the text of %s: %s", target.describe(), err.message)
 
 
-def _pick(found: dd.OptionList, option: str | None, index: int | None) -> dd.Option:
+def _pick(found: dd.OptionList, option: str | None, index: int | None, *, exact: bool = False) -> dd.Option:
     if index is not None:
         if not 1 <= index <= len(found.options):
             raise AXPilotError(
@@ -416,7 +465,15 @@ def _pick(found: dd.OptionList, option: str | None, index: int | None) -> dd.Opt
             )
         return found.options[index - 1]
     assert option is not None
-    return found.options[dd.match_option(found.titles(), option)]
+    titles = found.titles()
+    if exact and not any(dd.fold(title) == dd.fold(option) for title in titles):
+        raise AXPilotError(
+            ErrorCode.INVALID_ARGUMENT,
+            f"No option is titled {option!r}.",
+            hint="Pass the exact title (or index, 1-based).",
+            details={"options": titles[: dd.MAX_LISTED], "reason": "no_match"},
+        )
+    return found.options[dd.match_option(titles, option)]
 
 
 def _no_match(found: dd.OptionList, option: str) -> bool:
@@ -459,11 +516,12 @@ async def _filter(ctx: ServerContext, run: _Run, found: dd.OptionList, option: s
 
 # --------------------------------------------------------------------------- the flow
 async def choose_option(
-    ctx: ServerContext, target: Target, *, option: str | None, index: int | None
+    ctx: ServerContext, target: Target, *, option: str | None, index: int | None, exact: bool = False
 ) -> DropdownOutcome:
-    """Open the dropdown at ``target``, choose ``option`` (a title) or ``index`` (1-based) and
-    verify it (see the module docstring). Raises ``ELEMENT_NOT_ACTIONABLE`` (disabled control or
-    option, nothing opened, the choice did not take), ``INVALID_ARGUMENT`` (no or several
+    """Open the dropdown at ``target``, choose ``option`` (a title; with ``exact``, only an option
+    with exactly that title) or ``index`` (1-based) and verify it (see the module docstring).
+    Raises ``ELEMENT_NOT_ACTIONABLE`` (disabled control or option, nothing opened: ``details``
+    ``reason`` ``no_options``, the choice did not take), ``INVALID_ARGUMENT`` (no or several
     matching options; the message lists them), ``STALE_REF``, ``BLOCKED_BY_POLICY``,
     ``PAUSED_BY_USER`` and engine errors; the menu is closed again on every failure."""
     el = target.el
@@ -480,9 +538,9 @@ async def choose_option(
             shown = quote(str(current.value), 60)
             return DropdownOutcome(None, str(current.value), f"{shown} was already chosen")
     baseline = await _baseline(ctx, target)
-    run = _Run(target, baseline, web, [await _open(ctx, target, web)])
+    run = _Run(target, baseline, web, [await _open(ctx, target, web, baseline)])
     try:
-        chosen = await _choose(ctx, run, option, index)
+        chosen = await _choose(ctx, run, option, index, exact=exact)
     except BaseException:
         await _clean_up(ctx, run)
         raise
@@ -503,7 +561,9 @@ class _Run:
     """The combo box's text before AXPilot typed into it to filter (restored on failure)."""
 
 
-async def _choose(ctx: ServerContext, run: _Run, option: str | None, index: int | None) -> dd.Option:
+async def _choose(
+    ctx: ServerContext, run: _Run, option: str | None, index: int | None, *, exact: bool = False
+) -> dd.Option:
     """Wait for the options, pick one and press it (``run.found`` tracks what is open)."""
     target, el = run.target, run.target.el
     assert el is not None
@@ -512,17 +572,25 @@ async def _choose(ctx: ServerContext, run: _Run, option: str | None, index: int 
         run.attempts.append("open:keys:down")
         await _press_keys(ctx, target, OPEN_KEY)
         run.found = await _wait_for_options(ctx, target, run.baseline, run.web)
+    if (
+        run.found is None
+        and not run.web
+        and el.ax_role == "AXComboBox"
+        and run.attempts[-1].startswith("open:ax:")
+    ):
+        run.attempts.append(await _click_arrow(ctx, target))  # the action did nothing: as a user would
+        run.found = await _wait_for_options(ctx, target, run.baseline, run.web)
     if run.found is None:
         raise AXPilotError(
             ErrorCode.ELEMENT_NOT_ACTIONABLE,
             f"{target.describe()} showed no menu or list of options after {', '.join(run.attempts)}.",
             hint="Take a snapshot to see what it opened; click options by ref, or use select_menu for "
             "menu bar commands.",
-            details={"attempts": list(run.attempts)},
+            details={"attempts": list(run.attempts), "reason": "no_options"},
         )
     if option is not None and run.web and el.ax_role in TEXT_COMBO_ROLES and _no_match(run.found, option):
         run.found = await _filter(ctx, run, run.found, option)
-    chosen = _pick(run.found, option, index)
+    chosen = _pick(run.found, option, index, exact=exact)
     if not chosen.enabled:
         raise AXPilotError(
             ErrorCode.ELEMENT_NOT_ACTIONABLE,
@@ -538,7 +606,7 @@ async def _verify(ctx: ServerContext, run: _Run, found: dd.OptionList, chosen: d
     el = target.el
     assert el is not None
     assert target.handle is not None
-    strategy = {"window": "menu_window", "page": "listbox"}.get(found.where, "menu")
+    strategy = {"window": "menu_window", "page": "listbox", "list": "list"}.get(found.where, "menu")
     outcome = DropdownOutcome(strategy, chosen.title, f"chose {quote(chosen.title, 60)}", attempts)
     await ctx.sleep(ctx.config.perception.settle_ms / 1000)
     if await _still_open(ctx, found, wait_s=CLOSE_WAIT_S):
@@ -569,3 +637,64 @@ async def _verify(ctx: ServerContext, run: _Run, found: dd.OptionList, chosen: d
 def _selected_now(tree: RawTree, chosen: dd.Option) -> bool:
     found = dd.find_node(tree.root, chosen.node.handle)
     return found is not None and found[0].visible and found[0].selected
+
+
+# --------------------------------------------------------------------------- native combo boxes
+async def set_combo(ctx: ServerContext, target: Target, value: str, *, free_text: bool) -> DropdownOutcome:
+    """Enter ``value`` in a native combo box (AppKit, Java, Qt) so that the app takes it.
+
+    Setting a combo box's text through accessibility changes what it shows without making it act:
+    an AppKit combo box acts when an option is picked from its list or on Return (#33). So the
+    value is picked from the box's list like a user would, even when the box already shows it.
+    With ``free_text`` (``set_value``) only an option titled exactly ``value`` is picked and any
+    other text is typed in; otherwise (``select_option``) options match as usual and a missing one
+    is an error. A box that shows no list gets the text either way. Typed text is confirmed with
+    Return, except in a sheet or dialog, where Return would press the default button: there the
+    text is only set, with a warning."""
+    try:
+        return await choose_option(ctx, target, option=value, index=None, exact=free_text)
+    except AXPilotError as err:
+        reason = (err.details or {}).get("reason")
+        if reason != "no_options" and not (free_text and reason == "no_match"):
+            raise
+        cause = err
+    return await _enter_text(ctx, target, value, cause)
+
+
+async def _enter_text(ctx: ServerContext, target: Target, value: str, cause: AXPilotError) -> DropdownOutcome:
+    """Set the combo box's text and confirm it with Return (see :func:`set_combo`)."""
+    assert target.handle is not None
+    try:
+        await ctx.run_engine(ctx.engine.set_value, target.handle, value)
+    except AXPilotError as err:
+        if err.code is ErrorCode.ELEMENT_NOT_ACTIONABLE:
+            raise cause from err  # neither a list to pick from nor text to edit: the first reason stands
+        raise
+    attempts = ["ax_value"]
+    shown = quote(value, 60)
+    if await _in_dialog(ctx, target):
+        warning = (
+            f"{target.describe()} is in a dialog: AXPilot did not press Return, which would press the "
+            "dialog's default button, so the app may take the text only once it is confirmed."
+        )
+        return DropdownOutcome("ax_value", value, f"set to {shown}", attempts, [warning])
+    await _bring_forward(ctx, target)
+    await ctx.run_engine(ctx.engine.focus, target.handle)
+    attempts.append("focus")
+    await _press_keys(ctx, target, RETURN)
+    attempts.append("key:return")
+    outcome = DropdownOutcome("ax_value+return", value, f"set to {shown} and pressed Return", attempts)
+    after = await ctx.run_engine(ctx.engine.refresh_element, target.handle)
+    if not dd.shows_choice(after, value):
+        shows = quote(str(after.value or ""), 60)
+        outcome.warnings.append(f"{target.describe()} shows {shows} after Return; take a snapshot to check.")
+    return outcome
+
+
+async def _in_dialog(ctx: ServerContext, target: Target) -> bool:
+    """True if the control lies in a sheet or a dialog window (where Return presses its default button)."""
+    el = target.el
+    if el is not None and any(role == "AXSheet" for role, _ in el.locator.path):
+        return True
+    root = (await _capture(ctx, target)).root
+    return root.role == "AXSheet" or root.subrole in DIALOG_SUBROLES

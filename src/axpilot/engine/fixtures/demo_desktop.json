@@ -1875,8 +1875,11 @@
               },
               {
                 "id": "textedit2.size", "role": "AXComboBox", "description": "Font Size", "value": "12",
-                "frame": [572, 202, 50, 22], "actions": ["AXConfirm", "AXShowMenu"],
-                "options": ["9", "10", "11", "12", "13", "14", "18", "24", "36"]
+                "frame": [572, 202, 50, 22], "actions": ["AXConfirm"],
+                "options": ["9", "10", "11", "12", "13", "14", "18", "24", "36"],
+                "children": [
+                  {"id": "textedit2.size.arrow", "role": "AXButton", "frame": [608, 202, 14, 22], "actions": ["AXPress"]}
+                ]
               },
               {
                 "role": "AXColorWell", "description": "Text Color", "frame": [628, 202, 24, 22],

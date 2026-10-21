@@ -19,6 +19,10 @@ bridge connection as its own MCP session:
 
 At most ``max_clients`` sessions run at once; more get ``BUSY``. Refusals are sent as a reply
 line before the connection is closed, so the bridge can show the reason.
+
+A host started by ``AXPilot.app`` (which sets ``AXPILOT_LAUNCHER_VERSION``) stops when the launcher
+dies, e.g. when it is force-quit: nothing could restart the host, but it would keep the socket
+and the permissions. It notices within :data:`PARENT_POLL_S` that it has a new parent.
 """
 
 from __future__ import annotations
@@ -34,7 +38,7 @@ import struct
 import sys
 import threading
 import time
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -54,11 +58,15 @@ from axpilot.server.context import CONFIRM_TIMEOUT_MAX_S, ServerContext
 __all__ = [
     "DEFAULT_MAX_CLIENTS",
     "HELLO_TIMEOUT_S",
+    "LAUNCHER_ENV",
+    "PARENT_POLL_S",
     "Host",
+    "launcher_pid",
     "peer_uid",
     "prepare_socket",
     "serve",
     "socket_is_live",
+    "watch_parent",
 ]
 
 _log = logging.getLogger(__name__)
@@ -67,11 +75,35 @@ DEFAULT_MAX_CLIENTS = 8
 HELLO_TIMEOUT_S = 10.0
 """A connection that sends no hello within this time is closed."""
 LIVE_PROBE_TIMEOUT_S = 0.5
+LAUNCHER_ENV = "AXPILOT_LAUNCHER_VERSION"
+"""Set by ``AXPilot.app`` in the environment of the host it starts."""
+PARENT_POLL_S = 1.0
+"""How often a host started by ``AXPilot.app`` checks that the launcher is still its parent."""
 _SO_PEERCRED_FORMAT = "3i"  # struct ucred: pid, uid, gid
 _SOL_LOCAL = 0  # macOS <sys/un.h>
 _LOCAL_PEERCRED = 0x001
 _XUCRED_SIZE = 76  # struct xucred: version, uid, ngroups (+pad), 16 groups
 _XUCRED_VERSION = 0
+
+
+# =========================================================================== launcher
+def launcher_pid(environ: Mapping[str, str] | None = None) -> int | None:
+    """The pid of ``AXPilot.app`` if it started this process (it sets :data:`LAUNCHER_ENV`), else
+    ``None``: a host started by hand keeps running when the shell that started it goes."""
+    env = os.environ if environ is None else environ
+    return os.getppid() if env.get(LAUNCHER_ENV) else None
+
+
+async def watch_parent(
+    parent_pid: int, *, interval_s: float = PARENT_POLL_S, getppid: Callable[[], int] | None = None
+) -> None:
+    """Return once this process's parent is no longer ``parent_pid``: the parent died and the
+    process was re-parented (to launchd on macOS). A parent pid of 1 counts as gone already."""
+    while True:
+        current = getppid() if getppid is not None else os.getppid()
+        if current != parent_pid or current == 1:
+            return
+        await anyio.sleep(interval_s)
 
 
 # =========================================================================== peers
@@ -184,6 +216,9 @@ class Host:
     """Asks the user to pair a new client (default: the context's confirmer)."""
     max_clients: int = DEFAULT_MAX_CLIENTS
     hello_timeout_s: float = HELLO_TIMEOUT_S
+    parent_pid: int | None = None
+    """Stop serving once this is no longer the process's parent (see :func:`launcher_pid`)."""
+    parent_poll_s: float = PARENT_POLL_S
     sessions: dict[int, _Session] = field(default_factory=dict)
     _ids: Iterator[int] = field(default_factory=lambda: itertools.count(1))
     _pair_lock: anyio.Lock = field(default_factory=anyio.Lock)
@@ -191,13 +226,16 @@ class Host:
 
     # ------------------------------------------------------------------ serving
     async def serve(self, *, task_status: TaskStatus[Path] = anyio.TASK_STATUS_IGNORED) -> None:
-        """Listen until cancelled; the socket file is removed on the way out."""
+        """Listen until cancelled, or until the parent is gone (``parent_pid``); the socket file is
+        removed on the way out."""
         prepare_socket(self.socket_path)
         listener = await anyio.create_unix_listener(self.socket_path, mode=0o600)
         identity = self.socket_path.stat()
         _log.info("AXPilot host listening on %s", self.socket_path)
         try:
-            async with listener:
+            async with listener, anyio.create_task_group() as tg:
+                if self.parent_pid is not None:
+                    tg.start_soon(self._stop_without_parent, self.parent_pid, tg.cancel_scope)
                 task_status.started(self.socket_path)
                 await listener.serve(self._guarded_handle)
         finally:
@@ -205,6 +243,11 @@ class Host:
                 current = self.socket_path.stat()
                 if (current.st_dev, current.st_ino) == (identity.st_dev, identity.st_ino):
                     self.socket_path.unlink()
+
+    async def _stop_without_parent(self, parent_pid: int, scope: anyio.CancelScope) -> None:
+        await watch_parent(parent_pid, interval_s=self.parent_poll_s)
+        _log.warning("AXPilot.app (pid %d) is gone; the host stops.", parent_pid)
+        scope.cancel()
 
     async def _guarded_handle(self, conn: SocketStream) -> None:
         try:
@@ -348,17 +391,20 @@ async def serve(
     pairing: PairingStore | None = None,
     pairing_confirmer: Confirmer | None = None,
     max_clients: int = DEFAULT_MAX_CLIENTS,
+    parent_pid: int | None = None,
     task_status: TaskStatus[Path] = anyio.TASK_STATUS_IGNORED,
 ) -> None:
     """Serve MCP on the host socket until cancelled (see the module docstring).
 
     ``socket_path`` defaults to :func:`axpilot.paths.socket_path`; ``pairing`` to the user's
-    pairing file. Raises ``HOST_UNAVAILABLE`` if the socket cannot be taken."""
+    pairing file. With ``parent_pid`` (:func:`launcher_pid`), serving also ends once that process
+    is no longer the parent. Raises ``HOST_UNAVAILABLE`` if the socket cannot be taken."""
     host = Host(
         ctx=ctx,
         socket_path=socket_path or paths.socket_path(),
         pairing=pairing or PairingStore(),
         pairing_confirmer=pairing_confirmer,
         max_clients=max_clients,
+        parent_pid=parent_pid,
     )
     await host.serve(task_status=task_status)

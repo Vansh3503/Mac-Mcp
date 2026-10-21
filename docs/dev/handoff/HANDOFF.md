@@ -257,9 +257,34 @@ already had Accessibility and Screen Recording.
 | Issues | Opened #19–#30 from the findings. Fixed and closed: #20 (Automation "not asked yet" reported as denied; Finder gave -1744 here), #24 (diff missed edits past the shown 200 characters), #27 (`window` said "toggle full screen"), #28 (`select_option` matched a word inside a title: "Bold" chose "Arial Rounded MT Bold"). | `eaa4d3e`, `048c2b9`, `927793b`, `273b79b` |
 | First-run permissions | `request_accessibility()`/`request_screen_recording()` were never called: a new user's first call failed with `PERMISSION_ACCESSIBILITY` and AXPilot was not listed in System Settings. The engine now asks once per process. Re-run on this Mac: `tests/engine` 236 passed (a Finder test assumed a window was open). Owner's check after `tccutil reset` for AXPilot (2026-10-20, from merged `main`): the pairing dialog, then macOS's prompt naming AXPilot, AXPilot already listed under Accessibility, and the next snapshot worked from the same host process without a restart (audit: `PERMISSION_ACCESSIBILITY` 19:52:31, success 19:52:55). `doctor` then judged permissions by the app it runs in ("granted, attributed to Claude"); fixed in launcher mode. README and install, permissions, clients and index docs now describe launcher mode from source as working. | `eaf50dd`, `521f097` |
 
-Open findings are GitHub issues: #19 (`explore` "sidebar"), #21 (client named "claude"), #22 (`list_windows` and
-other Spaces), #23 (`AXManualAccessibility` on a non-target app), #25 (pasteboard on a worker thread), #26 (web date
-inputs), #29 (host outlives its launcher), #30 (Chrome `<select>` via the native menu).
+Open findings are GitHub issues: #21 (client named "claude"), #22 (`list_windows` and other Spaces), #26 (web date
+inputs), #30 (Chrome `<select>` via the native menu). #19, #23, #25, #29 and #33 are fixed on `fix/open-bug-issues`
+(below).
+
+### Open bug issues (branch `fix/open-bug-issues`, from `main` at `be1965d`)
+
+Done in a Linux container: everything is tested on the fake desktop and in real processes; nothing ran on a Mac.
+
+| Commit | What |
+|---|---|
+| `675471e` | CI: the Linux test jobs on `main` were red since PR #31: `test_automation_notes_tell_denied_from_not_asked` imported `engine/macos/permissions.py` (PyObjC). `automation_notes` moved to the platform-independent `helpers`. |
+| `0ed6dc6` | #19: `explore` counts an outline as a sidebar only when its name says so, or when it is ≤ 40% of the window's width along its left or right edge; Finder's list view stays a scroll area. |
+| `a43b861` | #23: `Engine.capture_tree(enhance=True)`; `observe_after`'s report of the frontmost app after the target quit passes `enhance=False`. A capture without `app`/`window_id` pins the frontmost app by pid once the policy has checked it. |
+| `5cc8fe8` | #25: `helpers.MainThreadCaller` runs pasteboard work on the main run loop (`AppHelper.callAfter`), waiting ≤ 0.5 s, then on the calling thread; a job not picked up in time is cancelled and never runs late; a started job gets 10 s, then `TIMEOUT`. |
+| `aa72b8f` | #29: with `AXPILOT_LAUNCHER_VERSION` set, `axpilot host` records its parent pid and stops (socket removed, exit 0) within 1 s of being re-parented. A real-process test SIGKILLs a stand-in launcher. `launcher/` unchanged. |
+| `533a800` | #33: `set_combo` behind `select_option`/`set_value`/`fill_form` on native combo boxes: pick from the box's own list (arrow button, else `AXShowMenu`/`AXPress`, else a click on its right end), even when it already shows the value; `set_value` free text (and boxes without a list) gets the text, focus and Return, never Return in a sheet or dialog. The fake models AppKit combo boxes (`combo_commit` events). Golden files regenerated (two descriptions). |
+
+Mac verification still needed for these:
+1. #33 on TextEdit: does the font-size box expose its arrow as an `AXButton` child, does `AXShowMenu` open its
+   list, and is the list an `AXList` inside the box (found as `list`), a menu, or a separate window? Do its rows
+   take a click, and does Return after an AX value change plus AX focus apply a size that is not listed (15)?
+2. #25: no "synchronous promise fulfillment" log line when `type_text` pastes (> 200 characters) and restores
+   the clipboard, in `axpilot stdio --direct` and in host mode.
+3. #29: `kill -9` the AXPilot launcher: the host exits within about a second and `~/Library/Application
+   Support/AXPilot/axpilot.sock` (or `AXPILOT_SOCKET`) is gone; the next client restarts everything.
+4. #23: with Claude (Electron) in front, act on TextEdit and quit it: the report afterwards must not switch on
+   Claude's tree (no "enabled the accessibility tree of Claude" in the log).
+5. #19: `explore` on Finder in list view: the files are under scroll areas, the sidebar under `sidebar:`.
 
 ### GitHub issues already created
 

@@ -44,6 +44,14 @@ Tree nodes use the :mod:`axpilot.perception.serialize` format plus these fake-on
   changes, the list shows (at most ``limit`` of) the children whose label contains the text, like
   an autocomplete.
 
+An AppKit combo box (an ``AXComboBox`` with ``options``, without ``on_press`` or ``pointer_only``)
+shows its options as an ``AXList`` child of ``AXStaticText`` rows (no ``AXPress``: they take
+clicks) after ``AXShowMenu``, a press of its ``AXButton`` child (the arrow) or a click on its
+right-hand :data:`_COMBO_ARROW_WIDTH` points; a click anywhere else only puts the text cursor in
+it. Like ``NSComboBox``, it acts on its value only when an option is picked from that list or
+Return is pressed in it, which records ``("combo_commit", {"handle", "value"})``; setting its text
+(``set_value``) only changes what it shows.
+
 Menus that elements show (see ``menu`` above; a pop-up button with ``options`` and no
 ``on_press`` shows its options, the current one selected; an ``AXPopUpButton`` or
 ``AXMenuButton`` with an ``AXMenu`` child in the fixture shows that child, as web ``<select>``
@@ -178,6 +186,8 @@ _MENU_PLACEMENTS = frozenset({"child", "app"})
 _FILTER_KEYS = frozenset({"list", "limit"})
 _MENU_ITEM_HEIGHT = 22.0
 _MENU_MIN_WIDTH = 180.0
+_COMBO_ARROW_WIDTH = 18.0
+"""The right-hand part of an AppKit combo box that opens its list when clicked (its arrow)."""
 _MENU_CLOSE_KEYS = frozenset({"escape", "return"})
 _BUNDLE_KEYS = frozenset({"files", "plists"})
 _OCR_KEYS = frozenset({"text", "frame", "confidence"})
@@ -621,6 +631,11 @@ def _node_label(node: RawNode) -> str | None:
 
 def _is_secure(node: RawNode) -> bool:
     return node.secure or node.subrole == "AXSecureTextField"
+
+
+def _on_arrow(frame: Rect | None, point: Point) -> bool:
+    """True if ``point`` lies on the arrow of a combo box with this frame (its right-hand part)."""
+    return frame is not None and frame.contains(point) and point.x >= frame.x + frame.w - _COMBO_ARROW_WIDTH
 
 
 def _shift(rect: Rect | None, dx: float, dy: float) -> Rect | None:
@@ -1492,7 +1507,11 @@ class FakeEngine(Engine):
             menu = self._open_menu
             if menu is None:
                 return None
-            titles = [item.title or "" for item in menu.node.children if item.role == "AXMenuItem"]
+            titles = [
+                item.title or "" if item.role == "AXMenuItem" else str(item.value)
+                for item in menu.node.children
+                if item.role in ("AXMenuItem", "AXStaticText")
+            ]
             return {"owner": menu.owner.handle, "name": _node_label(menu.owner), "titles": titles}
 
     def secure_value(self, handle: str) -> str | None:
@@ -1586,6 +1605,8 @@ class FakeEngine(Engine):
         behaviour = self._behaviour.get(node.handle, {})
         if "menu" in behaviour:
             return list(behaviour["menu"]), None
+        if self._appkit_combo(node):
+            return [str(option) for option in behaviour["options"]], None
         if node.role in _MENU_OWNER_ROLES:
             child = next((c for c in node.children if c.role == "AXMenu"), None)
             if child is not None:
@@ -1595,9 +1616,14 @@ class FakeEngine(Engine):
         return None
 
     def _generated_menu(self, owner: RawNode, choices: Sequence[_MenuItem | str]) -> RawNode:
-        """An ``AXMenu`` below ``owner`` with one ``AXMenuItem`` per choice (separators untitled)."""
+        """An ``AXMenu`` below ``owner`` with one ``AXMenuItem`` per choice (separators untitled);
+        for an AppKit combo box, its ``AXList``."""
         frame = owner.frame or Rect(0.0, 0.0, 0.0, 0.0)
         x, top = frame.x, frame.y + frame.h + 2.0
+        if self._appkit_combo(owner):
+            return self._generated_list(
+                owner, [str(choice) for choice in choices], Rect(x, top, frame.w, 0.0)
+            )
         width = max(frame.w, _MENU_MIN_WIDTH)
         items: list[RawNode] = []
         for index, choice in enumerate(choices):
@@ -1619,6 +1645,39 @@ class FakeEngine(Engine):
         height = _MENU_ITEM_HEIGHT * len(items)
         frame = Rect(x, top, width, height)
         return RawNode(role="AXMenu", frame=frame, actions=("AXCancel",), children=items)
+
+    @staticmethod
+    def _generated_list(owner: RawNode, choices: Sequence[str], at: Rect) -> RawNode:
+        """The ``AXList`` an AppKit combo box shows below itself, as wide as the box."""
+        items = [
+            RawNode(
+                role="AXStaticText",
+                value=choice,
+                selected=str(owner.value) == choice,
+                frame=Rect(at.x, at.y + index * _MENU_ITEM_HEIGHT, at.w, _MENU_ITEM_HEIGHT),
+            )
+            for index, choice in enumerate(choices)
+        ]
+        frame = Rect(at.x, at.y, at.w, _MENU_ITEM_HEIGHT * len(items))
+        return RawNode(role="AXList", frame=frame, actions=("AXCancel",), children=items)
+
+    def _appkit_combo(self, node: RawNode | None) -> bool:
+        """An AppKit combo box: an ``AXComboBox`` with ``options`` that is not web content."""
+        if node is None or node.role != "AXComboBox":
+            return False
+        behaviour = self._behaviour.get(node.handle, {})
+        return (
+            bool(behaviour.get("options"))
+            and not behaviour.get("pointer_only")
+            and "on_press" not in behaviour
+        )
+
+    def _combo_of_arrow(self, node: RawNode) -> RawNode | None:
+        """The AppKit combo box whose arrow button ``node`` is (``None`` for any other node)."""
+        if node.role != "AXButton" or node.handle is None:
+            return None
+        parent = self._parents.get(node.handle)
+        return parent if self._appkit_combo(parent) else None
 
     def _show_menu(self, owner: RawNode) -> bool:
         """Open the menu ``owner`` shows (closing any other); False if it shows none."""
@@ -1688,13 +1747,16 @@ class FakeEngine(Engine):
             self._record("menu_choose", owner=menu.owner.handle, title=node.title)
             if isinstance(choice, str):
                 menu.owner.value = choice
+                if menu.owner.role == "AXComboBox":
+                    self._record("combo_commit", handle=menu.owner.handle, value=choice)
             elif isinstance(choice, _MenuItem):
                 if choice.toggle:
                     choice.checked = not choice.checked
                 self._apply_effects(choice.effects, menu.window)
             return menu.parent is not None  # a fixture menu's item applies its own on_press
-        self._close_menu("pressed again" if node is menu.owner else "pressed elsewhere")
-        return node is menu.owner
+        again = node is menu.owner or self._combo_of_arrow(node) is menu.owner
+        self._close_menu("pressed again" if again else "pressed elsewhere")
+        return again
 
     def _filter_list(self, spec: Mapping[str, Any], text: str) -> None:
         """``filters``: show the list's children whose label contains ``text`` (at most ``limit``)."""
@@ -1714,7 +1776,13 @@ class FakeEngine(Engine):
     def _press(self, node: RawNode, *, modifiers: frozenset[str] = frozenset()) -> None:
         """What happens when the user activates an element (AXPress or a click)."""
         self._record("press", handle=node.handle, name=_node_label(node))
-        if self._press_in_menu(node) or self._show_menu(node):
+        if self._press_in_menu(node):
+            return
+        combo = self._combo_of_arrow(node)
+        if combo is not None:
+            self._show_menu(combo)
+            return
+        if not self._appkit_combo(node) and self._show_menu(node):
             return
         if node.role == "AXCheckBox":
             node.value = 0 if node.value not in (0, False, None, "0") else 1
@@ -2078,7 +2146,10 @@ class FakeEngine(Engine):
         max_depth: int = 40,
         max_nodes: int = 4000,
         timeout_s: float = 5.0,
+        enhance: bool = True,
     ) -> RawTree:
+        """See :meth:`Engine.capture_tree`. Simulated apps have their whole tree from the start,
+        so ``enhance`` changes nothing here."""
         with self._lock:
             self._require_accessibility()
             if max_depth < 0 or max_nodes < 1 or timeout_s <= 0:
@@ -2385,6 +2456,10 @@ class FakeEngine(Engine):
             if self._windows[0] is not window or self._frontmost is not window.app:
                 self._raise_window(window)
             if target is not None and target.enabled:
+                if self._appkit_combo(target) and _on_arrow(target.frame, point):
+                    self._record("press", handle=target.handle, name=_node_label(target))
+                    self._show_menu(target)
+                    return
                 self._click(target, count, modifiers)
 
     def _click_with_menu(
@@ -2501,6 +2576,8 @@ class FakeEngine(Engine):
         elif key == "return" and node.role == "AXTextArea":
             self._insert(node, "\n")
         elif key == "return" and not combo.modifiers:
+            if node.role == "AXComboBox":
+                self._record("combo_commit", handle=node.handle, value=self._text_of(node))
             default = self._default_button_for(node)
             if default is not None:
                 self._press(default)

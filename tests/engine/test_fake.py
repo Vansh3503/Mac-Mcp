@@ -468,6 +468,60 @@ def test_set_value_on_text_fields_and_secure_fields(engine: FakeEngine) -> None:
     assert engine.events[-1] == ("set_value", {"handle": password, "value": "<secure>"})
 
 
+def test_an_appkit_combo_box_acts_only_on_a_pick_or_return(engine: FakeEngine) -> None:
+    """Like NSComboBox (#33): its list opens with AXShowMenu, its arrow or a click on the arrow;
+    a pick or Return commits the value, setting its text does not."""
+    engine.app_control("activate", "TextEdit")
+    size = engine.resolve_ref("textedit.size")
+    engine.set_value(size, "24")
+    assert engine.events_of("combo_commit") == []
+    engine.perform_action(size, "AXShowMenu")
+    state = engine.menu_state()
+    assert state is not None
+    assert state["titles"] == ["9", "10", "11", "12", "13", "14", "18", "24", "36"]
+    listing = next(c for c in engine.capture_tree(app="TextEdit").root.children if c.role == "AXToolbar")
+    box = next(c for c in listing.children if c.handle == size)
+    rows = next(c for c in box.children if c.role == "AXList").children
+    assert {row.role for row in rows} == {"AXStaticText"}
+    assert all("AXPress" not in row.actions for row in rows)  # they take clicks
+    eighteen = next(row for row in rows if row.value == "18")
+    assert eighteen.frame is not None
+    engine.mouse_click(eighteen.frame.center)
+    assert engine.menu_state() is None
+    assert engine.refresh_element(size).value == "18"
+    assert engine.events_of("combo_commit") == [{"handle": size, "value": "18"}]
+    engine.focus(size)
+    engine.set_value(size, "15")
+    engine.press_key(key("return"))
+    assert engine.events_of("combo_commit")[-1] == {"handle": size, "value": "15"}
+
+
+def test_an_appkit_combo_box_opens_with_its_arrow_not_its_text(engine: FakeEngine) -> None:
+    engine.app_control("activate", "TextEdit")
+    size = engine.resolve_ref("textedit.size")
+    frame = engine.refresh_element(size).frame
+    assert frame is not None
+    engine.mouse_click(Point(frame.x + 10, frame.y + frame.h / 2))  # the text: a cursor, no list
+    assert engine.menu_state() is None
+    engine.mouse_click(Point(frame.x + frame.w - 5, frame.y + frame.h / 2))  # the arrow
+    state = engine.menu_state()
+    assert state is not None
+    assert state["owner"] == size
+    engine.perform_action(engine.resolve_ref("textedit.size"), "AXShowMenu")  # still the same list
+    assert engine.menu_state() == state
+
+
+def test_an_appkit_combo_box_arrow_button_toggles_its_list(engine: FakeEngine) -> None:
+    engine.menu_select("TextEdit", ["File", "New"])
+    arrow = engine.resolve_ref("textedit2.size.arrow")
+    engine.perform_action(arrow, "AXPress")
+    state = engine.menu_state()
+    assert state is not None
+    assert state["owner"] == engine.resolve_ref("textedit2.size")
+    engine.perform_action(arrow, "AXPress")
+    assert engine.menu_state() is None
+
+
 def test_set_value_on_popups_checkboxes_and_read_only_elements(engine: FakeEngine) -> None:
     font = engine.resolve_ref("textedit.font")
     engine.set_value(font, "menlo")

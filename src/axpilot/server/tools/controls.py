@@ -2,7 +2,7 @@
 
 ``select_option`` picks one option of a control the way its role expects: pop-up buttons, menu
 buttons and web or Electron pickers are opened and the option is chosen from the menu or list
-that appears (:mod:`axpilot.server.dropdown`); native combo boxes take the option's text; radio
+that appears (:mod:`axpilot.server.dropdown`), native combo boxes too (their own list); radio
 groups, tab groups and segmented controls press the matching child; lists, tables and outlines
 select the matching row. Options match by title (exact, then unique prefix; a word inside a longer
 title is refused and named; ambiguous matches are an error that lists them) or by 1-based index.
@@ -30,7 +30,7 @@ from axpilot.perception.model import Element, Snapshot
 from axpilot.perception.navigate import descendants, element_text
 from axpilot.perception.roles import DIALOG_SUBROLES
 from axpilot.server.context import ServerContext
-from axpilot.server.dropdown import DropdownOutcome, choose_option, in_web
+from axpilot.server.dropdown import DropdownOutcome, choose_option, in_web, set_combo
 from axpilot.server.registry import ToolFn, tool
 from axpilot.server.results import ok_result
 from axpilot.server.schemas import ActionResult, ElementBriefModel, SnapshotIdArg
@@ -108,7 +108,8 @@ tab groups and segmented controls (presses the matching button) and lists, table
 (selects the matching row).
 Params: ref (the control, from a snapshot), option (title: exact, then unique prefix; never a word
 inside a longer title) or index; snapshot_id; report. Choosing the option that is already selected
-changes nothing.
+changes nothing, except in a native combo box, whose option is picked from its list again (it may
+show a value it was never told).
 Errors: INVALID_ARGUMENT (no or several matching options: the message lists them), STALE_REF,
 ELEMENT_NOT_ACTIONABLE (disabled control or option, nothing opened, or the control did not take
 the option), BLOCKED_BY_POLICY, USER_ACTIVE, PAUSED_BY_USER."""
@@ -233,15 +234,9 @@ def select_option_tool(ctx: ServerContext) -> ToolFn:
 
 
 async def _native_combo(ctx: ServerContext, target: Target, option: str) -> DropdownOutcome:
-    """A native combo box takes the option's text; one whose text cannot be set (Java, Qt) is
-    opened and the option chosen from its list instead."""
-    try:
-        outcome = await set_control(ctx, target, option)
-    except AXPilotError as err:
-        if err.code is not ErrorCode.ELEMENT_NOT_ACTIONABLE:
-            raise
-        return await choose_option(ctx, target, option=option, index=None)
-    return DropdownOutcome(outcome.strategy, option, outcome.message, [outcome.strategy], outcome.warnings)
+    """A native combo box gets the option picked from its list, so the app takes it (setting its
+    text alone does not make it act); one without a list gets the text, confirmed with Return."""
+    return await set_combo(ctx, target, option, free_text=False)
 
 
 # =========================================================================== handle_dialog
