@@ -36,7 +36,12 @@ With `formats: ["axpilot-python"]` it also returns a ready script:
 ```python
 from axpilot import Desktop
 
-DOWNLOAD = {'v': 1, 'app': 'com.example.MyApp', 'role': 'AXButton', 'identifier': 'downloadButton'}
+DOWNLOAD = {
+    "v": 1,
+    "app": "com.example.MyApp",
+    "role": "AXButton",
+    "identifier": "downloadButton",
+}
 
 with Desktop.connect() as mac:
     mac.find(locator=DOWNLOAD).click()
@@ -60,13 +65,29 @@ import os
 
 from axpilot import Desktop
 
-EMAIL = {'v': 1, 'app': 'com.example.MyApp', 'role': 'AXTextField', 'identifier': 'login.email'}
-PASSWORD = {'v': 1, 'app': 'com.example.MyApp', 'role': 'AXTextField', 'identifier': 'login.password'}
-SIGN_IN = {'v': 1, 'app': 'com.example.MyApp', 'role': 'AXButton', 'identifier': 'login.submit'}
+EMAIL = {
+    "v": 1,
+    "app": "com.example.MyApp",
+    "role": "AXTextField",
+    "identifier": "login.email",
+}
+PASSWORD = {
+    "v": 1,
+    "app": "com.example.MyApp",
+    "role": "AXTextField",
+    "identifier": "login.password",
+}
+SIGN_IN = {
+    "v": 1,
+    "app": "com.example.MyApp",
+    "role": "AXButton",
+    "identifier": "login.submit",
+}
 
 with Desktop.connect() as mac:
     mac.find(locator=EMAIL).type_text("your text")
-    mac.find(locator=PASSWORD).type_text(os.environ["PASSWORD"])  # a secure field: needs [safety] allow_secure_fields
+    # PASSWORD is a secure field: typing into it needs [safety] allow_secure_fields
+    mac.find(locator=PASSWORD).type_text(os.environ["PASSWORD"])
     mac.find(locator=SIGN_IN).click()
 ```
 

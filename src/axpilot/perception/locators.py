@@ -820,15 +820,35 @@ def _unique_names(items: Sequence[tuple[LocatorSpec, Element | None]]) -> list[s
     return names
 
 
-def _python_action(el: Element | None, spec: LocatorSpec, name: str) -> str:
+_PY_LINE = 88
+"""Line length of the generated script (ruff's and black's default), so formatters leave it as is."""
+
+
+def _python_assignment(name: str, data: dict[str, Any]) -> list[str]:
+    """``NAME = {...}`` with double quotes, on one line when it fits, else one key per line with a
+    trailing comma (the layout ruff and black produce). Locators only hold strings, integers,
+    lists and dicts, so their JSON is also a Python literal."""
+    line = f"{name} = {json.dumps(data, ensure_ascii=False)}"
+    if len(line) <= _PY_LINE:
+        return [line]
+    items = [
+        f"    {json.dumps(key)}: {json.dumps(value, ensure_ascii=False)}," for key, value in data.items()
+    ]
+    return [f"{name} = {{", *items, "}"]
+
+
+def _python_step(el: Element | None, spec: LocatorSpec, name: str) -> list[str]:
     """The SDK call a script most likely makes on the element. A secure field reads its text from
     an environment variable, so no password ends up in the script."""
     if el is not None and el.secure:
-        return f'type_text(os.environ["{name}"])  # a secure field: needs [safety] allow_secure_fields'
+        return [
+            f"    # {name} is a secure field: typing into it needs [safety] allow_secure_fields",
+            f'    mac.find(locator={name}).type_text(os.environ["{name}"])',
+        ]
     role = el.ax_role if el is not None else spec.role
     if role is not None and (role in TEXT_INPUT_ROLES or short_role(role) in ("field", "textarea")):
-        return 'type_text("your text")'
-    return "click()"
+        return [f'    mac.find(locator={name}).type_text("your text")']
+    return [f"    mac.find(locator={name}).click()"]
 
 
 def export_locators(items: Sequence[tuple[LocatorSpec, Element | None]], fmt: ExportFormat) -> str:
@@ -843,14 +863,12 @@ def export_locators(items: Sequence[tuple[LocatorSpec, Element | None]], fmt: Ex
         named = {name: spec.to_dict() for name, (spec, _) in zip(names, items, strict=True)}
         return json.dumps(named, ensure_ascii=False, indent=2)
     if fmt == "axpilot-python":
-        actions = [_python_action(el, spec, name) for name, (spec, el) in zip(names, items, strict=True)]
-        lines = ["import os", ""] if any("os.environ" in action for action in actions) else []
+        pairs = list(zip(names, items, strict=True))
+        steps = [line for name, (spec, el) in pairs for line in _python_step(el, spec, name)]
+        lines = ["import os", ""] if any("os.environ" in step for step in steps) else []
         lines += ["from axpilot import Desktop", ""]
-        lines += [f"{name} = {spec.to_dict()!r}" for name, (spec, _) in zip(names, items, strict=True)]
-        lines += ["", "with Desktop.connect() as mac:"]
-        lines += [
-            f"    mac.find(locator={name}).{action}" for name, action in zip(names, actions, strict=True)
-        ]
+        lines += [line for name, (spec, _) in pairs for line in _python_assignment(name, spec.to_dict())]
+        lines += ["", "with Desktop.connect() as mac:", *steps]
         return "\n".join(lines)
     raise AXPilotError(
         ErrorCode.INVALID_ARGUMENT,

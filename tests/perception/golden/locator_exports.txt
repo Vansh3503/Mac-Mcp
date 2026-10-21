@@ -4,7 +4,12 @@
 ## Download · identifier · axpilot-python
 from axpilot import Desktop
 
-DOWNLOAD = {'v': 1, 'app': 'com.example.demo', 'role': 'AXButton', 'identifier': 'downloadButton'}
+DOWNLOAD = {
+    "v": 1,
+    "app": "com.example.demo",
+    "role": "AXButton",
+    "identifier": "downloadButton",
+}
 
 with Desktop.connect() as mac:
     mac.find(locator=DOWNLOAD).click()
@@ -15,7 +20,13 @@ with Desktop.connect() as mac:
 ## Share · name_within · axpilot-python
 from axpilot import Desktop
 
-SHARE = {'v': 1, 'app': 'com.example.demo', 'within': [{'role': 'AXSheet', 'name': 'Export'}], 'role': 'AXButton', 'name': 'Share'}
+SHARE = {
+    "v": 1,
+    "app": "com.example.demo",
+    "within": [{"role": "AXSheet", "name": "Export"}],
+    "role": "AXButton",
+    "name": "Share",
+}
 
 with Desktop.connect() as mac:
     mac.find(locator=SHARE).click()
@@ -26,7 +37,7 @@ with Desktop.connect() as mac:
 ## Email · name · axpilot-python
 from axpilot import Desktop
 
-EMAIL = {'v': 1, 'app': 'com.example.demo', 'role': 'AXTextField', 'name': 'Email'}
+EMAIL = {"v": 1, "app": "com.example.demo", "role": "AXTextField", "name": "Email"}
 
 with Desktop.connect() as mac:
     mac.find(locator=EMAIL).type_text("your text")

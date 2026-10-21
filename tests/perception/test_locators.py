@@ -661,13 +661,14 @@ def test_a_flow_exports_as_one_script_with_a_step_per_locator() -> None:
     constants = [stmt.targets[0].id for stmt in tree.body if isinstance(stmt, ast.Assign)]  # type: ignore[attr-defined]
     assert constants == ["EMAIL", "PASSWORD", "SHARE", "SHARE_2"]
     assert script.splitlines()[:2] == ["import os", ""]
-    assert script.splitlines()[-4:] == [
+    assert script.splitlines()[-5:] == [
         '    mac.find(locator=EMAIL).type_text("your text")',
-        '    mac.find(locator=PASSWORD).type_text(os.environ["PASSWORD"])  # a secure field: needs [safety] '
-        "allow_secure_fields",
+        "    # PASSWORD is a secure field: typing into it needs [safety] allow_secure_fields",
+        '    mac.find(locator=PASSWORD).type_text(os.environ["PASSWORD"])',
         "    mac.find(locator=SHARE).click()",
         "    mac.find(locator=SHARE_2).click()",
     ]
+    assert all(len(line) <= 88 for line in script.splitlines())  # ruff's and black's default
     named_json = json.loads(export_locators(steps, "axpilot"))
     assert list(named_json) == constants
     assert named_json["SHARE_2"] == steps[3][0].to_dict()
