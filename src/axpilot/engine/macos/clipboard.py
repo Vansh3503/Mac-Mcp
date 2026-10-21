@@ -13,17 +13,26 @@ pasteboard, so older apps can paste it too.
 
 :func:`save_clipboard` and :func:`restore_clipboard` copy the pasteboard byte for byte around a
 paste, so nothing the user copied is lost (the other functions only know text, PNG and files).
+
+Threading: reading the pasteboard may make the copying app fulfil a promise, which macOS wants on
+the main thread ("synchronous promise fulfillment requested from a background thread"). Every
+function here therefore does its pasteboard work on the main run loop
+(:class:`~axpilot.engine.macos.helpers.MainThreadCaller`), which the CLI, host and SDK keep
+turning; if it does not answer within :data:`MAIN_THREAD_START_S`, the work runs on the calling
+thread as before, and the job left on the main run loop is cancelled so it can never run late.
 """
 
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 import AppKit
 import Foundation
+from PyObjCTools import AppHelper
 
 from axpilot.engine.macos import helpers as h
 from axpilot.errors import AXPilotError, ErrorCode
@@ -33,6 +42,23 @@ _log = logging.getLogger(__name__)
 
 CONCEALED_TYPE = "org.nspasteboard.ConcealedType"
 MAX_FILES = 1000
+MAIN_THREAD_START_S = 0.5
+"""How long pasteboard work waits for the main run loop (turned every 50 ms) to pick it up."""
+MAIN_THREAD_FINISH_S = 10.0
+"""How long pasteboard work on the main thread may take (an app providing a large copied item)."""
+
+
+def _is_main_thread() -> bool:
+    return threading.current_thread() is threading.main_thread()
+
+
+_MAIN = h.MainThreadCaller(
+    AppHelper.callAfter,
+    _is_main_thread,
+    start_s=MAIN_THREAD_START_S,
+    finish_s=MAIN_THREAD_FINISH_S,
+    what="The clipboard",
+)
 
 
 def _pasteboard() -> Any:
@@ -71,6 +97,10 @@ def _files_from(pasteboard: Any) -> list[str]:
 
 def read_clipboard() -> ClipboardContent:
     """What the general pasteboard holds (concealed text is withheld, see module doc)."""
+    return _MAIN.call(_read_clipboard)
+
+
+def _read_clipboard() -> ClipboardContent:
     pasteboard = _pasteboard()
     types = [str(t) for t in list(pasteboard.types() or ())]
     text = None
@@ -103,6 +133,10 @@ def write_clipboard(
     if image_png is not None and not h.is_png(image_png):
         raise AXPilotError(ErrorCode.INVALID_ARGUMENT, "image_png is not PNG data.")
     paths = _validated_files(files or [])
+    _MAIN.call(lambda: _write_clipboard(text, image_png, paths))
+
+
+def _write_clipboard(text: str | None, image_png: bytes | None, paths: list[str]) -> None:
     objects: list[Any] = []
     if text is not None or image_png is not None:
         item = AppKit.NSPasteboardItem.alloc().init()
@@ -130,6 +164,10 @@ SavedClipboard = list[list[tuple[str, bytes]]]
 def save_clipboard() -> SavedClipboard:
     """A faithful copy of the pasteboard: every item with all its types (rich text, file references
     to missing files, private and concealed types), for :func:`restore_clipboard`."""
+    return _MAIN.call(_save_clipboard)
+
+
+def _save_clipboard() -> SavedClipboard:
     items: SavedClipboard = []
     for item in list(_pasteboard().pasteboardItems() or ()):
         entries = []
@@ -143,6 +181,10 @@ def save_clipboard() -> SavedClipboard:
 
 def restore_clipboard(saved: SavedClipboard) -> None:
     """Put back what :func:`save_clipboard` copied (an empty copy clears the pasteboard)."""
+    _MAIN.call(lambda: _restore_clipboard(saved))
+
+
+def _restore_clipboard(saved: SavedClipboard) -> None:
     objects = []
     for entries in saved:
         item = AppKit.NSPasteboardItem.alloc().init()

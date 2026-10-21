@@ -163,5 +163,10 @@ Pre-alpha. Nothing is published on PyPI yet.
   app came forward (often the MCP client itself) did so, and a call without `app` could read an app
   that came forward after the policy check. Reports of an untargeted app now read it as it is, and
   a call without `app` stays on the frontmost app the policy checked (#23).
+- Clipboard reads and writes (the `clipboard` tool, and saving and restoring the clipboard around
+  a paste) ran on a worker thread, where macOS complains about apps fulfilling copied data
+  synchronously. They now run on the main thread, waiting at most 0.5 s for it, then as before on
+  the worker; work left waiting there is cancelled, so a late restore can never undo a newer copy
+  (#25).
 
 [Unreleased]: https://github.com/vansh3503/Mac-Mcp/commits/main

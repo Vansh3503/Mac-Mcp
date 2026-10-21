@@ -22,6 +22,7 @@ import concurrent.futures
 import os
 import plistlib
 import sys
+import threading
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -658,6 +659,114 @@ def test_automation_notes_tell_denied_from_not_asked() -> None:
         "first time a tool needs it.",
     ]
     assert h.automation_notes({"x": True}, []) == []
+
+
+class FakeMainThread:
+    """A stand-in for the main run loop: jobs queue up and run when the test says so (``drain``)
+    or right away on a thread of their own (``serve``)."""
+
+    def __init__(self) -> None:
+        self.queue: list[Any] = []
+        self.ran_on: list[threading.Thread] = []
+        self._serving: threading.Thread | None = None
+
+    def schedule(self, fn: Any) -> None:
+        self.queue.append(fn)
+
+    def drain(self) -> None:
+        jobs, self.queue = self.queue, []
+        for job in jobs:
+            job()
+
+    def serve(self) -> None:
+        """Run every job on a separate 'main' thread as soon as it is scheduled."""
+
+        def schedule(fn: Any) -> None:
+            thread = threading.Thread(target=fn, name="fake-main")
+            self._serving = thread
+            thread.start()
+
+        self.schedule = schedule  # type: ignore[method-assign]
+
+    def join(self) -> None:
+        if self._serving is not None:
+            self._serving.join(timeout=2)
+
+
+def caller(main: FakeMainThread, *, is_main: bool = False, start_s: float = 0.05) -> h.MainThreadCaller:
+    schedule = lambda fn: main.schedule(fn)  # noqa: E731, PLW0108 - late bound: serve() swaps it
+    return h.MainThreadCaller(schedule, lambda: is_main, start_s=start_s, finish_s=0.1, what="The clipboard")
+
+
+def test_main_thread_caller_runs_on_the_main_thread() -> None:
+    main = FakeMainThread()
+    main.serve()
+    ran_on: list[str] = []
+    assert caller(main).call(lambda: ran_on.append(threading.current_thread().name) or 42) == 42
+    assert ran_on == ["fake-main"]
+
+
+def test_main_thread_caller_runs_directly_on_the_main_thread() -> None:
+    main = FakeMainThread()
+    assert caller(main, is_main=True).call(lambda: "here") == "here"
+    assert main.queue == []
+
+
+def test_main_thread_caller_passes_errors_on() -> None:
+    main = FakeMainThread()
+    main.serve()
+
+    def fail() -> None:
+        raise AXPilotError(ErrorCode.INTERNAL, "macOS refused to write to the clipboard.")
+
+    with pytest.raises(AXPilotError, match="refused to write"):
+        caller(main).call(fail)
+
+
+def test_main_thread_caller_never_runs_a_job_late(caplog: pytest.LogCaptureFixture) -> None:
+    """Nothing turns the main run loop: the job runs on the caller's thread after ``start_s``, and
+    the queued copy is cancelled, so it does nothing when the run loop catches up later."""
+    main = FakeMainThread()
+    calls = caller(main)
+    runs: list[str] = []
+    started = time.monotonic()
+    assert calls.call(lambda: runs.append(threading.current_thread().name) or "saved") == "saved"
+    assert time.monotonic() - started >= 0.05
+    assert runs == [threading.current_thread().name]
+    assert len(main.queue) == 1
+    assert "runs off the main thread" in caplog.text
+    # while the main thread has not answered, later calls run directly, without waiting
+    started = time.monotonic()
+    assert calls.call(lambda: runs.append("direct") or 2) == 2
+    assert time.monotonic() - started < 0.05
+    assert len(main.queue) == 1
+    main.drain()  # the run loop catches up: the cancelled job must not run
+    assert runs == [threading.current_thread().name, "direct"]
+    # the main thread answered again: the next call is scheduled and waits for it
+    main.serve()
+    assert calls.call(lambda: threading.current_thread().name) == "fake-main"
+    assert caplog.text.count("runs off the main thread") == 1
+
+
+def test_main_thread_caller_bounds_a_job_that_hangs() -> None:
+    main = FakeMainThread()
+    main.serve()
+    release = threading.Event()
+    with pytest.raises(AXPilotError) as caught:
+        caller(main).call(lambda: release.wait(2))
+    assert caught.value.code is ErrorCode.TIMEOUT
+    assert "The clipboard did not answer" in caught.value.message
+    release.set()
+    main.join()
+
+
+def test_main_thread_caller_falls_back_when_scheduling_fails(caplog: pytest.LogCaptureFixture) -> None:
+    def broken(_: Any) -> None:
+        raise RuntimeError("no run loop")
+
+    calls = h.MainThreadCaller(broken, lambda: False, start_s=0.05, finish_s=0.1, what="The clipboard")
+    assert calls.call(lambda: "ok") == "ok"
+    assert "cannot be scheduled there (no run loop)" in caplog.text
 
 
 def test_waiting_for_a_tree_that_is_being_built() -> None:
