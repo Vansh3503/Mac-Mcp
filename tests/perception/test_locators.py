@@ -6,6 +6,8 @@ from __future__ import annotations
 import ast
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -644,7 +646,7 @@ def test_python_exports_pick_a_constant_name_and_an_action(
     script = export_locator(candidates_for(snap, el, app=APP)[0].spec, "axpilot-python", element=el)
     ast.parse(script)
     assert f"{constant} = " in script
-    assert script.endswith(f"mac.find(locator={constant}).{action}")
+    assert script.endswith(f"mac.find(locator={constant}).{action}\n")
 
 
 def test_a_flow_exports_as_one_script_with_a_step_per_locator() -> None:
@@ -673,6 +675,36 @@ def test_a_flow_exports_as_one_script_with_a_step_per_locator() -> None:
     assert list(named_json) == constants
     assert named_json["SHARE_2"] == steps[3][0].to_dict()
     assert "import os" not in export_locators(steps[2:], "axpilot-python")
+
+
+def _ruff(*args: str, script: str) -> subprocess.CompletedProcess[str]:
+    """Run ruff on ``script`` as a user's project would: its own defaults (line length 88), not ours."""
+    options = ["--isolated", "--line-length", "88", "--stdin-filename", "x.py", "-"]
+    return subprocess.run(
+        [sys.executable, "-m", "ruff", *args, *options],
+        input=script,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+
+def test_python_exports_pass_ruff_as_saved() -> None:
+    snap = snap_of(
+        node("AXTextField", identifier="login.email", placeholder="Email"),
+        node("AXTextField", identifier="login.password", title="Password", secure=True, y=40),
+        node("AXButton", title="Back", y=70),
+    )
+    elements = [named(snap, "Email"), named(snap, "Password"), named(snap, "Back")]
+    steps = [(candidates_for(snap, el, app=APP)[0].spec, el) for el in elements]
+    # A flow (import os, multi-line locators, a comment) and a single one-line locator.
+    for script in (export_locators(steps, "axpilot-python"), export_locators(steps[2:], "axpilot-python")):
+        lint = _ruff("check", "--select", "E,F,W,I,B,UP,SIM,RUF,PL", script=script)
+        assert lint.returncode == 0, lint.stdout + lint.stderr
+        formatted = _ruff("format", script=script)
+        assert formatted.returncode == 0, formatted.stderr
+        assert formatted.stdout == script
 
 
 def test_exporting_nothing_is_refused() -> None:

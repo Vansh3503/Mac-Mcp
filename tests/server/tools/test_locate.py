@@ -187,7 +187,7 @@ async def test_locate_refs_covers_a_screen_in_one_call(client: Client) -> None:
     assert constants == ["EMAIL", "PASSWORD", "SIGN_IN"]
     assert script.startswith("import os\n")
     assert 'mac.find(locator=PASSWORD).type_text(os.environ["PASSWORD"])' in script
-    assert script.endswith("mac.find(locator=SIGN_IN).click()")
+    assert script.endswith("mac.find(locator=SIGN_IN).click()\n")
     assert '"SIGN_IN": {' in data["snippets"]["axpilot"]
     assert text_of(result).startswith("locate 3 elements · Login Demo")
     for item in data["items"]:

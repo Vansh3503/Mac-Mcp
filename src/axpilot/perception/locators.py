@@ -869,7 +869,7 @@ def export_locators(items: Sequence[tuple[LocatorSpec, Element | None]], fmt: Ex
         lines += ["from axpilot import Desktop", ""]
         lines += [line for name, (spec, _) in pairs for line in _python_assignment(name, spec.to_dict())]
         lines += ["", "with Desktop.connect() as mac:", *steps]
-        return "\n".join(lines)
+        return "\n".join(lines) + "\n"  # a file ends with a newline (ruff W292)
     raise AXPilotError(
         ErrorCode.INVALID_ARGUMENT,
         f"Unknown export format {fmt!r}.",

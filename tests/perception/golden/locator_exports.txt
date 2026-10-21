@@ -14,6 +14,7 @@ DOWNLOAD = {
 with Desktop.connect() as mac:
     mac.find(locator=DOWNLOAD).click()
 
+
 ## Share · name_within · axpilot
 {"v": 1, "app": "com.example.demo", "within": [{"role": "AXSheet", "name": "Export"}], "role": "AXButton", "name": "Share"}
 
@@ -31,6 +32,7 @@ SHARE = {
 with Desktop.connect() as mac:
     mac.find(locator=SHARE).click()
 
+
 ## Email · name · axpilot
 {"v": 1, "app": "com.example.demo", "role": "AXTextField", "name": "Email"}
 
@@ -41,3 +43,4 @@ EMAIL = {"v": 1, "app": "com.example.demo", "role": "AXTextField", "name": "Emai
 
 with Desktop.connect() as mac:
     mac.find(locator=EMAIL).type_text("your text")
+
