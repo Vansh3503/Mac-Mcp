@@ -494,7 +494,8 @@ Set a control to a value, the way its role expects:
 - combo box: the option with exactly that title is picked from its list (so the app takes it);
   other text is typed in and confirmed with Return (not in a dialog, where Return would press its
   default button).
-- date picker: an ISO 8601 date, "2026-10-20" or "2026-10-20 14:30"; a time field: "14:30".
+- date picker: an ISO 8601 date, "2026-10-20" or "2026-10-20 14:30"; a time field: "14:30". A web
+  date field (<input type="date">) takes a date only, typed into its parts.
 - pop-up button: the title of the option to choose.
 Color wells can't be set: click one to open the Colors panel.
 Params: ref, value (always a string), snapshot_id, report. The result says whether anything

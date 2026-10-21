@@ -28,6 +28,7 @@ direct mode: `axpilot stdio --direct` runs server/ + engine/ in one process (no 
 | `src/axpilot/errors.py` | `ErrorCode` (public API, never rename or reuse a code) and `AXPilotError` | No |
 | `src/axpilot/models.py` | Platform-independent dataclasses (`Rect`, `AppInfo`, `RawNode`, `Capture`, …); coordinates are screen **points** | No |
 | `src/axpilot/config.py`, `paths.py` | Config model and loader (flags > `AXPILOT_*` env > TOML > defaults); redirectable paths | No |
+| `src/axpilot/clientnames.py` | Readable names of known MCP clients (`claude` → "Claude Code") for display only | No |
 | `src/axpilot/engine/base.py` | The `Engine` ABC: every perception and actuation primitive | No |
 | `src/axpilot/engine/fake.py` | `FakeEngine`: in-memory desktop from JSON fixtures, used by tests and `--engine fake` | No |
 | `src/axpilot/engine/macos/` | `MacEngine`: AX, CGEvent, ScreenCaptureKit, Vision, AppKit | **Yes** |

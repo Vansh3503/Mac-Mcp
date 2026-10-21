@@ -52,6 +52,12 @@ it. Like ``NSComboBox``, it acts on its value only when an option is picked from
 Return is pressed in it, which records ``("combo_commit", {"handle", "value"})``; setting its text
 (``set_value``) only changes what it shows.
 
+A web date field (``<input type="date">``) is a node whose value cannot be set (``settable:
+false``) with one child per part, each marked ``"digits": n`` (2 for month and day, 4 for the
+year), like Chrome's spin buttons: a part takes keyboard focus from ``focus`` or a click; typed
+digits fill it (the first one after it gained focus starts over), other characters are ignored,
+and once it holds ``n`` digits the focus moves on to the next part, as browsers do.
+
 Menus that elements show (see ``menu`` above; a pop-up button with ``options`` and no
 ``on_press`` shows its options, the current one selected; an ``AXPopUpButton`` or
 ``AXMenuButton`` with an ``AXMenu`` child in the fixture shows that child, as web ``<select>``
@@ -178,6 +184,7 @@ _FAKE_NODE_KEYS = frozenset(
         "menu_at",
         "pointer_only",
         "filters",
+        "digits",
     }
 )
 _MENU_OWNER_ROLES = frozenset({"AXPopUpButton", "AXMenuButton"})
@@ -670,6 +677,8 @@ class FakeEngine(Engine):
         self._behaviour: dict[str, dict[str, Any]] = {}
         self._secrets: dict[str, str] = {}
         self._select_all: set[str] = set()
+        self._typed_digits: dict[str, str] = {}
+        """Digits typed into a date part since it gained focus (see ``digits``)."""
         self._fixture_handles: dict[str, str] = {}
         self._generations: dict[int, int] = {}
         self._windows: list[_Window] = []
@@ -1554,6 +1563,39 @@ class FakeEngine(Engine):
             return None
         return node
 
+    def _focused_part(self, app: _App | None) -> RawNode | None:
+        """The date part (``digits``) that has keyboard focus, if any."""
+        if app is None or app.focused is None:
+            return None
+        node = self._nodes.get(app.focused)
+        if node is None or not node.enabled or "digits" not in self._behaviour.get(node.handle, {}):
+            return None
+        return node
+
+    def _type_digits(self, part: RawNode, text: str) -> None:
+        """Fill date parts from typed digits, moving on to the next part when one is full."""
+        for char in text:
+            if not char.isdigit():
+                continue
+            size = int(self._behaviour[part.handle]["digits"])
+            typed = (self._typed_digits.get(part.handle, "") + char)[-size:]
+            self._typed_digits[part.handle] = typed
+            part.value = typed
+            if len(typed) < size:
+                continue
+            parent = self._parents.get(part.handle)
+            siblings = (
+                [c for c in parent.children if "digits" in self._behaviour.get(c.handle, {})]
+                if parent
+                else []
+            )
+            following = siblings[siblings.index(part) + 1 :] if part in siblings else []
+            if not following:
+                return
+            part = following[0]
+            self._app_of(part).focused = part.handle
+            self._typed_digits[part.handle] = ""
+
     def _text_of(self, node: RawNode) -> str:
         if node.secure:
             return self._secrets.get(node.handle, "")
@@ -2392,6 +2434,7 @@ class FakeEngine(Engine):
             self._record("focus", handle=node.handle)
             self._select_all.discard(node.handle)
             self._app_of(node).focused = node.handle
+            self._typed_digits[node.handle] = ""
 
     def insert_text(self, handle: Any, text: str) -> bool:
         with self._lock:
@@ -2487,7 +2530,10 @@ class FakeEngine(Engine):
             self._close_menu("clicked outside")
 
     def _click(self, node: RawNode, count: int, modifiers: frozenset[str]) -> None:
-        if node.role in TEXT_INPUT_ROLES:
+        if "digits" in self._behaviour.get(node.handle, {}):
+            self._app_of(node).focused = node.handle
+            self._typed_digits[node.handle] = ""
+        elif node.role in TEXT_INPUT_ROLES:
             app = self._app_of(node)
             app.focused = node.handle
             if count >= 3:
@@ -2635,7 +2681,10 @@ class FakeEngine(Engine):
             self._require_keyboard()
             node = None if self._open_menu is not None else self._focused_text(self._frontmost)
             if node is None:
-                self._record("type_text", target=None, text=text)
+                part = None if self._open_menu is not None else self._focused_part(self._frontmost)
+                self._record("type_text", target=part.handle if part is not None else None, text=text)
+                if part is not None:
+                    self._type_digits(part, text)
                 return
             if node.secure:
                 self._record("type_text", target=node.handle, secure=True, length=len(text))

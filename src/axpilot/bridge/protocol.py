@@ -30,6 +30,7 @@ from anyio.abc import ByteReceiveStream
 from anyio.streams.buffered import BufferedByteReceiveStream
 
 from axpilot import __version__
+from axpilot.clientnames import client_display_name
 from axpilot.errors import AXPilotError, ErrorCode
 
 __all__ = [
@@ -106,8 +107,9 @@ class ClientIdentity:
 
     @property
     def display(self) -> str:
-        """Name to show the user."""
-        return self.parent_app or self.parent_bundle_id or "an unknown app"
+        """Name to show the user: a known client's readable name (``claude`` is "Claude Code"), else
+        the app, else the bundle id (:func:`axpilot.clientnames.client_display_name`)."""
+        return client_display_name(self.parent_app) or self.parent_bundle_id or "an unknown app"
 
     def to_dict(self) -> dict[str, Any]:
         return {"parent_app": self.parent_app, "parent_bundle_id": self.parent_bundle_id, "pid": self.pid}

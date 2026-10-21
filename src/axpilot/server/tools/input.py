@@ -34,7 +34,14 @@ from mcp_types import CallToolResult
 from pydantic import BaseModel, ConfigDict, Field
 
 from axpilot.errors import AXPilotError, ErrorCode
-from axpilot.input.dates import parse_date_input
+from axpilot.input.dates import (
+    DATE_PARTS,
+    DatePart,
+    date_part_digits,
+    date_part_of,
+    has_time,
+    parse_date_input,
+)
 from axpilot.input.keys import parse_sequence
 from axpilot.models import (
     AppInfo,
@@ -43,11 +50,13 @@ from axpilot.models import (
     MenuNode,
     MouseButton,
     Point,
+    RawNode,
     Rect,
     WindowInfo,
 )
 from axpilot.perception.appkind import detect_app_kind
 from axpilot.perception.diff import diff_snapshots
+from axpilot.perception.dropdown import find_node, visible_nodes
 from axpilot.perception.format import diff_payload, format_diff, format_snapshot, quote, snapshot_payload
 from axpilot.perception.model import Element, Snapshot
 from axpilot.perception.navigate import descendants, scroll_container_for, viewport_of
@@ -1171,7 +1180,8 @@ Set a control to a value, the way its role expects:
 - combo box: the option with exactly that title is picked from its list (so the app takes it);
   other text is typed in and confirmed with Return (not in a dialog, where Return would press its
   default button).
-- date picker: an ISO 8601 date, "2026-10-20" or "2026-10-20 14:30"; a time field: "14:30".
+- date picker: an ISO 8601 date, "2026-10-20" or "2026-10-20 14:30"; a time field: "14:30". A web
+  date field (<input type="date">) takes a date only, typed into its parts.
 - pop-up button: the title of the option to choose.
 Color wells can't be set: click one to open the Colors panel.
 Params: ref, value (always a string), snapshot_id, report. The result says whether anything
@@ -1238,15 +1248,88 @@ async def _current(ctx: ServerContext, target: Target) -> Any:
 
 
 async def _set_date(ctx: ServerContext, target: Target, value: str) -> _SetOutcome:
-    """Date pickers hold a date: send it as ISO 8601 and check what the picker shows after."""
+    """Date pickers hold a date: send it as ISO 8601 and check what the picker shows after. A web
+    date field is typed part by part instead (:func:`_set_web_date`)."""
     el = target.el
     assert el is not None
+    if el.role == "date" and any(role == "AXWebArea" for role, _ in el.locator.path):
+        return await _set_web_date(ctx, target, value)
     wanted = parse_date_input(value, el.value if isinstance(el.value, str) else None)
     await ctx.run_engine(ctx.engine.set_value, target.handle, wanted)
     after = await _current(ctx, target)
     if not _same_moment(after, wanted, time_only=el.role == "time"):
         raise _not_actionable(target, f"set {value!r} in", ["ax_value"], [f"it shows {after!r}"])
     return _SetOutcome("ax_value", True, f"set to {quote(str(after), 60)}")
+
+
+async def _set_web_date(ctx: ServerContext, target: Target, value: str) -> _SetOutcome:
+    """A web date field (``<input type="date">``): browsers ignore an accessibility value there
+    (#26), so each part (month, day, year, in the order shown) gets keyboard focus and its digits,
+    as a user types them; then the parts are read back. Only a date: the time parts of a date-time
+    field are left to the agent."""
+    if has_time(value):
+        raise AXPilotError(
+            ErrorCode.ELEMENT_NOT_ACTIONABLE,
+            f"{target.describe()} is a web date field; AXPilot types only a date into it.",
+            hint='Pass the date alone ("2026-10-20"); for time parts, click each one and type the number '
+            "with type_text.",
+        )
+    wanted = parse_date_input(value)
+    field = await _field_node(ctx, target)
+    parts = _date_parts(field) if field is not None else None
+    if not parts:
+        raise AXPilotError(
+            ErrorCode.ELEMENT_NOT_ACTIONABLE,
+            f"Could not tell the month, day and year parts of {target.describe()} apart.",
+            hint='Take a snapshot with mode="full", click each part and type its number with type_text, or '
+            "set the input's value with browser_eval_js.",
+        )
+    attempts: list[str] = []
+    for node, part in parts:
+        ctx.control.ensure_running()
+        point = node.frame.center if node.frame is not None else target.point
+        focus = await _focus(
+            ctx, Target(point=point, app=target.app, window=target.window, handle=node.handle)
+        )
+        attempts.append(f"{part}:{focus}")
+        await ensure_frontmost(ctx, target.app)
+        await type_keystrokes(ctx, date_part_digits(wanted, part))
+    field = await _field_node(ctx, target)
+    shown = {part: node.value for node, part in (_date_parts(field) or [])} if field is not None else {}
+    date = wanted[:10]
+    if all(_same_number(shown.get(part), date_part_digits(wanted, part)) for part in DATE_PARTS) or (
+        field is not None and _same_moment(field.value, wanted, time_only=False)
+    ):
+        return _SetOutcome("keystrokes", True, f"set to {date} (typed into its parts)")
+    shows = ", ".join(f"{part} {quote(str(shown.get(part) or ''), 12)}" for part in DATE_PARTS)
+    raise _not_actionable(target, f"set {value!r} in", attempts, [f"its parts show {shows}"])
+
+
+async def _field_node(ctx: ServerContext, target: Target) -> RawNode | None:
+    """The target's node in a fresh capture of its window (``None`` if it is gone)."""
+    window_id = target.window.window_id if target.window is not None and target.window.window_id else None
+    tree = await ctx.capture_tree(app=_app_key(target.app), window_id=window_id, kind="input")
+    found = find_node(tree.root, target.handle)
+    return found[0] if found is not None else None
+
+
+def _date_parts(field: RawNode) -> list[tuple[RawNode, DatePart]] | None:
+    """The parts of a web date field in the order shown, when month, day and year are each named
+    once by a label or placeholder (a part that still shows its placeholder counts too)."""
+    parts: list[tuple[RawNode, DatePart]] = []
+    for node, _ in visible_nodes(field):
+        if node is field:
+            continue
+        shown = node.value if isinstance(node.value, str) and not node.value.strip().isdigit() else None
+        part = date_part_of(node.title, node.description, node.label, node.placeholder, node.help, shown)
+        if part is not None:
+            parts.append((node, part))
+    return parts if sorted(part for _, part in parts) == sorted(DATE_PARTS) else None
+
+
+def _same_number(shown: Any, wanted: str) -> bool:
+    digits = re.sub(r"\D", "", str(shown or ""))
+    return bool(digits) and int(digits) == int(wanted)
 
 
 def _same_moment(shown: Any, wanted: str, *, time_only: bool) -> bool:
