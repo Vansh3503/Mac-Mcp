@@ -54,6 +54,12 @@ def test_identity_key_and_display() -> None:
     assert ClientIdentity("node", None).key == "node"
     assert ClientIdentity().key == "unknown"
     assert ClientIdentity().display == "an unknown app"
+    # #21: a known client is shown by its readable name, but paired under its raw name
+    claude_code = ClientIdentity("claude", None)
+    assert claude_code.display == "Claude Code"
+    assert claude_code.key == "claude"
+    assert ClientIdentity("Claude", "com.anthropic.claudefordesktop").display == "Claude"
+    assert ClientIdentity(None, "com.example.app").display == "com.example.app"
 
 
 @pytest.mark.parametrize(

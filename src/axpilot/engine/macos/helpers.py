@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, Protocol, TypeVar
 
+from axpilot.clientnames import client_display_name
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.input.keys import US_ANSI_KEYCODES, US_ANSI_SHIFTED, to_glyphs
 from axpilot.models import DisplayInfo, KeyCombo, Point, Rect
@@ -850,12 +851,13 @@ def responsible_app_name(executables: Iterable[str]) -> str | None:
     ``executables`` is the process chain from our own process up to launchd. TCC charges the
     nearest ancestor that is an app bundle (Terminal, iTerm2, Claude, AXPilot…); for helper
     apps nested in a bundle (``Code Helper (Plugin).app`` inside ``Visual Studio Code.app``)
-    the outermost bundle is reported.
+    the outermost bundle is reported, by its readable name when it is a known client (Claude Code's
+    bundle is ``claude``; :func:`axpilot.clientnames.client_display_name`).
     """
     for executable in executables:
         bundle = app_bundle_of(executable)
         if bundle:
-            return PurePosixPath(bundle).stem
+            return client_display_name(PurePosixPath(bundle).stem)
     return None
 
 

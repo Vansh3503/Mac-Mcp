@@ -160,6 +160,16 @@ the `AXPilot.app` you grant Accessibility and Screen Recording to once.
 
 ### Fixed
 
+- The pairing dialog, `status`, the pairing file and logs named Claude Code `claude` (the bundle
+  it runs in inside the Claude app), and command-line clients by their program (`codex`,
+  `gemini`). Known clients now show their readable name ("Claude Code", "Codex CLI", "Gemini
+  CLI"…); other names are unchanged, and pairing decisions stay keyed as before, so nobody is
+  asked again (#21).
+- `set_value` and `fill_form` refused a date field in a web page (`<input type="date">`):
+  browsers ignore an accessibility value there. AXPilot now focuses each part (month, day, year,
+  in the order the page shows them, whatever the language) and types it, then reads the parts
+  back. Only a date is typed; a value with a time is refused with a hint (#26).
+
 - `explore` listed the files of Finder's list view as sidebar sections: every outline's rows
   counted. Only an outline named like a sidebar, or a narrow one along a window edge, is a sidebar
   now; a wide one is the window's content and stays under scroll areas (#19).

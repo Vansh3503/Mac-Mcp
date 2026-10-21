@@ -57,7 +57,8 @@ is authoritative for its exact parameters.
   pass the folder as `path` and the file name as `text`.
 - **Tricky controls:**
   - Date pickers: `set_value` with an ISO date (`"2026-10-20"`, `"2026-10-20 14:30"`; `"14:30"`
-    for a time field).
+    for a time field). A date field in a web page gets the date (no time) typed into its month,
+    day and year parts; if AXPilot cannot tell the parts apart, click each and type its number.
   - Tables: a column header's `value` says how the table is sorted (`ascending`/`descending`);
     `click` a header to sort by it. To edit a cell, double-click it (`click` with `count: 2`),
     then `type_text` without a ref, with `clear` and `submit`.
