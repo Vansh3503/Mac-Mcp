@@ -23,6 +23,7 @@ def test_toolsets_match_the_contract() -> None:
         "explore",
         "read",
         "inspect",
+        "locate",
         "ocr",
         "list_apps",
         "list_windows",

@@ -85,6 +85,8 @@ for apps that don't work well.
 | `NEEDS_USER` | A system password or authorization dialog is open | Handle the dialog yourself |
 | `RATE_LIMITED` | More than `max_actions_per_minute` input actions | The agent should slow down; raise the limit only if you're sure |
 | `BUSY` | Another client is in the middle of an input action | Retry; avoid running two agents on the same Mac at once |
+| `ELEMENT_NOT_FOUND` | A script's locator matches nothing: the element's window, sheet or menu is not open, or the app changed it | Open it first; check the locator with `locate(locator=…)`, or build a new one with `locate` |
+| `LOCATOR_AMBIGUOUS` | A script's locator matches several elements | Build one for the element you mean with `locate` (or add `within`, `name` or `index`) |
 | `TOOL_DISABLED` | The tool isn't in the current profile | Add it with `[tools] enable`, or use `--profile full` |
 | `INTERNAL` | A bug | Report it with the incident id (`err_…`) and `axpilot doctor` output |
 

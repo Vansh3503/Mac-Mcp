@@ -75,6 +75,7 @@ nav:
       - Agent frameworks: frameworks.md
   - Reference:
       - Tools: tools.md
+      - Locators for scripts: locators.md
       - Configuration: configuration.md
   - Security model: security.md
   - Evals: evals.md

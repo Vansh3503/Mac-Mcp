@@ -141,7 +141,7 @@
    "readOnlyHint": true,
    "title": "Find elements"
   },
-  "description": "Find elements by text, role or identifier in an app window; with scroll=true, scroll its list or page\nuntil a match appears (lazily loaded lists, long settings panes, feeds).\nUse it instead of scrolling and snapshotting by hand. Params: text (fuzzy: exact > prefix > substring >\nwords), role (button, row, field… or an AX role), identifier (AXIdentifier); app / window_id; container\n(ref of the list/page to search and scroll; default: the whole window, scrolling its largest scroll\narea); scroll; max_scrolls (≤ 50); limit.\nReturns matches (ref, role, name, score) from the final snapshot, found, scrolls, at_end and\nsearched_all. Not finding anything is not an error: found=false with what was searched.\nErrors: INVALID_ARGUMENT, APP_NOT_FOUND, STALE_REF (container), BLOCKED_BY_POLICY, USER_ACTIVE.",
+  "description": "Find elements by text, role or identifier in an app window; with scroll=true, scroll its list or page\nuntil a match appears (lazily loaded lists, long settings panes, feeds).\nUse it instead of scrolling and snapshotting by hand. Params: text (fuzzy: exact > prefix > substring >\nwords), role (button, row, field… or an AX role), identifier (AXIdentifier); app / window_id; container\n(ref of the list/page to search and scroll; default: the whole window, scrolling its largest scroll\narea); scroll; max_scrolls (≤ 50); limit. Or locator (from locate): exact matching in the window it\nnames, instead of text/role/identifier/app/window_id.\nReturns matches (ref, role, name, score) from the final snapshot, found, scrolls, at_end and\nsearched_all; with a locator also count (all matches) and unique. Not finding anything is not an\nerror: found=false with what was searched.\nErrors: INVALID_ARGUMENT, APP_NOT_FOUND, WINDOW_NOT_FOUND (locator), STALE_REF (container),\nBLOCKED_BY_POLICY, USER_ACTIVE.",
   "input_schema": {
    "additionalProperties": false,
    "properties": {
@@ -168,6 +168,120 @@
      "maximum": 50,
      "minimum": 1,
      "type": "integer"
+    },
+    "locator": {
+     "additionalProperties": false,
+     "description": "A locator from locate, e.g. {\"app\": \"com.apple.finder\", \"role\": \"AXButton\", \"name\": \"Back\"}. Exact matching: every field given must hold.",
+     "properties": {
+      "app": {
+       "description": "Bundle id (preferred) or app name.",
+       "maxLength": 256,
+       "minLength": 1,
+       "type": "string"
+      },
+      "identifier": {
+       "description": "Exact AXIdentifier.",
+       "maxLength": 256,
+       "type": "string"
+      },
+      "index": {
+       "description": "Pick this match (document order).",
+       "maximum": 9999,
+       "minimum": 0,
+       "type": "integer"
+      },
+      "name": {
+       "description": "The element's name, as snapshots show it.",
+       "maxLength": 500,
+       "type": "string"
+      },
+      "name_match": {
+       "description": "How to compare the name (default exact).",
+       "enum": [
+        "exact",
+        "prefix",
+        "contains"
+       ],
+       "type": "string"
+      },
+      "path": {
+       "description": "Position in the window tree, \"AXToolbar[0]/AXButton[2]\".",
+       "maxLength": 2000,
+       "type": "string"
+      },
+      "role": {
+       "description": "AX role (\"AXButton\") or short role.",
+       "maxLength": 64,
+       "type": "string"
+      },
+      "subrole": {
+       "description": "AX subrole (\"AXSearchField\").",
+       "maxLength": 64,
+       "type": "string"
+      },
+      "v": {
+       "const": 1,
+       "description": "Locator format version (1).",
+       "type": "integer"
+      },
+      "window": {
+       "additionalProperties": false,
+       "description": "Which of the app's windows to search (title or index). Default: its focused window.",
+       "properties": {
+        "index": {
+         "description": "Position among the app's windows.",
+         "maximum": 99,
+         "minimum": 0,
+         "type": "integer"
+        },
+        "match": {
+         "description": "How to compare the title.",
+         "enum": [
+          "exact",
+          "prefix"
+         ],
+         "type": "string"
+        },
+        "title": {
+         "description": "Window title.",
+         "maxLength": 500,
+         "type": "string"
+        }
+       },
+       "type": "object"
+      },
+      "within": {
+       "description": "Ancestors the element is inside, outermost first.",
+       "items": {
+        "additionalProperties": false,
+        "description": "An ancestor the element must be inside (any of role, identifier, name).",
+        "properties": {
+         "identifier": {
+          "description": "Exact AXIdentifier.",
+          "maxLength": 256,
+          "type": "string"
+         },
+         "name": {
+          "description": "Exact name.",
+          "maxLength": 500,
+          "type": "string"
+         },
+         "role": {
+          "description": "AX role (\"AXToolbar\") or short role.",
+          "maxLength": 64,
+          "type": "string"
+         }
+        },
+        "type": "object"
+       },
+       "maxItems": 5,
+       "type": "array"
+      }
+     },
+     "required": [
+      "app"
+     ],
+     "type": "object"
     },
     "max_scrolls": {
      "default": 20,
@@ -214,7 +328,7 @@
    "type": "object"
   },
   "name": "find",
-  "output_schema": "sha256:abd02867ce8dfd8e",
+  "output_schema": "sha256:c74721111b5528f6",
   "title": "Find elements"
  },
  {
@@ -358,6 +472,182 @@
   "name": "inspect",
   "output_schema": "sha256:670a88d8ded6a5bd",
   "title": "Inspect an element"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "Locate an element for scripts"
+  },
+  "description": "Build a stable locator for an element, for automation scripts, or check one against the window.\nRefs (e12) only last for this session; a locator is a small JSON object that names the element by\nits AXIdentifier, role and name, its containers or its position, and works in later runs.\nCall it only when the person asks for locators, a script or a test, never as a step of an\nordinary task. Find or snapshot the element, then locate(ref=…). For a flow (open the app, sign\nin, …), locate each screen's elements with refs=[…] before acting on that screen: once a screen\nis gone, its elements cannot be checked. Params: ref or refs (+ snapshot_id) to build locators,\nor locator to check one (exact matching: every field must hold); formats (axpilot = the JSON,\naxpilot-python = a script with the AXPilot SDK; for refs, one script with every step);\nmax_candidates.\nReturns candidates, best first, each checked against a fresh capture of the window with a grade\n(high: AXIdentifier; medium: role and name, which change with the app's language; low: position)\nand reasons; recommended; snippets; warnings (no identifier, toolbar overflow, a menu or sheet that\nmust be open); for refs, one such entry per element in items. For a locator: count, unique and the\nmatching elements. Read-only: nothing is\nclicked. Errors: INVALID_ARGUMENT, STALE_REF, SNAPSHOT_NOT_FOUND, NOT_SUPPORTED (OCR text),\nAPP_NOT_FOUND, WINDOW_NOT_FOUND, BLOCKED_BY_POLICY, TIMEOUT.",
+  "input_schema": {
+   "additionalProperties": false,
+   "properties": {
+    "formats": {
+     "description": "Snippet formats for the recommended locator: \"axpilot\" (the JSON, default) and \"axpilot-python\" (a script with the AXPilot SDK).",
+     "items": {
+      "enum": [
+       "axpilot",
+       "axpilot-python"
+      ],
+      "type": "string"
+     },
+     "maxItems": 2,
+     "minItems": 1,
+     "type": "array"
+    },
+    "locator": {
+     "additionalProperties": false,
+     "description": "A locator from locate, e.g. {\"app\": \"com.apple.finder\", \"role\": \"AXButton\", \"name\": \"Back\"}. Exact matching: every field given must hold.",
+     "properties": {
+      "app": {
+       "description": "Bundle id (preferred) or app name.",
+       "maxLength": 256,
+       "minLength": 1,
+       "type": "string"
+      },
+      "identifier": {
+       "description": "Exact AXIdentifier.",
+       "maxLength": 256,
+       "type": "string"
+      },
+      "index": {
+       "description": "Pick this match (document order).",
+       "maximum": 9999,
+       "minimum": 0,
+       "type": "integer"
+      },
+      "name": {
+       "description": "The element's name, as snapshots show it.",
+       "maxLength": 500,
+       "type": "string"
+      },
+      "name_match": {
+       "description": "How to compare the name (default exact).",
+       "enum": [
+        "exact",
+        "prefix",
+        "contains"
+       ],
+       "type": "string"
+      },
+      "path": {
+       "description": "Position in the window tree, \"AXToolbar[0]/AXButton[2]\".",
+       "maxLength": 2000,
+       "type": "string"
+      },
+      "role": {
+       "description": "AX role (\"AXButton\") or short role.",
+       "maxLength": 64,
+       "type": "string"
+      },
+      "subrole": {
+       "description": "AX subrole (\"AXSearchField\").",
+       "maxLength": 64,
+       "type": "string"
+      },
+      "v": {
+       "const": 1,
+       "description": "Locator format version (1).",
+       "type": "integer"
+      },
+      "window": {
+       "additionalProperties": false,
+       "description": "Which of the app's windows to search (title or index). Default: its focused window.",
+       "properties": {
+        "index": {
+         "description": "Position among the app's windows.",
+         "maximum": 99,
+         "minimum": 0,
+         "type": "integer"
+        },
+        "match": {
+         "description": "How to compare the title.",
+         "enum": [
+          "exact",
+          "prefix"
+         ],
+         "type": "string"
+        },
+        "title": {
+         "description": "Window title.",
+         "maxLength": 500,
+         "type": "string"
+        }
+       },
+       "type": "object"
+      },
+      "within": {
+       "description": "Ancestors the element is inside, outermost first.",
+       "items": {
+        "additionalProperties": false,
+        "description": "An ancestor the element must be inside (any of role, identifier, name).",
+        "properties": {
+         "identifier": {
+          "description": "Exact AXIdentifier.",
+          "maxLength": 256,
+          "type": "string"
+         },
+         "name": {
+          "description": "Exact name.",
+          "maxLength": 500,
+          "type": "string"
+         },
+         "role": {
+          "description": "AX role (\"AXToolbar\") or short role.",
+          "maxLength": 64,
+          "type": "string"
+         }
+        },
+        "type": "object"
+       },
+       "maxItems": 5,
+       "type": "array"
+      }
+     },
+     "required": [
+      "app"
+     ],
+     "type": "object"
+    },
+    "max_candidates": {
+     "default": 3,
+     "description": "Most locators to return for the element.",
+     "maximum": 10,
+     "minimum": 1,
+     "type": "integer"
+    },
+    "ref": {
+     "description": "Element ref from snapshot, find or explore, e.g. \"e12\".",
+     "maxLength": 32,
+     "minLength": 2,
+     "type": "string"
+    },
+    "refs": {
+     "description": "Several element refs, e.g. [\"e3\", \"e5\", \"e9\"]: the steps of a flow on the current screen, located in one call.",
+     "items": {
+      "maxLength": 32,
+      "minLength": 2,
+      "type": "string"
+     },
+     "maxItems": 30,
+     "minItems": 1,
+     "type": "array"
+    },
+    "snapshot_id": {
+     "description": "Snapshot the ref belongs to. Default: the latest snapshot.",
+     "maxLength": 16,
+     "type": "string"
+    }
+   },
+   "title": "locateArguments",
+   "type": "object"
+  },
+  "name": "locate",
+  "output_schema": "sha256:4c5effb2e2b16009",
+  "title": "Locate an element for scripts"
  },
  {
   "annotations": {

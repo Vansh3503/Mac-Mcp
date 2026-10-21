@@ -229,14 +229,40 @@ class FindResult(ToolResult, Generic[H]):
         return [self.handles(m["ref"], sid, Element.from_payload(m)) for m in self.data.get("matches", [])]
 
     @property
+    def unique(self) -> bool | None:
+        """With a locator: ``True`` when it matched exactly one element (``None`` otherwise, or
+        when the window was too large to be sure)."""
+        value = self.data.get("unique")
+        return value if isinstance(value, bool) else None
+
+    @property
     def first(self) -> H:
-        """The best match. Raises ``INVALID_ARGUMENT`` when nothing good matched."""
+        """The best match. Raises ``INVALID_ARGUMENT`` when nothing good matched; for a locator,
+        ``ELEMENT_NOT_FOUND`` when nothing matched and ``LOCATOR_AMBIGUOUS`` when several did."""
         matches = self.matches
+        locator = self.data.get("locator")
+        if locator is not None:
+            return self._only(matches, locator)
         if not self.found or not matches:
             raise AXPilotError(
                 ErrorCode.INVALID_ARGUMENT,
                 "Nothing matched well enough.",
                 hint="Check the text, pass scroll=True to search a long list, or take a snapshot.",
+            )
+        return matches[0]
+
+    def _only(self, matches: list[H], locator: Any) -> H:
+        count = self.data.get("count")
+        total = count if isinstance(count, int) else len(matches)
+        app = locator.get("app") if isinstance(locator, Mapping) else None
+        where = f" in {app}" if app else ""
+        if total == 0 or not matches:
+            raise AXPilotError(ErrorCode.ELEMENT_NOT_FOUND, f"Nothing{where} matches the locator.")
+        if total > 1:
+            raise AXPilotError(
+                ErrorCode.LOCATOR_AMBIGUOUS,
+                f"The locator matches {total} elements{where}.",
+                details={"count": total},
             )
         return matches[0]
 

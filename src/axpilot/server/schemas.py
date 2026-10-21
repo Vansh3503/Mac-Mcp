@@ -34,6 +34,13 @@ __all__ = [
     "ElementBriefModel",
     "ElementModel",
     "InspectModel",
+    "LocateModel",
+    "LocatedItemModel",
+    "LocatorArg",
+    "LocatorCandidateModel",
+    "LocatorParam",
+    "LocatorStepArg",
+    "LocatorWindowArg",
     "OcrLineModel",
     "OcrModel",
     "OutputModel",
@@ -394,6 +401,111 @@ class InspectModel(OutputModel):
     locator_path: list[str] = Field(default_factory=list, description="AX role path from the window.")
     ancestors: list[ElementBriefModel] = Field(default_factory=list, description="Nearest parent first.")
     children: list[ElementBriefModel] = Field(default_factory=list)
+
+
+# --------------------------------------------------------------------------- locators
+class LocatorStepArg(_Strict):
+    """An ancestor the element must be inside (any of role, identifier, name)."""
+
+    role: str | None = Field(default=None, max_length=64, description='AX role ("AXToolbar") or short role.')
+    identifier: str | None = Field(default=None, max_length=256, description="Exact AXIdentifier.")
+    name: str | None = Field(default=None, max_length=500, description="Exact name.")
+
+
+class LocatorWindowArg(_Strict):
+    """Which of the app's windows to search (title or index). Default: its focused window."""
+
+    title: str | None = Field(default=None, max_length=500, description="Window title.")
+    match: Literal["exact", "prefix"] | None = Field(default=None, description="How to compare the title.")
+    index: int | None = Field(default=None, ge=0, le=99, description="Position among the app's windows.")
+
+
+class LocatorArg(_Strict):
+    """A portable locator: names an element by what the app says about it (see `locate`)."""
+
+    v: Literal[1] | None = Field(default=None, description="Locator format version (1).")
+    app: str = Field(min_length=1, max_length=256, description="Bundle id (preferred) or app name.")
+    window: LocatorWindowArg | None = None
+    within: list[LocatorStepArg] | None = Field(
+        default=None, max_length=5, description="Ancestors the element is inside, outermost first."
+    )
+    role: str | None = Field(default=None, max_length=64, description='AX role ("AXButton") or short role.')
+    subrole: str | None = Field(default=None, max_length=64, description='AX subrole ("AXSearchField").')
+    identifier: str | None = Field(default=None, max_length=256, description="Exact AXIdentifier.")
+    name: str | None = Field(
+        default=None, max_length=500, description="The element's name, as snapshots show it."
+    )
+    name_match: Literal["exact", "prefix", "contains"] | None = Field(
+        default=None, description="How to compare the name (default exact)."
+    )
+    index: int | None = Field(default=None, ge=0, le=9999, description="Pick this match (document order).")
+    path: str | None = Field(
+        default=None, max_length=2000, description='Position in the window tree, "AXToolbar[0]/AXButton[2]".'
+    )
+
+
+LocatorParam = Annotated[
+    LocatorArg | None,
+    Field(
+        description='A locator from locate, e.g. {"app": "com.apple.finder", "role": "AXButton", '
+        '"name": "Back"}. Exact matching: every field given must hold.'
+    ),
+]
+
+
+class LocatorCandidateModel(_Strict):
+    """One locator for an element, checked against the live window."""
+
+    locator: dict[str, Any] = Field(description="The locator, ready for find(locator=…) or a script.")
+    strategy: Literal["identifier", "name", "name_within", "role_within", "index", "path"]
+    grade: Literal["high", "medium", "low"] = Field(
+        description="high: survives language and layout changes; medium: survives layout changes; "
+        "low: breaks when the layout changes."
+    )
+    unique: bool | None = Field(
+        description="true: matches only this element; null: unique in a capture that was cut short."
+    )
+    reasons: list[str] = Field(default_factory=list, description="Why it got this grade.")
+
+
+class LocatedItemModel(_Strict):
+    """Locators for one of several elements (``locate(refs=…)``)."""
+
+    element: ElementBriefModel
+    snapshot_id: str = Field(description="Snapshot the element's ref belongs to.")
+    candidates: list[LocatorCandidateModel] = Field(default_factory=list, description="Best first.")
+    recommended: int | None = Field(default=None, description="Index of the locator to use (null: none).")
+    warnings: list[str] = Field(default_factory=list, description="What to know about this element.")
+
+
+class LocateModel(OutputModel):
+    """Output of ``locate``."""
+
+    snapshot_id: str = Field(description="Snapshot the refs belong to.")
+    app: AppRefModel
+    window: WindowRefModel | None = None
+    element: ElementBriefModel | None = Field(
+        default=None, description="The element located (for a locator: when it matches exactly one)."
+    )
+    candidates: list[LocatorCandidateModel] = Field(
+        default_factory=list, description="Locators for the element, best first."
+    )
+    recommended: int | None = Field(default=None, description="Index of the locator to use (null: none).")
+    snippets: dict[str, str] = Field(
+        default_factory=dict, description="The recommended locator in each requested format."
+    )
+    locator: dict[str, Any] | None = Field(default=None, description="The locator that was checked.")
+    count: int | None = Field(default=None, description="How many elements the checked locator matches.")
+    unique: bool | None = Field(
+        default=None,
+        description="true: the checked locator matches exactly one element of a complete capture.",
+    )
+    matches: list[ElementBriefModel] = Field(
+        default_factory=list, description="Elements the checked locator matches (at most 20)."
+    )
+    items: list[LocatedItemModel] = Field(
+        default_factory=list, description="With refs: one entry per element, in the order given."
+    )
 
 
 class ScreenshotModel(OutputModel, CaptureModel):

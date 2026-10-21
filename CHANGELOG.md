@@ -14,6 +14,21 @@ Pre-alpha. Nothing is published on PyPI yet.
 
 ### Added
 
+- Locators for automation scripts. `locate` turns an element ref into a *locator*: a small JSON
+  object that names the element by its AXIdentifier, role and name, its containers or its
+  position, and still works in later sessions (refs only last for one). It returns a few
+  candidates, best first, each checked against a fresh capture of the window so that it names only
+  that element, graded `high` (an identifier), `medium` (role and name, which change with the app's
+  language) or `low` (a position), with warnings such as a missing identifier or a toolbar that can
+  overflow; it can also write the locator as an AXPilot SDK snippet. `locate(locator=…)` checks a
+  locator against the live window, and `locate(refs=[…])` locates every element of a screen in one
+  call, with one script for all of them (the steps of a flow: the agent locates each screen before
+  leaving it, since a closed screen's elements can't be checked; a secure field's text comes from
+  an environment variable). Agents call it only when asked for locators, a script or a test.
+  `find(locator=…)` looks one up with exact matching (also with
+  `scroll=true`) and reports `count` and `unique`; in the SDK, `find(locator=…).click()` raises the
+  new error codes `ELEMENT_NOT_FOUND` and `LOCATOR_AMBIGUOUS` instead of guessing. See
+  [Locators](docs/locators.md).
 - Dropdowns in every kind of app: `select_option` opens the control, waits for its menu or list,
   picks the option by title or index, checks that the control took it, and closes the menu again
   if anything fails (including the kill switch). It covers pop-up buttons (also when their menu
