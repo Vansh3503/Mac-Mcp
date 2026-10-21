@@ -118,24 +118,6 @@ def automation_status(bundle_ids: Iterable[str], running: set[str]) -> tuple[dic
     return result, unasked
 
 
-def automation_notes(automation: dict[str, bool], unasked: Iterable[str]) -> list[str]:
-    """Notes for :func:`permission_status`: denied targets and targets macOS has not asked about."""
-    not_asked = sorted(set(unasked))
-    denied = sorted(bundle for bundle, ok in automation.items() if not ok and bundle not in not_asked)
-    notes: list[str] = []
-    if denied:
-        notes.append(
-            "Automation (Apple events) is denied for: " + ", ".join(denied) + "; allow it in System "
-            "Settings → Privacy & Security → Automation."
-        )
-    if not_asked:
-        notes.append(
-            "Automation (Apple events) has not been asked for yet for: " + ", ".join(not_asked) + "; "
-            "macOS asks the first time a tool needs it."
-        )
-    return notes
-
-
 def responsible_app(runner: CommandRunner) -> str | None:
     """Best-effort name of the app macOS attributes our permission checks to."""
     result = runner.run(["ps", "-axo", "pid=,ppid=,comm="], timeout_s=5.0, max_output=2_000_000)
@@ -164,7 +146,7 @@ def permission_status(ax: AX, *, responsible: str | None, running_bundle_ids: se
             f"Screen Recording is not granted to {who}; screenshots and OCR are unavailable. "
             "macOS only notices a new grant after AXPilot restarts."
         )
-    notes.extend(automation_notes(automation, unasked))
+    notes.extend(h.automation_notes(automation, unasked))
     return PermissionStatus(
         accessibility=accessibility,
         screen_recording=screen,

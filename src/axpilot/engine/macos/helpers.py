@@ -771,6 +771,28 @@ def media_key_event_data(key_type: int, down: bool) -> tuple[int, int]:
     return state << 8, (key_type << 16) | (state << 8)
 
 
+# ============================================================================ permissions
+
+
+def automation_notes(automation: dict[str, bool], unasked: Iterable[str]) -> list[str]:
+    """Notes for :func:`~axpilot.engine.macos.permissions.permission_status`: denied targets and
+    targets macOS has not asked about."""
+    not_asked = sorted(set(unasked))
+    denied = sorted(bundle for bundle, ok in automation.items() if not ok and bundle not in not_asked)
+    notes: list[str] = []
+    if denied:
+        notes.append(
+            "Automation (Apple events) is denied for: " + ", ".join(denied) + "; allow it in System "
+            "Settings → Privacy & Security → Automation."
+        )
+    if not_asked:
+        notes.append(
+            "Automation (Apple events) has not been asked for yet for: " + ", ".join(not_asked) + "; "
+            "macOS asks the first time a tool needs it."
+        )
+    return notes
+
+
 # ======================================================================== process lineage
 
 
