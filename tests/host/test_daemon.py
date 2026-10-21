@@ -451,6 +451,10 @@ async def test_the_host_stops_when_its_launcher_is_gone(
             assert socket_is_live(path)
             await anyio.sleep(0.05)
             assert socket_is_live(path)  # still serving while the launcher lives
+            # Let the host accept that probe before the launcher dies: anyio's accept() raises
+            # InvalidStateError in a loop callback when it is cancelled in the very loop iteration
+            # a connection arrives (an anyio race), and the test runner reports it as a failure.
+            await anyio.sleep(0.05)
             monkeypatch.setattr(os, "getppid", lambda: 1)  # the launcher died: launchd adopts us
             await until(lambda: not path.exists())
     assert not path.exists()
