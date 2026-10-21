@@ -304,7 +304,8 @@ Chrome checkout page (a `<select>`, a mouse-only combo box, an autocomplete that
 an ARIA menu, a date field), a Slack (Electron) picker and an IntelliJ (Java) combo box whose list is a window.
 A web date field is a node that cannot be set (`settable: false`) whose parts carry `digits: n` (Chrome's spin
 buttons): a part takes focus from `focus` or a click, typed digits fill it (the first after focus starts over;
-other characters are ignored), and a full part moves the focus to the next one.
+other characters are ignored; of text typed without a pause, one key event, it keeps only the first character,
+as Safari and Chrome do), and a full part moves the focus to the next one.
 
 ---------------------------------------------------------------------------------------------------
 

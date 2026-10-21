@@ -176,6 +176,9 @@ Pre-alpha. Nothing is published on PyPI yet.
 - After a pick from TextEdit's font-size list, `select_option` warned that the list "may still be
   open" and pressed Escape, which opened TextEdit's word-completion popup: macOS 26 keeps the closed
   list's elements valid. The box's own expanded state now tells whether its list is open.
+- Web date fields still failed in Safari and Chrome (macOS 26): a part's digits went in as one key
+  event, and the browsers keep only its first character, so "03" set the month to 0 and "2026"
+  the year to 2. Each digit is now its own keystroke.
 
 - `explore` listed the files of Finder's list view as sidebar sections: every outline's rows
   counted. Only an outline named like a sidebar, or a narrow one along a window edge, is a sidebar

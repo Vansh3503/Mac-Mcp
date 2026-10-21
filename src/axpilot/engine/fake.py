@@ -58,8 +58,9 @@ only when an option is picked from that list or Return is pressed in it, which r
 A web date field (``<input type="date">``) is a node whose value cannot be set (``settable:
 false``) with one child per part, each marked ``"digits": n`` (2 for month and day, 4 for the
 year), like Chrome's spin buttons: a part takes keyboard focus from ``focus`` or a click; typed
-digits fill it (the first one after it gained focus starts over), other characters are ignored,
-and once it holds ``n`` digits the focus moves on to the next part, as browsers do.
+digits fill it (the first one after it gained focus starts over; text typed without a pause is one key
+event, of which it keeps only the first character), other characters are ignored, and once it holds
+``n`` digits the focus moves on to the next part, as browsers do.
 
 Menus that elements show (see ``menu`` above; a pop-up button with ``options`` and no
 ``on_press`` shows its options, the current one selected; an ``AXPopUpButton`` or
@@ -2697,7 +2698,9 @@ class FakeEngine(Engine):
                 part = None if self._open_menu is not None else self._focused_part(self._frontmost)
                 self._record("type_text", target=part.handle if part is not None else None, text=text)
                 if part is not None:
-                    self._type_digits(part, text)
+                    # text typed without a pause arrives as one key event, and a browser's date part
+                    # keeps only its first character (Safari, Chrome on macOS 26)
+                    self._type_digits(part, text if interval_s > 0 else text[:1])
                 return
             if node.secure:
                 self._record("type_text", target=node.handle, secure=True, length=len(text))
