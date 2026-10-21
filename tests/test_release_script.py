@@ -135,12 +135,10 @@ def test_missing_undated_or_empty_sections_are_refused(text: str, message: str) 
 
 
 # =========================================================================== the launcher pin
-def test_the_repository_pin_is_still_pending_so_releases_fail_closed() -> None:
+def test_the_repository_pins_the_published_launcher_v1() -> None:
     pins = release.parse_pins((ROOT / "launcher" / "CDHASH.md").read_text())
-    assert pins[-1].asset == "launcher-v1"
-    problems = release.pin_problems(pins[-1])
-    assert any("arm64 cdhash" in problem for problem in problems)
-    assert any("git commit" in problem for problem in problems)
+    assert (pins[-1].launcher, pins[-1].asset) == ("1.0.0", "launcher-v1")
+    assert release.pin_problems(pins[-1]) == []
 
 
 def test_a_filled_pin_has_no_problems() -> None:
@@ -190,9 +188,11 @@ def test_every_problem_is_reported_at_once(tmp_path: Path) -> None:
     assert "AXPilot.app.zip" in problems[2]
 
 
-def test_the_real_repository_is_not_releasable_yet() -> None:
-    _, problems = release.check("v0.1.0")
-    assert any("_pending_" in problem for problem in problems)
+def test_the_real_repository_is_releasable_at_its_version() -> None:
+    version = release.package_version((ROOT / "src" / "axpilot" / "__init__.py").read_text())
+    outputs, problems = release.check(f"v{version}")
+    assert problems == []
+    assert outputs["launcher_asset"] == "launcher-v1"
 
 
 # =========================================================================== server.json
