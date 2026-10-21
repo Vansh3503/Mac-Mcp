@@ -40,7 +40,7 @@ from typing import Any
 import anyio
 
 from axpilot.errors import AXPilotError, ErrorCode
-from axpilot.models import AppInfo, KeyCombo, Point, RawNode, RawTree, Rect
+from axpilot.models import AppInfo, KeyCombo, RawNode, RawTree, Rect
 from axpilot.perception import dropdown as dd
 from axpilot.perception.appkind import detect_app_kind
 from axpilot.perception.format import quote
@@ -265,15 +265,33 @@ async def _click_arrow(ctx: ServerContext, target: Target) -> str:
     if frame is None or frame.w <= 0 or frame.h <= 0:
         used, _ = await click_target(ctx, target, button="left", count=1, modifiers=(), strategy="mouse")
         return f"open:{used}"
-    point = Point(frame.x + frame.w - min(COMBO_ARROW_INSET, frame.w / 2), frame.y + frame.h / 2)
-    arrow = await resolve_point(ctx, point.x, point.y)
-    if target.app is not None and (arrow.app is None or arrow.app.pid != target.app.pid):
+    used = await _click_box(ctx, target, frame.x + frame.w - min(COMBO_ARROW_INSET, frame.w / 2), "arrow")
+    return f"open:{used}:arrow"
+
+
+async def _click_box(ctx: ServerContext, target: Target, x: float, part: str) -> str:
+    """Click a combo box at ``x`` on its middle line, like a user. Refused while the box says its list
+    is open: on macOS 26 that list can cover the box, so the click would pick whatever option lies
+    there."""
+    el = target.el
+    assert el is not None
+    assert el.frame is not None
+    assert target.handle is not None
+    shown = await ctx.run_engine(ctx.engine.refresh_element, target.handle)
+    if shown.expanded:
         raise AXPilotError(
             ErrorCode.ELEMENT_NOT_ACTIONABLE,
-            f"The arrow of {target.describe()} is covered by another window.",
+            f"{target.describe()} shows a list whose options AXPilot cannot read.",
+            hint="Take a snapshot to see the list and click an option by ref, or press Escape to close it.",
         )
-    used, _ = await click_target(ctx, arrow, button="left", count=1, modifiers=(), strategy="mouse")
-    return f"open:{used}:arrow"
+    point = await resolve_point(ctx, x, el.frame.y + el.frame.h / 2)
+    if target.app is not None and (point.app is None or point.app.pid != target.app.pid):
+        raise AXPilotError(
+            ErrorCode.ELEMENT_NOT_ACTIONABLE,
+            f"The {part} of {target.describe()} is covered by another window.",
+        )
+    used, _ = await click_target(ctx, point, button="left", count=1, modifiers=(), strategy="mouse")
+    return used
 
 
 async def _press_keys(ctx: ServerContext, target: Target, combo: KeyCombo) -> None:

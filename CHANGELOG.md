@@ -167,6 +167,9 @@ Pre-alpha. Nothing is published on PyPI yet.
 - `select_option` and `set_value` on TextEdit's font-size box (macOS 26) found no options: its list
   holds text-field rows, which AXPilot did not count as options. They are read now, so the size is
   picked from the list.
+- When a combo box's list opened but could not be read, AXPilot clicked the box's arrow next; on
+  macOS 26 the list can cover the box, so that click chose whatever option lay there (9 pt instead
+  of 24). AXPilot no longer clicks a combo box that reports its list open, and says so.
 
 - `explore` listed the files of Finder's list view as sidebar sections: every outline's rows
   counted. Only an outline named like a sidebar, or a narrow one along a window edge, is a sidebar

@@ -46,11 +46,11 @@ Tree nodes use the :mod:`axpilot.perception.serialize` format plus these fake-on
 
 An AppKit combo box (an ``AXComboBox`` with ``options``, without ``on_press`` or ``pointer_only``)
 shows its options as an ``AXList`` child of ``AXTextField`` rows (as on macOS 26; no ``AXPress``:
-they take clicks) after ``AXShowMenu``, a press of its ``AXButton`` child (the arrow) or a click on its
-right-hand :data:`_COMBO_ARROW_WIDTH` points; a click anywhere else only puts the text cursor in
-it. Like ``NSComboBox``, it acts on its value only when an option is picked from that list or
-Return is pressed in it, which records ``("combo_commit", {"handle", "value"})``; setting its text
-(``set_value``) only changes what it shows.
+they take clicks) after ``AXShowMenu``, a press of its ``AXButton`` child (the arrow) or a click on
+its right-hand :data:`_COMBO_ARROW_WIDTH` points, and reports itself ``expanded`` while that list is
+open; a click anywhere else only puts the text cursor in it. Like ``NSComboBox``, it acts on its value
+only when an option is picked from that list or Return is pressed in it, which records
+``("combo_commit", {"handle", "value"})``; setting its text (``set_value``) only changes what it shows.
 
 A web date field (``<input type="date">``) is a node whose value cannot be set (``settable:
 false``) with one child per part, each marked ``"digits": n`` (2 for month and day, 4 for the
@@ -1744,6 +1744,8 @@ class FakeEngine(Engine):
             for item, choice in zip(menu.children, choices, strict=True):
                 opened.choices[item.handle] = choice
             self._open_menu = opened
+            if self._appkit_combo(owner):
+                owner.expanded = True
         self._record("menu_open", owner=owner.handle, name=_node_label(owner), placement=placement)
         return True
 
@@ -1752,6 +1754,8 @@ class FakeEngine(Engine):
         if menu is None:
             return
         self._open_menu = None
+        if self._appkit_combo(menu.owner):
+            menu.owner.expanded = False
         if menu.parent is None:
             menu.node.visible = False
         else:

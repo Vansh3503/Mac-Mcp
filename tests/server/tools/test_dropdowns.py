@@ -25,6 +25,7 @@ from mcp import Client
 from axpilot.engine.fake import FakeEngine
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.models import AppInfo
+from axpilot.perception import dropdown as dd
 from axpilot.server.context import ServerContext
 from axpilot.server.results import error_code_of, text_of
 from axpilot.testing import connected_client, make_test_context, structured
@@ -726,6 +727,23 @@ async def test_a_combo_box_opens_with_its_arrow(
     assert data["attempts"][-1] == "pick:mouse"
     assert commits(ctx, name.lower()) == ["14"]
     assert fake(ctx).menu_state() is None
+
+
+async def test_a_combo_box_whose_open_list_cannot_be_read_is_not_clicked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """TextEdit (macOS 26): the arrow opened a list AXPilot could not read, and the click on the arrow
+    that followed landed on the list covering it and chose 9 pt instead of 24."""
+    monkeypatch.setattr(dd, "combo_list", lambda *_args, **_kwargs: None)
+    ctx, connecting = combo_client(FakeEngine.from_dict(combo_desktop()))
+    async with connecting as client:
+        result, error = await call(
+            client, "select_option", {"ref": await ref_of(client, "Arrowed"), "option": "14"}
+        )
+    assert error == "ELEMENT_NOT_ACTIONABLE", text_of(result)
+    assert "cannot read" in text_of(result)
+    assert not fake(ctx).events_of("mouse_click")
+    assert commits(ctx, "arrowed") == []
 
 
 async def test_a_combo_box_without_a_list_gets_the_text_and_return() -> None:
