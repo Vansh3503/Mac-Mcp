@@ -4,9 +4,8 @@
 through the macOS Accessibility API first and screenshots second, with safety controls that are on
 by default.
 
-> **Status: pre-alpha.** AXPilot is not yet published on PyPI. These docs describe the planned 1.0
-> behaviour and mark what is *planned*. You can run it from source today (verified on macOS 26 on
-> Apple silicon); see [Install](install.md).
+> **Status: alpha.** The first alpha, 0.1.0a1, is on PyPI (verified on macOS 26 on Apple silicon).
+> These docs describe the planned 1.0 behaviour and mark what is *planned*; see [Install](install.md).
 
 ## What it does
 

@@ -4,8 +4,8 @@ AXPilot is a standard MCP server, so any framework with an MCP client can use it
 (`axpilot stdio`, the framework starts AXPilot as a subprocess) or over **Streamable HTTP**
 (`axpilot http`: `http://127.0.0.1:7788/mcp` with a bearer token).
 
-> **Status:** AXPilot is not on PyPI yet. Until v0.1, replace `"command": "axpilot", "args": ["stdio"]`
-> with the from-source command, for example
+> **Status:** alpha (0.1.0a1 on PyPI). With a checkout instead, replace
+> `"command": "axpilot", "args": ["stdio"]` with the from-source command, for example
 > `"command": "uv", "args": ["--directory", "/path/to/axpilot", "run", "axpilot", "stdio", "--engine", "fake"]`
 > (simulated desktop) or `… "stdio", "--direct"` (your Mac). A runnable example for each framework is
 > in [`examples/frameworks/`](https://github.com/vansh3503/Mac-Mcp/tree/main/examples/frameworks)

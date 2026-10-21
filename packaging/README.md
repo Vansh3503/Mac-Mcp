@@ -5,9 +5,9 @@ Distribution metadata and installers for AXPilot. Background:
 [§13](../docs/PLAN.md#13-cicd-and-release-engineering) (release engineering) and
 [ADR-0005](../docs/adr/0005-signing-and-distribution.md) (why package managers only).
 
-> **Status:** nothing here is live yet. AXPilot is not yet published on PyPI or in the MCP Registry,
-> and the installer URL is not hosted yet. These files are ready for the first release (v0.1) and
-> the public preview (v0.3).
+> **Status:** 0.1.0a1, the first alpha, is the first release on PyPI. Pre-releases are not
+> published to the MCP Registry and do not deploy the docs site, so the registry entry and the
+> installer URL go live with the public preview (v0.3).
 
 | File | Purpose |
 |---|---|

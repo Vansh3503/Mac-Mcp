@@ -1,8 +1,8 @@
 # Install
 
-> **Status:** AXPilot is pre-alpha and **not yet published on PyPI**. The from-source path below
-> works today and is verified on macOS 26 on Apple silicon. The package-manager commands are the
-> intended experience and are marked *coming with v0.1* (or later, where noted).
+> **Status:** AXPilot is in alpha: 0.1.0a1 is on PyPI, and the from-source path below works too.
+> Both are verified on macOS 26 on Apple silicon; macOS 14 and 15 and Intel Macs are not tested
+> yet. Channels that come later are marked *planned*.
 
 ## Requirements
 
@@ -60,10 +60,10 @@ the MCP client). Grant **Accessibility** to that app; see [Permissions](permissi
 
 | Channel | Command | Status |
 |---|---|---|
-| **uv** (recommended) | `uv tool install axpilot` then `axpilot setup` | Coming with v0.1 |
-| pipx | `pipx install axpilot` then `axpilot setup` | Coming with v0.1 |
+| **uv** (recommended) | `uv tool install axpilot` then `axpilot setup` | **Alpha** (0.1.0a1) |
+| pipx | `pipx install axpilot` then `axpilot setup` | **Alpha** (0.1.0a1) |
 | One-line installer | `install.sh` piped to `sh` ([below](#one-line-installer-planned)) | Planned (v0.3) |
-| uvx (try without installing) | `uvx axpilot stdio` | Coming with v0.1 |
+| uvx (try without installing) | `uvx axpilot stdio` | **Alpha** (0.1.0a1) |
 | MCP Registry | `io.github.vansh3503/axpilot` | Planned (v0.3) |
 | Claude Desktop extension (`.mcpb`) | One-click bundle | Under evaluation (v0.3); ships only if reliable |
 | Homebrew tap (formula) | `brew install vansh3503/tap/axpilot` | Planned, after verifying the launcher survives the keg unmodified |
@@ -73,7 +73,7 @@ Why package managers and not a DMG? The launcher app is ad-hoc signed (free, no 
 account). Package managers don't mark downloaded files with `com.apple.quarantine`, so Gatekeeper
 never blocks it; a browser download would. See [ADR-5](adr/0005-signing-and-distribution.md).
 
-## Install with uv (coming with v0.1)
+## Install with uv
 
 ```sh
 uv tool install axpilot

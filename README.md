@@ -5,8 +5,8 @@ through the macOS Accessibility API first and screenshots second, with safety co
 on by default.
 
 [![CI](https://github.com/vansh3503/Mac-Mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/vansh3503/Mac-Mcp/actions/workflows/ci.yml)
-[![Status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange)](#roadmap)
-[![PyPI: coming with v0.1](https://img.shields.io/badge/PyPI-coming%20with%20v0.1-lightgrey)](#install)
+[![Status: alpha](https://img.shields.io/badge/status-alpha-orange)](#roadmap)
+[![PyPI](https://img.shields.io/pypi/v/axpilot?include_prereleases&label=PyPI)](https://pypi.org/project/axpilot/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://github.com/vansh3503/Mac-Mcp/blob/main/pyproject.toml)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black)](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/install.md)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](https://github.com/vansh3503/Mac-Mcp/blob/main/LICENSE)
@@ -19,10 +19,9 @@ on by default.
 </p>
 <p align="center"><sub>A real recording on macOS 26: Claude Code (left) drives TextEdit (right) through AXPilot. Sped up in places; the speed is shown on screen.</sub></p>
 
-> **Project status: pre-alpha.** AXPilot is under active development and is **not yet published
-> on PyPI**: you [run it from source](#run-from-source-today). It is verified on macOS 26 on Apple
-> silicon; macOS 14 and 15 and Intel Macs are not tested yet. The commands marked *coming with
-> v0.1* show the intended experience. Expect breaking changes until 1.0. See the [roadmap](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/PLAN.md#15-roadmap-and-milestones-one-maintainer--ai-assistance).
+> **Project status: alpha.** The first alpha, 0.1.0a1, is [on PyPI](#install-from-pypi-alpha); you
+> can also [run it from source](#run-from-source-today). It is verified on macOS 26 on Apple
+> silicon; macOS 14 and 15 and Intel Macs are not tested yet. Expect breaking changes until 1.0. See the [roadmap](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/PLAN.md#15-roadmap-and-milestones-one-maintainer--ai-assistance).
 
 ## Why AXPilot
 
@@ -117,7 +116,7 @@ uv run axpilot stdio --direct        # direct mode: grant Accessibility to the a
 the [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
 `npx @modelcontextprotocol/inspector uv run axpilot stdio --engine fake`.
 
-### Install from PyPI (coming with v0.1)
+### Install from PyPI (alpha)
 
 ```sh
 uv tool install axpilot     # or: pipx install axpilot
@@ -137,9 +136,9 @@ backup), pointing it at the checkout's `axpilot` by absolute path. Restart the c
 For direct mode, or to write the config by hand, see
 [docs/clients.md](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/clients.md#from-source-today).
 
-### After v0.1 is on PyPI
+### Installed from PyPI
 
-`axpilot connect <client>` will write the config for you (with a backup). The snippets it writes:
+`axpilot connect <client>` writes the config for you (with a backup). The snippets it writes:
 
 **Claude Desktop, Cursor** (`~/.cursor/mcp.json`) and most other clients:
 
@@ -253,10 +252,9 @@ Other good projects in this space include [MacOS-MCP](https://github.com/CursorT
 
 ## Roadmap
 
-About 12 weeks to 1.0: `v0.1` alpha (engine and core tools in direct mode), `v0.2` beta (launcher,
-host app, safety), `v0.3` public preview (one-line installer, `connect` for 12 clients, MCP
-Registry), `v0.9`
-(full toolsets, OCR, frameworks, evals), then `v1.0`. Details and the open questions are in the
+About 12 weeks to 1.0: `v0.1` alpha (engine and core tools in direct mode; 0.1.0a1 is out),
+`v0.2` beta (launcher, host app, safety), `v0.3` public preview (one-line installer, `connect` for
+12 clients, MCP Registry), `v0.9` (full toolsets, OCR, frameworks, evals), then `v1.0`. Details and the open questions are in the
 [project plan](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/PLAN.md); decisions are recorded as
 [ADRs](https://github.com/vansh3503/Mac-Mcp/tree/main/docs/adr).
 

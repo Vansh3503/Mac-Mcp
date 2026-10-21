@@ -53,9 +53,9 @@ terminal running Claude Code); see [Permissions](permissions.md#direct-mode). Re
 after granting it. To experiment without touching your desktop, replace `--direct` with
 `--engine fake`.
 
-## After v0.1 is published
+## Installed from PyPI
 
-The snippets below are what `axpilot connect` will write. Where a client is started by a GUI app,
+The snippets below are what `axpilot connect` writes. Where a client is started by a GUI app,
 `connect` uses the absolute path of `axpilot` (for example `/Users/you/.local/bin/axpilot`).
 
 ### Claude Desktop
