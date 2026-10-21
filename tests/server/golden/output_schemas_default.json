@@ -2900,7 +2900,7 @@
     "type": "array"
    },
    "sections": {
-    "description": "Sidebar / outline entries.",
+    "description": "Sidebar entries (rows of a narrow outline along a window edge, or one named Sidebar).",
     "items": {
      "$ref": "#/$defs/ElementBriefModel"
     },

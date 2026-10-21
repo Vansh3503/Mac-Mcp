@@ -153,4 +153,10 @@ Pre-alpha. Nothing is published on PyPI yet.
   Agent Skill (`skills/axpilot/SKILL.md`), MCP Registry metadata and the installer script
   (`packaging/`).
 
+### Fixed
+
+- `explore` listed the files of Finder's list view as sidebar sections: every outline's rows
+  counted. Only an outline named like a sidebar, or a narrow one along a window edge, is a sidebar
+  now; a wide one is the window's content and stays under scroll areas (#19).
+
 [Unreleased]: https://github.com/vansh3503/Mac-Mcp/commits/main

@@ -341,7 +341,7 @@ Agents need to *roam* through an app, not just click what's on screen. These too
 
 | Tool | What it does |
 |---|---|
-| `explore` | A map of an app in one call: its windows, menu bar (top-level menus with item counts), toolbar buttons, tabs, sidebar/outline sections, focused element, scrollable areas, plus the app's **compatibility profile** (§6.10). This is the first call for an unfamiliar app. |
+| `explore` | A map of an app in one call: its windows, menu bar (top-level menus with item counts), toolbar buttons, tabs, sidebar sections (narrow outlines along a window edge; a wide outline such as Finder's list view is content), focused element, scrollable areas, plus the app's **compatibility profile** (§6.10). This is the first call for an unfamiliar app. |
 | `find` with `scroll: true` | Search for an element; if it isn't visible, scroll the nearest (or a given) scroll area page by page until it appears, the end is reached, or `max_scrolls` runs out. Lazily loaded lists, long settings panes and feeds work. |
 | `scroll` | Scroll a specific scroll area `ref` by lines/pages, `to: top\|bottom`, or `scroll_into_view: ref`. Reports whether the area moved and whether it hit the end. |
 | `read` | Read the full content of a document, web page, text view, list or table by scrolling through it, de-duplicating overlap between pages, and returning text (or rows) with `complete: true/false`. Suitable for long chats, documents, logs and search results. |
