@@ -318,19 +318,25 @@ class AsyncDesktop:
         *,
         role: str | None = None,
         identifier: str | None = None,
+        locator: Mapping[str, Any] | None = None,
         app: str | None = None,
         scroll: bool | None = None,
         limit: int | None = None,
         container: str | None = None,
     ) -> FindResult[AsyncElementHandle]:
         """Elements matching ``text``/``role``/``identifier``, best first; ``scroll=True`` scrolls a
-        long list until a match appears. ``find(...).click()`` clicks the best match."""
+        long list until a match appears. ``find(...).click()`` clicks the best match.
+
+        ``locator`` (a locator object from the ``locate`` tool) matches exactly instead, in the
+        app and window it names; ``find(locator=...).click()`` then refuses to guess: it raises
+        ``ELEMENT_NOT_FOUND`` when nothing matches and ``LOCATOR_AMBIGUOUS`` when several do."""
         result = await self._typed(
             FindResult,
             "find",
             text=text,
             role=role,
             identifier=identifier,
+            locator=dict(locator) if locator is not None else None,
             app=app,
             scroll=scroll,
             limit=limit,

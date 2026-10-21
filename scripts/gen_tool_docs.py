@@ -60,6 +60,11 @@ display; displays to the left or above have negative coordinates). Tools that ta
 accept `coordinate_space: "screenshot"` with a `screenshot_id`, so a model can pass pixel
 coordinates read off a (possibly downscaled) screenshot.
 
+**Locators.** Refs only last for one session. For automation scripts, `locate` turns a ref into a
+*locator*, a small JSON object (`{"v": 1, "app": "com.apple.finder", "role": "AXButton", "name":
+"Back"}`) that `find(locator=…)` looks up again in any later session. See
+[Locators for scripts](locators.md).
+
 **Act, then observe.** Input tools take `report: "diff" | "snapshot" | "none"` (default `diff`):
 after acting, AXPilot waits for the UI to settle and reports what changed (focus, added and
 removed elements, new windows or dialogs, changed values) with the new `snapshot_id`.

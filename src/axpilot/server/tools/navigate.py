@@ -37,6 +37,7 @@ from axpilot.models import AppInfo, MenuNode, Point, Rect, WindowInfo
 from axpilot.perception.diff import diff_snapshots
 from axpilot.perception.find import find_elements
 from axpilot.perception.format import diff_payload, format_diff, format_snapshot, quote, snapshot_payload
+from axpilot.perception.locators import LocatorSpec, is_unique, match_elements
 from axpilot.perception.model import Element, Snapshot, SnapshotMode
 from axpilot.perception.navigate import (
     COLLECTION_ROLES,
@@ -61,6 +62,8 @@ from axpilot.server.schemas import (
     AppRefModel,
     DiffModel,
     ElementBriefModel,
+    LocatorArg,
+    LocatorParam,
     OutputModel,
     SnapshotIdArg,
     SnapshotModel,
@@ -79,6 +82,7 @@ from axpilot.server.tools.input import (
     ensure_uncovered,
     resolve_point,
 )
+from axpilot.server.tools.locate import locator_from_arg, locator_snapshot
 from axpilot.server.tools.observe import app_profile_of
 
 __all__ = ["DEFAULT_LINE_POINTS", "MAX_SCROLLS", "NAV_DEADLINE_MAX_S"]
@@ -186,6 +190,13 @@ class FindModel(OutputModel):
         default=False, description="True if the whole scrollable content was searched (no more to look at)."
     )
     container: ElementBriefModel | None = Field(default=None, description="The area that was scrolled.")
+    locator: dict[str, Any] | None = Field(
+        default=None, description="The locator searched for (normalized), when find was given one."
+    )
+    unique: bool | None = Field(
+        default=None,
+        description="With a locator: true when it matches exactly one element of a complete capture.",
+    )
 
 
 class ScrollModel(ActionResult):
@@ -713,10 +724,13 @@ until a match appears (lazily loaded lists, long settings panes, feeds).
 Use it instead of scrolling and snapshotting by hand. Params: text (fuzzy: exact > prefix > substring >
 words), role (button, row, field… or an AX role), identifier (AXIdentifier); app / window_id; container
 (ref of the list/page to search and scroll; default: the whole window, scrolling its largest scroll
-area); scroll; max_scrolls (≤ 50); limit.
+area); scroll; max_scrolls (≤ 50); limit. Or locator (from locate): exact matching in the window it
+names, instead of text/role/identifier/app/window_id.
 Returns matches (ref, role, name, score) from the final snapshot, found, scrolls, at_end and
-searched_all. Not finding anything is not an error: found=false with what was searched.
-Errors: INVALID_ARGUMENT, APP_NOT_FOUND, STALE_REF (container), BLOCKED_BY_POLICY, USER_ACTIVE."""
+searched_all; with a locator also count (all matches) and unique. Not finding anything is not an
+error: found=false with what was searched.
+Errors: INVALID_ARGUMENT, APP_NOT_FOUND, WINDOW_NOT_FOUND (locator), STALE_REF (container),
+BLOCKED_BY_POLICY, USER_ACTIVE."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -725,8 +739,11 @@ class _Query:
     role: str | None
     identifier: str | None
     limit: int
+    locator: LocatorSpec | None = None
 
     def describe(self) -> str:
+        if self.locator is not None:
+            return f"locator {self.locator.describe()}"
         parts = [quote(self.text, 60)] if self.text else []
         if self.role:
             parts.append(f"role={self.role}")
@@ -735,7 +752,18 @@ class _Query:
         return " ".join(parts)
 
 
+def _locator_matches(snap: Snapshot, within: Element | None, spec: LocatorSpec) -> list[Element]:
+    """Every element ``spec`` matches in ``snap`` (inside ``within``, when given)."""
+    found = match_elements(snap, spec)
+    if within is None:
+        return found
+    inside = {el.ref for el in descendants(snap, within)} | {within.ref}
+    return [el for el in found if el.ref in inside]
+
+
 def _search(snap: Snapshot, within: Element | None, query: _Query) -> list[tuple[Element, float]]:
+    if query.locator is not None:
+        return [(el, 1.0) for el in _locator_matches(snap, within, query.locator)[: query.limit]]
     found = find_elements(
         snap, text=query.text, role=query.role, identifier=query.identifier, limit=max(query.limit * 4, 50)
     )
@@ -811,6 +839,54 @@ async def _scan(scroller: _Scroller, within: Element | None, query: _Query, max_
             return result
 
 
+def _find_locator(
+    locator: LocatorArg | None,
+    *,
+    text: str | None,
+    role: str | None,
+    identifier: str | None,
+    app: str | None,
+    window_id: int | None,
+) -> LocatorSpec | None:
+    """The parsed ``locator`` argument of ``find``; it names the app and window itself, so it is
+    refused together with the other ways of saying what and where to search."""
+    if locator is None:
+        return None
+    clashes = [
+        name
+        for name, value in (
+            ("text", text),
+            ("role", role),
+            ("identifier", identifier),
+            ("app", app),
+            ("window_id", window_id),
+        )
+        if value is not None
+    ]
+    if clashes:
+        raise AXPilotError(
+            ErrorCode.INVALID_ARGUMENT,
+            f"locator already says what and where to search; do not combine it with {', '.join(clashes)}.",
+            hint="Put the role or name into the locator, or search without one.",
+        )
+    return locator_from_arg(locator)
+
+
+def _check_locator_container(spec: LocatorSpec, snap: Snapshot, within: Element) -> None:
+    """A ``container`` already names the window; the locator must agree with it."""
+    if spec.window is not None:
+        raise AXPilotError(
+            ErrorCode.INVALID_ARGUMENT,
+            "container already names the window; leave window out of the locator.",
+        )
+    if not snap.app.matches(spec.app):
+        raise AXPilotError(
+            ErrorCode.INVALID_ARGUMENT,
+            f"The container {within.ref} is in {snap.app.name}, but the locator names {spec.app!r}.",
+            hint="Use a container in the locator's app, or leave container out.",
+        )
+
+
 def _match_model(el: Element, score: float) -> FindMatchModel:
     brief = element_brief(el)
     assert brief is not None
@@ -854,6 +930,7 @@ def find_tool(ctx: ServerContext) -> ToolFn:
             Field(description='Role filter: "button", "row", "field"… or "AXButton".', max_length=64),
         ] = None,
         identifier: Annotated[str | None, Field(description="Exact AXIdentifier.", max_length=256)] = None,
+        locator: LocatorParam = None,
         app: AppArg = None,
         window_id: WindowIdArg = None,
         container: ContainerArg = None,
@@ -865,9 +942,13 @@ def find_tool(ctx: ServerContext) -> ToolFn:
         limit: Annotated[int, Field(description="Most matches to return.", ge=1, le=FIND_LIMIT_MAX)] = 10,
         timeout_ms: TimeoutArg = int(NAV_DEADLINE_DEFAULT_S * 1000),
     ) -> Annotated[CallToolResult, FindModel]:
-        query = _Query(text=text, role=role, identifier=identifier, limit=limit)
+        spec = _find_locator(
+            locator, text=text, role=role, identifier=identifier, app=app, window_id=window_id
+        )
+        query = _Query(text=text, role=role, identifier=identifier, limit=limit, locator=spec)
         if (
-            not (text and text.strip())
+            spec is None
+            and not (text and text.strip())
             and not (role and role.strip())
             and not (identifier and identifier.strip())
         ):
@@ -885,7 +966,12 @@ def find_tool(ctx: ServerContext) -> ToolFn:
         within: Element | None = None
         if container is not None:
             snap, within = await _element_now(ctx, container, snapshot_id, "full")
+            if spec is not None:
+                _check_locator_container(spec, snap, within)
             area = within if within.role in CONTAINER_ROLES else scroll_container_for(snap, within)
+        elif spec is not None:
+            snap = await locator_snapshot(ctx, spec)
+            area = scroll_container_for(snap, None)
         else:
             snap = await ctx.take_snapshot(app=app, window_id=window_id, mode="full", store=False)
             area = scroll_container_for(snap, None)
@@ -922,15 +1008,32 @@ def find_tool(ctx: ServerContext) -> ToolFn:
                         "raise max_scrolls to look further."
                     )
         ctx.snapshots.put(snap)
+        count = len(scan.matches)
+        unique: bool | None = None
+        if spec is not None:
+            scope = snap.element(within.ref) if within is not None else None
+            count = len(_locator_matches(snap, scope, spec)) if scope is not None or within is None else 0
+            unique = is_unique(snap, count)
+            if count > 1:
+                warnings.append(
+                    f"The locator matches {count} elements; a script would not know which one to use. "
+                    "locate(ref=…) the one you mean, or add within, name or index."
+                )
+            if snap.truncated:
+                warnings.append(
+                    "This window has more elements than one capture reads; there may be more matches."
+                )
         model = FindModel(
             found=scan.found,
             matches=[_match_model(el, score) for el, score in scan.matches],
-            count=len(scan.matches),
+            count=count,
             snapshot_id=snap.snapshot_id,
             scrolls=scroller.scrolls if scroller is not None else 0,
             at_end=scan.at_end,
             searched_all=scan.searched_all,
             container=element_brief(scroller.container if scroller is not None else area if scroll else None),
+            locator=spec.to_dict() if spec is not None else None,
+            unique=unique,
         )
         shown = scroller.container if scroller is not None else None
         return ok_result(_find_text(query, model, shown), model, warnings=warnings)

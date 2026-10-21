@@ -30,6 +30,11 @@ display; displays to the left or above have negative coordinates). Tools that ta
 accept `coordinate_space: "screenshot"` with a `screenshot_id`, so a model can pass pixel
 coordinates read off a (possibly downscaled) screenshot.
 
+**Locators.** Refs only last for one session. For automation scripts, `locate` turns a ref into a
+*locator*, a small JSON object (`{"v": 1, "app": "com.apple.finder", "role": "AXButton", "name":
+"Back"}`) that `find(locator=…)` looks up again in any later session. See
+[Locators for scripts](locators.md).
+
 **Act, then observe.** Input tools take `report: "diff" | "snapshot" | "none"` (default `diff`):
 after acting, AXPilot waits for the UI to settle and reports what changed (focus, added and
 removed elements, new windows or dialogs, changed values) with the new `snapshot_id`.
@@ -58,8 +63,8 @@ exact command or script.
 | Profile | Tools | Use |
 |---|---|---|
 | `minimal` | `snapshot`, `screenshot`, `explore`, `wait_for`, `status`, `click`, `type_text`, `press_keys`, `scroll`, `app` | Small or local models |
-| `standard` | `snapshot`, `screenshot`, `find`, `explore`, `read`, `inspect`, `ocr`, `list_apps`, `list_windows`, `wait_for`, `status`, `click`, `type_text`, `press_keys`, `scroll`, `drag`, `move_mouse`, `set_value`, `select_option`, `perform_action`, `select_menu`, `fill_form`, `handle_dialog`, `app`, `window`, `open`, `clipboard` | The default: most users |
-| `full` | `snapshot`, `screenshot`, `find`, `explore`, `read`, `inspect`, `ocr`, `list_apps`, `list_windows`, `list_displays`, `wait_for`, `status`, `click`, `type_text`, `press_keys`, `scroll`, `drag`, `move_mouse`, `set_value`, `select_option`, `perform_action`, `select_menu`, `fill_form`, `handle_dialog`, `app`, `window`, `open`, `clipboard`, `notify`, `spotlight_search`, `system_info`, `system_control`, `processes`, `shell`, `applescript`, `shortcuts`, `defaults`, `browser_tabs`, `browser_read`, `browser_eval_js` | Power users (scripting and browser tools included, still policy-gated) |
+| `standard` | `snapshot`, `screenshot`, `find`, `explore`, `read`, `inspect`, `locate`, `ocr`, `list_apps`, `list_windows`, `wait_for`, `status`, `click`, `type_text`, `press_keys`, `scroll`, `drag`, `move_mouse`, `set_value`, `select_option`, `perform_action`, `select_menu`, `fill_form`, `handle_dialog`, `app`, `window`, `open`, `clipboard` | The default: most users |
+| `full` | `snapshot`, `screenshot`, `find`, `explore`, `read`, `inspect`, `locate`, `ocr`, `list_apps`, `list_windows`, `list_displays`, `wait_for`, `status`, `click`, `type_text`, `press_keys`, `scroll`, `drag`, `move_mouse`, `set_value`, `select_option`, `perform_action`, `select_menu`, `fill_form`, `handle_dialog`, `app`, `window`, `open`, `clipboard`, `notify`, `spotlight_search`, `system_info`, `system_control`, `processes`, `shell`, `applescript`, `shortcuts`, `defaults`, `browser_tabs`, `browser_read`, `browser_eval_js` | Power users (scripting and browser tools included, still policy-gated) |
 | `computer` | `status`, `computer` | Vision-first computer-use loops |
 
 Add or remove tools or whole toolsets with `[tools] enable` / `disable` (for example
@@ -133,16 +138,20 @@ until a match appears (lazily loaded lists, long settings panes, feeds).
 Use it instead of scrolling and snapshotting by hand. Params: text (fuzzy: exact > prefix > substring >
 words), role (button, row, field… or an AX role), identifier (AXIdentifier); app / window_id; container
 (ref of the list/page to search and scroll; default: the whole window, scrolling its largest scroll
-area); scroll; max_scrolls (≤ 50); limit.
+area); scroll; max_scrolls (≤ 50); limit. Or locator (from locate): exact matching in the window it
+names, instead of text/role/identifier/app/window_id.
 Returns matches (ref, role, name, score) from the final snapshot, found, scrolls, at_end and
-searched_all. Not finding anything is not an error: found=false with what was searched.
-Errors: INVALID_ARGUMENT, APP_NOT_FOUND, STALE_REF (container), BLOCKED_BY_POLICY, USER_ACTIVE.
+searched_all; with a locator also count (all matches) and unique. Not finding anything is not an
+error: found=false with what was searched.
+Errors: INVALID_ARGUMENT, APP_NOT_FOUND, WINDOW_NOT_FOUND (locator), STALE_REF (container),
+BLOCKED_BY_POLICY, USER_ACTIVE.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `text` | string | optional | Text to look for (fuzzy). |
 | `role` | string | optional | Role filter: "button", "row", "field"… or "AXButton". |
 | `identifier` | string | optional | Exact AXIdentifier. |
+| `locator` | object | optional | A locator from locate, e.g. {"app": "com.apple.finder", "role": "AXButton", "name": "Back"}. Exact matching: every field given must hold. |
 | `app` | string | optional | Target app: name ('Notes'), bundle id ('com.apple.Notes') or pid. Default: the frontmost app. |
 | `window_id` | integer | optional | Window id from list_windows; scopes the call to that window. |
 | `container` | string | optional | Ref of a scroll area, list, table, web area or text area (or of an element inside one), e.g. "e13". |
@@ -152,7 +161,7 @@ Errors: INVALID_ARGUMENT, APP_NOT_FOUND, STALE_REF (container), BLOCKED_BY_POLIC
 | `limit` | integer | `10` | Most matches to return. |
 | `timeout_ms` | integer | `30000` | Time budget in milliseconds; partial results come back when it runs out. |
 
-**Returns** (structured content): `found`, `matches`, `count`, `snapshot_id`, `scrolls`, `at_end`, `searched_all`, `container`, and `warnings`.
+**Returns** (structured content): `found`, `matches`, `count`, `snapshot_id`, `scrolls`, `at_end`, `searched_all`, `container`, `locator`, `unique`, and `warnings`.
 
 ### `explore`: Explore an app
 
@@ -217,6 +226,34 @@ SNAPSHOT_NOT_FOUND, INVALID_ARGUMENT (malformed ref), BLOCKED_BY_POLICY.
 | `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
 
 **Returns** (structured content): `snapshot_id`, `element`, `live`, `attributes`, `identifier`, `locator_path`, `ancestors`, `children`, and `warnings`.
+
+### `locate`: Locate an element for scripts
+
+read-only · Profiles: `standard`, `full` · Windows-MCP: `Locate`
+
+Build a stable locator for an element, for automation scripts, or check one against the window.
+Refs (e12) only last for this session; a locator is a small JSON object that names the element by
+its AXIdentifier, role and name, its containers or its position, and works in later runs.
+Use it when the user wants a script, a test or a locator for "the Download button": find or
+snapshot the element, then locate(ref=…). Params: ref (+ snapshot_id) to build locators, or
+locator to check one (exact matching: every field must hold); formats (axpilot = the JSON,
+axpilot-python = a script with the AXPilot SDK); max_candidates.
+Returns candidates, best first, each checked against a fresh capture of the window with a grade
+(high: AXIdentifier; medium: role and name, which change with the app's language; low: position)
+and reasons; recommended; snippets; warnings (no identifier, toolbar overflow, a menu or sheet that
+must be open). For a locator: count, unique and the matching elements. Read-only: nothing is
+clicked. Errors: INVALID_ARGUMENT, STALE_REF, SNAPSHOT_NOT_FOUND, NOT_SUPPORTED (OCR text),
+APP_NOT_FOUND, WINDOW_NOT_FOUND, BLOCKED_BY_POLICY, TIMEOUT.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `ref` | string | optional | Element ref from snapshot, find or explore, e.g. "e12". |
+| `snapshot_id` | string | optional | Snapshot the ref belongs to. Default: the latest snapshot. |
+| `locator` | object | optional | A locator from locate, e.g. {"app": "com.apple.finder", "role": "AXButton", "name": "Back"}. Exact matching: every field given must hold. |
+| `formats` | list of `axpilot` \| `axpilot-python` | optional | Snippet formats for the recommended locator: "axpilot" (the JSON, default) and "axpilot-python" (a script with the AXPilot SDK). |
+| `max_candidates` | integer | `3` | Most locators to return for the element. |
+
+**Returns** (structured content): `snapshot_id`, `app`, `window`, `element`, `candidates`, `recommended`, `snippets`, `locator`, `count`, `unique`, `matches`, and `warnings`.
 
 ### `ocr`: Read text with OCR
 
@@ -1030,10 +1067,11 @@ Each server exposes one naming.
 |---|---|---|
 | `Snapshot` | `snapshot` | `use_vision`, `use_dom`, `use_annotation`, `use_ui_tree`, `width_reference_line`, `height_reference_line`, `display`, `region`, `app` |
 | `Screenshot` | `screenshot` | `use_annotation`, `width_reference_line`, `height_reference_line`, `display`, `region` |
-| `Find` | `find` | `text`, `role`, `identifier`, `app`, `window_id`, `container`, `snapshot_id`, `scroll`, `max_scrolls`, `limit`, `timeout_ms` |
+| `Find` | `find` | `text`, `role`, `identifier`, `locator`, `app`, `window_id`, `container`, `snapshot_id`, `scroll`, `max_scrolls`, `limit`, `timeout_ms` |
 | `Explore` | `explore` | `app`, `window_id` |
 | `Read` | `read` | `target`, `app`, `window_id`, `snapshot_id`, `mode`, `from_top`, `max_pages`, `restore`, `timeout_ms` |
 | `Inspect` | `inspect` | `ref`, `snapshot_id` |
+| `Locate` | `locate` | `ref`, `snapshot_id`, `locator`, `formats`, `max_candidates` |
 | `OCR` | `ocr` | `window_id`, `app`, `rect`, `display_id`, `languages` |
 | `ListApps` | `list_apps` | `include_installed` |
 | `ListWindows` | `list_windows` | `app` |

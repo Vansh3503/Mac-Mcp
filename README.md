@@ -49,7 +49,7 @@ on-screen indicator are not yet. The [tool reference](https://github.com/vansh35
 
 | Area | What you get |
 |---|---|
-| **Perception** | Accessibility snapshots with refs, element search, element inspection, diffs after every action, screenshots with a `screenshot_id` for coordinate mapping, Vision OCR, app/window/display lists |
+| **Perception** | Accessibility snapshots with refs, element search, element inspection, stable locators for automation scripts, diffs after every action, screenshots with a `screenshot_id` for coordinate mapping, Vision OCR, app/window/display lists |
 | **Actions** | Click, type (layout-independent), keyboard shortcuts (layout-aware), scroll, drag, set values, raw AX actions, **menu-bar commands by path**, forms, apps, windows, opening files and URLs |
 | **Safety** | Profiles and toolsets, app and window deny-lists, Terminal rule, secure-field protection, confirmations, rate limit, audit log, yield-to-user, kill switch, client pairing |
 | **Integrations** | Any MCP client; tested framework examples; an [Agent Skill](https://github.com/vansh3503/Mac-Mcp/blob/main/skills/axpilot/SKILL.md); a `computer` profile for vision-first loops; a Windows-MCP naming profile |
@@ -204,7 +204,7 @@ local models), `standard` (default), `full`, and `computer` (one vision-first `c
 
 | Toolset | Tools | Default |
 |---|---|---|
-| `observe` | `snapshot`, `screenshot`, `find`, `explore`, `read`, `inspect`, `ocr`, `list_apps`, `list_windows`, `list_displays`, `wait_for`, `status` | on (read-only) |
+| `observe` | `snapshot`, `screenshot`, `find`, `explore`, `read`, `inspect`, `locate`, `ocr`, `list_apps`, `list_windows`, `list_displays`, `wait_for`, `status` | on (read-only) |
 | `input` | `click`, `type_text`, `press_keys`, `scroll`, `drag`, `move_mouse`, `set_value`, `select_option`, `perform_action`, `select_menu`, `fill_form`, `handle_dialog` | on |
 | `apps` | `app`, `window`, `open` | on |
 | `system` | `clipboard`, `notify`, `spotlight_search`, `system_info`, `system_control`, `processes` | `clipboard` on |

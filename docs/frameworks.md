@@ -203,3 +203,7 @@ with Desktop.connect() as mac:  # through AXPilot.app; Desktop.fake() for tests
 
 `AsyncDesktop` is the async twin. More in
 [`examples/scripts/`](https://github.com/vansh3503/Mac-Mcp/tree/main/examples/scripts).
+
+To address one specific element in a script that runs again tomorrow, ask your agent for a
+[locator](locators.md) and use `mac.find(locator=LOCATOR).click()`: unlike a text search, it matches
+exactly and refuses to guess when several elements match.

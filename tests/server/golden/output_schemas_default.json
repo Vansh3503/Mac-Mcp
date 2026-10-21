@@ -3993,6 +3993,20 @@
     "title": "Found",
     "type": "boolean"
    },
+   "locator": {
+    "anyOf": [
+     {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "The locator searched for (normalized), when find was given one.",
+    "title": "Locator"
+   },
    "matches": {
     "items": {
      "$ref": "#/$defs/FindMatchModel"
@@ -4016,6 +4030,19 @@
     "description": "Snapshot the match refs belong to.",
     "title": "Snapshot Id",
     "type": "string"
+   },
+   "unique": {
+    "anyOf": [
+     {
+      "type": "boolean"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "With a locator: true when it matches exactly one element of a complete capture.",
+    "title": "Unique"
    },
    "warnings": {
     "description": "Degradations the caller should know about (e.g. a screenshot that was skipped).",
@@ -5528,6 +5555,327 @@
    "count"
   ],
   "title": "WindowListModel",
+  "type": "object"
+ },
+ "locate": {
+  "$defs": {
+   "AppRefModel": {
+    "description": "Identity of an app.",
+    "properties": {
+     "bundle_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Bundle Id"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "pid": {
+      "title": "Pid",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "name",
+     "pid"
+    ],
+    "title": "AppRefModel",
+    "type": "object"
+   },
+   "ElementBriefModel": {
+    "description": "A short reference to an element (used in diffs and lists).",
+    "properties": {
+     "center": {
+      "anyOf": [
+       {
+        "description": "[x, y] in screen points.",
+        "items": {
+         "type": "number"
+        },
+        "maxItems": 2,
+        "minItems": 2,
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Center"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Name"
+     },
+     "ref": {
+      "title": "Ref",
+      "type": "string"
+     },
+     "role": {
+      "title": "Role",
+      "type": "string"
+     },
+     "states": {
+      "items": {
+       "type": "string"
+      },
+      "title": "States",
+      "type": "array"
+     },
+     "value": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Value"
+     }
+    },
+    "required": [
+     "ref",
+     "role"
+    ],
+    "title": "ElementBriefModel",
+    "type": "object"
+   },
+   "LocatorCandidateModel": {
+    "additionalProperties": false,
+    "description": "One locator for an element, checked against the live window.",
+    "properties": {
+     "grade": {
+      "description": "high: survives language and layout changes; medium: survives layout changes; low: breaks when the layout changes.",
+      "enum": [
+       "high",
+       "medium",
+       "low"
+      ],
+      "title": "Grade",
+      "type": "string"
+     },
+     "locator": {
+      "additionalProperties": true,
+      "description": "The locator, ready for find(locator=…) or a script.",
+      "title": "Locator",
+      "type": "object"
+     },
+     "reasons": {
+      "description": "Why it got this grade.",
+      "items": {
+       "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+     },
+     "strategy": {
+      "enum": [
+       "identifier",
+       "name",
+       "name_within",
+       "role_within",
+       "index",
+       "path"
+      ],
+      "title": "Strategy",
+      "type": "string"
+     },
+     "unique": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "true: matches only this element; null: unique in a capture that was cut short.",
+      "title": "Unique"
+     }
+    },
+    "required": [
+     "locator",
+     "strategy",
+     "grade",
+     "unique"
+    ],
+    "title": "LocatorCandidateModel",
+    "type": "object"
+   },
+   "WindowRefModel": {
+    "description": "Identity and frame of a window.",
+    "properties": {
+     "frame": {
+      "description": "[x, y, width, height] in screen points.",
+      "items": {
+       "type": "number"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "title": "Frame",
+      "type": "array"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "window_id": {
+      "title": "Window Id",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "window_id",
+     "title",
+     "frame"
+    ],
+    "title": "WindowRefModel",
+    "type": "object"
+   }
+  },
+  "additionalProperties": false,
+  "description": "Output of ``locate``.",
+  "properties": {
+   "app": {
+    "$ref": "#/$defs/AppRefModel"
+   },
+   "candidates": {
+    "description": "Locators for the element, best first.",
+    "items": {
+     "$ref": "#/$defs/LocatorCandidateModel"
+    },
+    "title": "Candidates",
+    "type": "array"
+   },
+   "count": {
+    "anyOf": [
+     {
+      "type": "integer"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "How many elements the checked locator matches.",
+    "title": "Count"
+   },
+   "element": {
+    "anyOf": [
+     {
+      "$ref": "#/$defs/ElementBriefModel"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "The element located (for a locator: when it matches exactly one)."
+   },
+   "locator": {
+    "anyOf": [
+     {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "The locator that was checked.",
+    "title": "Locator"
+   },
+   "matches": {
+    "description": "Elements the checked locator matches (at most 20).",
+    "items": {
+     "$ref": "#/$defs/ElementBriefModel"
+    },
+    "title": "Matches",
+    "type": "array"
+   },
+   "recommended": {
+    "anyOf": [
+     {
+      "type": "integer"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "Index of the locator to use (null: none).",
+    "title": "Recommended"
+   },
+   "snapshot_id": {
+    "description": "Snapshot the refs belong to.",
+    "title": "Snapshot Id",
+    "type": "string"
+   },
+   "snippets": {
+    "additionalProperties": {
+     "type": "string"
+    },
+    "description": "The recommended locator in each requested format.",
+    "title": "Snippets",
+    "type": "object"
+   },
+   "unique": {
+    "anyOf": [
+     {
+      "type": "boolean"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "description": "true: the checked locator matches exactly one element of a complete capture.",
+    "title": "Unique"
+   },
+   "warnings": {
+    "description": "Degradations the caller should know about (e.g. a screenshot that was skipped).",
+    "items": {
+     "type": "string"
+    },
+    "title": "Warnings",
+    "type": "array"
+   },
+   "window": {
+    "anyOf": [
+     {
+      "$ref": "#/$defs/WindowRefModel"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null
+   }
+  },
+  "required": [
+   "snapshot_id",
+   "app"
+  ],
+  "title": "LocateModel",
   "type": "object"
  },
  "move_mouse": {

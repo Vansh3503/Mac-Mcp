@@ -207,6 +207,47 @@ identifier: str | None = None, limit: int = 20) -> list[tuple[Element, float]]` 
 `all_elements`; case-insensitive fuzzy match over name/value/identifier/description (exact > prefix >
 substring > token overlap; `difflib` ratio as tiebreaker); `role` accepts short or AX roles. Sorted by score desc.
 
+### `axpilot/perception/locators.py`
+Portable locators for automation scripts (docs/dev/locators-plan.md). A locator is a JSON object
+(`{"v": 1, "app": "com.apple.finder", "role": "AXButton", "name": "Back"}`) that never holds a pid, window id,
+ref, coordinate or value.
+```python
+LOCATOR_VERSION = 1
+EXPORT_FORMATS: tuple[ExportFormat, ...]       # ("axpilot", "axpilot-python")
+@dataclass(frozen=True) class LocatorStep: role, identifier, name          # one `within` ancestor
+@dataclass(frozen=True) class WindowSelector: title, match: "exact"|"prefix" = "exact", index
+@dataclass(frozen=True) class LocatorSpec:
+    app: str; window: WindowSelector | None; within: tuple[LocatorStep, ...]; role; subrole; identifier;
+    name; name_match: "exact"|"prefix"|"contains" = "exact"; index: int | None; path: Path | None
+    def to_dict(self) -> dict      # canonical: "v" first, only fields that are set, path as "AXToolbar[0]/AXButton[2]"
+    def to_json(self) -> str
+    def describe(self) -> str      # 'AXButton "Back" in com.apple.finder'
+@dataclass(frozen=True) class Candidate: spec, strategy, grade: "high"|"medium"|"low", matches, unique: bool|None, reasons
+def parse_locator(data: Any) -> LocatorSpec              # INVALID_ARGUMENT naming the field; unknown fields refused
+def parse_path(value: str | list[str]) -> Path; def format_path(path: Path) -> str
+def normalize_name(text: str) -> str                    # whitespace collapsed, "..." → "…"
+def match_elements(snap: Snapshot, spec: LocatorSpec) -> list[Element]
+    # every field given must hold: role (AX role, or short role), subrole, identifier (exact, case-sensitive),
+    # name (normalized; exact/prefix/contains, case-sensitive), path, within (ancestors as a subsequence,
+    # outermost first); then index picks one in document order. OCR elements never match. app/window are not
+    # checked here (they choose the window to capture).
+def is_unique(snap: Snapshot, count: int) -> bool | None  # None: one match in a truncated capture
+def candidates_for(snap, el, *, app: str, window: WindowSelector | None = None, limit: int = 3) -> list[Candidate]
+    # snap is a `full` snapshot of el's window. Tried in order: identifier (+ identified ancestors, + name):
+    # high (low if looks_generated); role + name (+ up to 3 scope ancestors: toolbar, sheet, list, named group or row…):
+    # medium; for buttons and menu items whose name has a number, also a name prefix; role inside its scope
+    # ancestors (unnamed elements): low; index among the most specific non-unique form: low (only when nothing
+    # else is unique); path: low. Each kept candidate matches exactly el; a truncated capture lowers every grade
+    # by one and makes unique None. Sorted by grade (stable). NOT_SUPPORTED for OCR, INVALID_ARGUMENT for limit < 1.
+def looks_generated(identifier: str) -> bool             # _NS:<n>, digits, UUIDs, long hex
+def locator_warnings(snap, el, recommended: Candidate | None) -> list[str]
+    # no (or only a generated) identifier, toolbar overflow, inside a menu/popover/sheet, truncated capture
+def default_window(windows) -> WindowInfo | None         # focused > main > front (minimized skipped)
+def window_selector_for(windows, window) -> WindowSelector | None  # None for the default window; title if unique
+def pick_window(windows, selector, app: str) -> WindowInfo         # WINDOW_NOT_FOUND
+def export_locator(spec, fmt: ExportFormat, *, element: Element | None = None) -> str  # INVALID_ARGUMENT
+```
+
 ### `axpilot/perception/store.py`
 ```python
 class SnapshotStore:
@@ -351,7 +392,7 @@ def enabled_tools(profile: str, enable: Sequence[str] = (), disable: Sequence[st
 def toolset_of(tool: str) -> str
 ```
 Toolsets:
-- observe: snapshot, screenshot, find, explore, read, inspect, ocr, list_apps, list_windows, list_displays, wait_for, status
+- observe: snapshot, screenshot, find, explore, read, inspect, locate, ocr, list_apps, list_windows, list_displays, wait_for, status
 - input: click, type_text, press_keys, scroll, drag, move_mouse, set_value, select_option, perform_action, select_menu, fill_form, handle_dialog
 - apps: app, window, open
 - system: clipboard, notify, spotlight_search, system_info, system_control, processes
@@ -548,6 +589,21 @@ optional parameters show their type without a `null` branch, `$ref`/`$defs` are 
 function's model (an explicit `null` is accepted). Real unions (a list or its JSON text) keep `anyOf`.
 `[tools] prefix` (`^[A-Za-z0-9_-]{0,24}$`) is put before every public name after the naming; audit records and
 the policy keep canonical names; calling a tool without the prefix gets `INVALID_ARGUMENT` naming the prefixed one.
+
+Locators (`axpilot/server/tools/locate.py`, observe toolset; docs/dev/locators-plan.md):
+- `locate(ref | locator, snapshot_id, formats=["axpilot"], max_candidates=3)`, read-only, exactly one of `ref`
+  and `locator` (`snapshot_id` only with `ref`). With `ref`: re-captures the ref's window as a stored `full`
+  snapshot (refs carried; window or app gone → `STALE_REF`; OCR ref → `NOT_SUPPORTED`), names the window with
+  `window_selector_for(list_windows(app))`, and returns `perception.locators.candidates_for` with snippets of the
+  recommended one. With `locator`: `locator_snapshot`, then `count`, `unique`, up to 20 `matches`, and candidates
+  when exactly one matched. Neither raises for 0 or several matches (warnings say so).
+- `locator_snapshot(ctx, spec)`: `engine.find_app(spec.app)` (`APP_NOT_FOUND` "not running"), the `observe`
+  policy on the app **before** its windows are listed, `pick_window` when the locator names a window, then
+  `take_snapshot(app=pid, window_id, mode="full", store=False)` (which checks the policy on the window again).
+- `find(locator=...)` uses it instead of text/role/identifier/app/window_id (combining them is
+  `INVALID_ARGUMENT`); with `container`, the container's app must match and the locator must not name a window.
+  `scroll=true` works as for text. The result adds `locator` (normalized) and `unique`; `count` is every match,
+  not only those returned.
 
 Controls (`axpilot/server/tools/controls.py`, input toolset):
 - `select_option(ref, option | index, snapshot_id, report)`: pop-up buttons, menu buttons, web combo boxes and
@@ -808,7 +864,8 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
 - Results (`axpilot/sdk/results.py`) keep `data` (structured content), `text` and `images`: `ToolResult`,
   `ActionResult` (`message`, `strategy`, `snapshot_id`, `diff`, `changed`), `SnapshotResult` (`elements`,
   `focused`, `find(name, role=, exact=)` → handle, `find_all`, `element(ref)`), `FindResult` (`found`, `matches`,
-  `first`; handle methods act on the best match), `ReadResult` (`content`, `lines`/`rows`, `complete`,
+  `unique`, `first`; handle methods act on the best match; after `find(locator=...)`, `first` raises
+  `ELEMENT_NOT_FOUND` for no match and `LOCATOR_AMBIGUOUS` (`details["count"]`) for several), `ReadResult` (`content`, `lines`/`rows`, `complete`,
   `at_end`, `pages`), `ScreenshotResult` (`image`, `save(path)`). `ElementHandle`/`AsyncElementHandle`
   (`click`, `type_text`, `set_value`, `perform_action`, `inspect`, `scroll_into_view`) and
   `AppHandle`/`AsyncAppHandle` (`launch`, `activate`, `hide`, `quit`, `windows`, `snapshot`).

@@ -24,7 +24,7 @@ keeps naming its element across snapshots while that element exists, and is neve
 for another one. Use `select_menu` for menu-bar commands (often the most reliable path), `select_option` \
 for pop-ups, radio groups and lists, and `handle_dialog` for sheets and alerts. For \
 long lists, documents or settings panes, use `find(scroll=true)` or `read` instead of \
-scrolling by hand.
+scrolling by hand. For scripts, `locate` gives a locator that outlives refs.
 3. Verify: actions return what changed (diff). If nothing changed, re-snapshot and try another \
 approach instead of repeating the same action.
 

@@ -1,6 +1,7 @@
 # Plan: stable locators for automation scripts (*planned*)
 
-Status: **Draft for the owner's review.** Nothing in this document is implemented yet. · 2026-10-21
+Status: **Accepted with the recommended options (§11). Phase L1 is implemented** (see §12 for how
+it differs from this draft); L2 to L4 are *planned*. · 2026-10-21
 
 > **The use case in one sentence.** Someone has a Mac app and wants an automation script for it
 > (a regression test, a nightly job, a QA suite). They ask their agent in VS Code (or Cursor,
@@ -123,7 +124,7 @@ A locator is a small JSON object. It never contains a pid, a window id, a ref or
 |---|---|---|
 | `v` | Format version, `1`. Optional on input, always present on output. | Unknown versions → `INVALID_ARGUMENT`. |
 | `app` | Bundle id (preferred, written by `locate`) or app name. | Bundle id exact; name as `app` arguments resolve today. |
-| `window` | Optional. `{"title": "…", "match": "exact" \| "prefix"}`, `{"kind": "main" \| "focused" \| "sheet" \| "dialog"}` or `{"index": 0}`. Omitted: the app's focused window, then its main window. | `locate` adds a title only when it is needed to disambiguate (titles often carry document names or other personal data). |
+| `window` | Optional. `{"title": "…", "match": "exact" \| "prefix"}` or `{"index": 0}` (`{"kind": …}` *planned*). Omitted: the app's focused window, then its main window. | `locate` adds a title only when it is needed to disambiguate (titles often carry document names or other personal data). |
 | `within` | Optional list of ancestor steps, outermost first, each `{role?, identifier?, name?}`. | A subsequence of the element's ancestors, not necessarily direct parents, so a wrapper group added in an app update doesn't break it. |
 | `role` | Short role (`button`) or AX role (`AXButton`). | Exact. |
 | `subrole` | Optional AX subrole (`AXCloseButton`, `AXSearchField`). | Exact. |
@@ -131,10 +132,11 @@ A locator is a small JSON object. It never contains a pid, a window id, a ref or
 | `name` | The element's label as snapshots show it (title > label > description > placeholder). | Whitespace-normalized exact by default; `name_match: "prefix" \| "contains"` for names such as "Download (3)". |
 | `index` | 0-based position among the matches, in document order. | Last resort; graded `low`. |
 | `path` | `AXToolbar[0]/AXButton[2]` from the window, as `inspect.locator_path`. | Alternative to the fields above; graded `low`. |
-| `menu` | A menu-bar path, `["File", "Download…"]`, instead of an element. | As `select_menu` matches today. A menu command is often the most robust way to drive a Mac app. |
+| `menu` (*planned*, L2) | A menu-bar path, `["File", "Download…"]`, instead of an element. | As `select_menu` matches today. A menu command is often the most robust way to drive a Mac app. |
 
-Matching runs on the **raw, unpruned** captured tree (as `match_locator` does today), so changes
-to snapshot pruning never change what a locator means. A locator matches 0, 1 or many elements;
+Matching runs over the elements of a **`full`** snapshot of the window: every visible element,
+whatever the pruning of the default `interactive` mode, so changes to that pruning never change
+what a locator means (hidden elements never match: a script can't act on them anyway). A locator matches 0, 1 or many elements;
 only 1 is a success for an action.
 
 *Optional (owner's call, §11):* a one-line string form for readability, parsed into the same
@@ -227,6 +229,10 @@ the code in `--json` output.
 
 ### 6.4 SDK
 
+*Implemented in L1:* `mac.find(locator=…)`, whose `first` (and so `.click()` and the other handle
+methods) raises `ELEMENT_NOT_FOUND` or `LOCATOR_AMBIGUOUS` instead of guessing, plus
+`FindResult.unique`. *Planned for L2:* the lazy handle below.
+
 ```python
 download = mac.locate(DOWNLOAD)            # lazy: nothing is resolved yet
 download.click(timeout=10)                 # waits for exactly one match, then clicks
@@ -264,7 +270,7 @@ Pure formatting functions over a locator (no PyObjC, tested on Linux with golden
 | Format | Output (for the identifier case) | Fallback without an identifier | Phase |
 |---|---|---|---|
 | `axpilot` | The JSON locator | — | L1 |
-| `axpilot-python` | `mac.locate({...}).click()` | Same, with `name`/`within` | L1 |
+| `axpilot-python` | `mac.find(locator=LOCATOR).click()` (`mac.locate(…)` once L2 adds it) | Same, with `name`/`within` | L1 (done) |
 | `axpilot-cli` | `axpilot call click --json '{"locator": {...}}'` | Same | L2 (needs §6.2 input `locator`) |
 | `appium-mac2` | `driver.find_element(AppiumBy.ACCESSIBILITY_ID, "downloadButton")` | `-ios class chain`: ``**/XCUIElementTypeToolbar/**/XCUIElementTypeButton[`title == "Download"`]`` | L3 |
 | `xcuitest` (Swift) | `app.buttons["downloadButton"].click()` | `app.toolbars.buttons["Download"]` | L3 |
@@ -296,7 +302,7 @@ Sizes are rough (S ≈ 1–2 days, M ≈ 3–5 days, L ≈ 1–2 weeks with Mac 
 
 | Phase | Scope | Size | Exit criteria |
 |---|---|---|---|
-| **L1: core** | `perception/locators.py` (format, exact matcher on the raw tree, candidate generation, grading, generated-id detection); `locate(ref \| locator)`; `find(locator=…)`; `axpilot` and `axpilot-python` exports; CONTRACTS.md; tools/list goldens regenerated deliberately; docs (`tools.md` via the generator, a "Locators" page); the SKILL.md section | M | Round-trip invariant holds for every element of every fixture; every error code of `locate` tested; policy-bypass tests green |
+| **L1: core** (done) | `perception/locators.py` (format, exact matcher on the raw tree, candidate generation, grading, generated-id detection); `locate(ref \| locator)`; `find(locator=…)`; `axpilot` and `axpilot-python` exports; CONTRACTS.md; tools/list goldens regenerated deliberately; docs (`tools.md` via the generator, a "Locators" page); the SKILL.md section | M | Round-trip invariant holds for every element of every fixture; every error code of `locate` tested; policy-bypass tests green |
 | **L2: scripts** | SDK `locate()` / `Locator`; `wait_for(locator=…)`; `locator` on input tools (if agreed); `ELEMENT_NOT_FOUND` / `LOCATOR_AMBIGUOUS`; `axpilot locate`; `axpilot-cli` export; `examples/scripts/click_by_locator.py`; a "Write automation scripts with your agent (VS Code)" guide; optional MCP prompt | M | Example script passes against `Desktop.fake()` in CI; CLI exit codes tested; evals gain "locate the X button" tasks checked by resolving the locator |
 | **L3: pointing and other frameworks** | `locate(point \| at_cursor, highlight)` (a new `Engine` method for the element under a point, FakeEngine included); `appium-mac2`, `xcuitest`, `applescript` exports; `AXDOMIdentifier` for web content | L | Mac checklist: Finder, Safari, TextEdit, an Electron app; each exported snippet run by hand against the real tool |
 | **L4: post-1.0** | A menu-bar "copy locator under the pointer" hotkey; recording a sequence of clicks into a script (needs a listen-only event tap, likely the Input Monitoring permission, and a privacy design: never record typed text); self-healing suggestions when a locator breaks | — | Separate proposal; needs the owner's go-ahead |
@@ -333,3 +339,22 @@ already lists macros and recording).
 5. **Which exports ship in 1.0:** recommended `axpilot`, `axpilot-python`, `axpilot-cli`,
    `appium-mac2`, `applescript`; `xcuitest` if the Mac check is cheap.
 6. **Priority:** L1–L2 before the public preview, or after 1.0.
+
+The owner accepted the recommended option for each (2026-10-21).
+
+## 12. What L1 shipped, and where it differs from this draft
+
+- `axpilot/perception/locators.py` (format, matcher, candidates, grades, warnings, exports),
+  `axpilot/server/tools/locate.py` (`locate`, and `locator_snapshot` shared with `find`), the
+  `locator` parameter of `find` and its `locator` and `unique` output fields, `find(locator=…)` in the
+  SDK, the error codes `ELEMENT_NOT_FOUND` and `LOCATOR_AMBIGUOUS`, [docs/locators.md](../locators.md).
+- Locators match the elements of a `full` snapshot rather than the raw tree (§4), so the refs of
+  the matches can be returned.
+- Generated locators write the AX role (`AXButton`): short roles merge some AX roles (`date`,
+  `menu`), and AX roles map one to one to the planned Appium and AppleScript exports. Short roles
+  are still accepted.
+- The window is named by title or index only; `{"kind": …}` and the `menu` field wait for L2.
+- A name prefix (`name_match: "prefix"`) is offered only for buttons, menu items, tabs and other
+  labels, never for rows or text, where a number is usually part of what the item is.
+- The `axpilot-python` snippet uses `mac.find(locator=…)`, which exists now, instead of the planned
+  `mac.locate(…)`.
