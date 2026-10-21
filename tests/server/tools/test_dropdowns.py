@@ -617,6 +617,9 @@ async def test_set_value_types_other_text_and_presses_return(
     data = await ok(client, "set_value", {"ref": ref, "value": value})
     assert data["strategy"] == "ax_value+return"
     assert "pressed Return" in data["message"]
+    # like TextEdit's on macOS 26, the box cannot take focus through accessibility: its text is clicked
+    size = fake(ctx).resolve_ref("textedit.size")
+    assert [e["target"] for e in fake(ctx).events_of("mouse_click")][-1] == size
     assert shown(ctx, kind) == value
     assert commits(ctx, "textedit.size") == [value]
     assert_closed(ctx, kind)

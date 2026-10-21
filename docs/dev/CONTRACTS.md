@@ -289,7 +289,7 @@ open at a time, with fresh item handles, as the element's `AXMenu` child (`menu_
 last child of the window root (`"app"`). Pressing an item (AX or click) chooses it and closes the menu;
 `AXCancel`, Escape, Return, pressing the owner again, a click outside (swallowed), another app coming
 forward or the window closing close it without choosing; other keys and typing go nowhere while it is
-open. `pointer_only: true` (a web control whose script listens to the mouse): `AXPress`, `AXShowMenu`,
+open. `focusable: false`: `focus` fails (`ELEMENT_NOT_ACTIONABLE`), a click still focuses it. `pointer_only: true` (a web control whose script listens to the mouse): `AXPress`, `AXShowMenu`,
 `set_value` and `insert_text` change nothing (recorded as `ignored`), clicks work. `filters: {"list": id,
 "limit": n}` on a text field: when its text changes, the list shows the first `n` children whose label
 contains it. An AppKit combo box (`AXComboBox` with `options`, no `on_press`/`pointer_only`) shows its options
@@ -568,7 +568,8 @@ Controls (`axpilot/server/tools/controls.py`, input toolset):
   is `select_option` (`free_text=False`) and `set_value`/`fill_form` (`True`, exact titles) on a native combo
   box: setting its text alone does not make an AppKit combo box act, so the value is picked from its list,
   even when the box already shows it; with no list (or, with `free_text`, no option titled exactly so) the text
-  is set, the box focused and Return pressed (strategy `ax_value+return`), except in a sheet or `AXDialog`
+  is set, the box focused (by a click on its text when it cannot take focus through accessibility, as
+  TextEdit's on macOS 26) and Return pressed (strategy `ax_value+return`), except in a sheet or `AXDialog`
   window, where only the text is set (strategy `ax_value`, with a warning: Return would press the default
   button); a box whose text cannot be set either keeps the first error. `in_web(ctx, target)`: the control's
   locator path has an `AXWebArea`, or its app is Electron/CEF. Steps: capture the window (baseline: visible

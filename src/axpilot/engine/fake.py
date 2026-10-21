@@ -28,6 +28,8 @@ Tree nodes use the :mod:`axpilot.perception.serialize` format plus these fake-on
 * ``on_press``: effect(s) applied when the element is pressed (``AXPress`` or a click);
 * ``options``: the allowed values of a pop-up button or combo box;
 * ``settable``: overrides whether ``set_value`` works on the element;
+* ``focusable``: ``false`` on an element that cannot take keyboard focus through accessibility
+  (``focus`` fails; a click still focuses it), like TextEdit's font-size box on macOS 26;
 * ``min``/``max``/``step``: range of sliders and steppers;
 * ``default``: ``true`` on a window's or sheet's default button, which Return in a one-line text
   field of that window or sheet presses (like AppKit's default button);
@@ -174,6 +176,7 @@ _FAKE_NODE_KEYS = frozenset(
         "on_press",
         "options",
         "settable",
+        "focusable",
         "min",
         "max",
         "step",
@@ -2435,6 +2438,10 @@ class FakeEngine(Engine):
             node = self._node(handle)
             if not node.enabled:
                 raise AXPilotError(ErrorCode.ELEMENT_NOT_ACTIONABLE, f"This {node.role} is disabled.")
+            if self._behaviour.get(node.handle, {}).get("focusable") is False:
+                raise AXPilotError(
+                    ErrorCode.ELEMENT_NOT_ACTIONABLE, f"This {node.role} cannot take keyboard focus."
+                )
             self._record("focus", handle=node.handle)
             self._select_all.discard(node.handle)
             self._app_of(node).focused = node.handle

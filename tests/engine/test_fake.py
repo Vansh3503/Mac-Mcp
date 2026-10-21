@@ -479,6 +479,7 @@ def test_an_appkit_combo_box_acts_only_on_a_pick_or_return(engine: FakeEngine) -
     state = engine.menu_state()
     assert state is not None
     assert state["titles"] == ["9", "10", "11", "12", "13", "14", "18", "24", "36"]
+    assert engine.refresh_element(size).expanded is True
     listing = next(c for c in engine.capture_tree(app="TextEdit").root.children if c.role == "AXToolbar")
     box = next(c for c in listing.children if c.handle == size)
     rows = next(c for c in box.children if c.role == "AXList").children
@@ -489,8 +490,14 @@ def test_an_appkit_combo_box_acts_only_on_a_pick_or_return(engine: FakeEngine) -
     engine.mouse_click(eighteen.frame.center)
     assert engine.menu_state() is None
     assert engine.refresh_element(size).value == "18"
+    assert engine.refresh_element(size).expanded is False
     assert engine.events_of("combo_commit") == [{"handle": size, "value": "18"}]
-    engine.focus(size)
+    with pytest.raises(AXPilotError) as caught:  # like TextEdit's on macOS 26
+        engine.focus(size)
+    assert caught.value.code is ErrorCode.ELEMENT_NOT_ACTIONABLE
+    frame = engine.refresh_element(size).frame
+    assert frame is not None
+    engine.mouse_click(Point(frame.x + 10, frame.y + frame.h / 2))  # its text: a click focuses it
     engine.set_value(size, "15")
     engine.press_key(key("return"))
     assert engine.events_of("combo_commit")[-1] == {"handle": size, "value": "15"}

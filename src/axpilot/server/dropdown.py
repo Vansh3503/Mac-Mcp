@@ -697,8 +697,7 @@ async def _enter_text(ctx: ServerContext, target: Target, value: str, cause: AXP
         )
         return DropdownOutcome("ax_value", value, f"set to {shown}", attempts, [warning])
     await _bring_forward(ctx, target)
-    await ctx.run_engine(ctx.engine.focus, target.handle)
-    attempts.append("focus")
+    attempts.append(await _focus_box(ctx, target))
     await _press_keys(ctx, target, RETURN)
     attempts.append("key:return")
     outcome = DropdownOutcome("ax_value+return", value, f"set to {shown} and pressed Return", attempts)
@@ -707,6 +706,21 @@ async def _enter_text(ctx: ServerContext, target: Target, value: str, cause: AXP
         shows = quote(str(after.value or ""), 60)
         outcome.warnings.append(f"{target.describe()} shows {shows} after Return; take a snapshot to check.")
     return outcome
+
+
+async def _focus_box(ctx: ServerContext, target: Target) -> str:
+    """Give the combo box keyboard focus: through accessibility, else by a click on its text, away from
+    the arrow (TextEdit's font-size box cannot take focus through accessibility on macOS 26)."""
+    assert target.handle is not None
+    try:
+        await ctx.run_engine(ctx.engine.focus, target.handle)
+        return "focus"
+    except AXPilotError as err:
+        frame = target.el.frame if target.el is not None else None
+        if err.code is not ErrorCode.ELEMENT_NOT_ACTIONABLE or frame is None or frame.w <= 0 or frame.h <= 0:
+            raise
+    used = await _click_box(ctx, target, frame.x + min(COMBO_ARROW_INSET, frame.w / 4), "text")
+    return f"focus:{used}"
 
 
 async def _in_dialog(ctx: ServerContext, target: Target) -> bool:

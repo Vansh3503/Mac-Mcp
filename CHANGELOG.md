@@ -170,6 +170,9 @@ Pre-alpha. Nothing is published on PyPI yet.
 - When a combo box's list opened but could not be read, AXPilot clicked the box's arrow next; on
   macOS 26 the list can cover the box, so that click chose whatever option lay there (9 pt instead
   of 24). AXPilot no longer clicks a combo box that reports its list open, and says so.
+- `set_value` with a size TextEdit's font-size box does not list (15) failed with "cannot take
+  keyboard focus": on macOS 26 that box refuses focus through accessibility. AXPilot now clicks its
+  text instead, then presses Return.
 
 - `explore` listed the files of Finder's list view as sidebar sections: every outline's rows
   counted. Only an outline named like a sidebar, or a narrow one along a window edge, is a sidebar
