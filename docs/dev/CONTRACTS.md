@@ -186,7 +186,8 @@ What an opened dropdown shows, over raw trees: `visible_handles(root) -> HandleI
 before opening), `find_node(root, handle) -> (node, ancestors) | None`, `in_web_content(ancestors)`,
 `option_title(node)`, `menu_options(menu) -> list[Option]` (titled visible `AXMenuItem`s; separators are
 untitled), `open_menu_of(control)` (its visible `AXMenu` child or grandchild with items), `combo_list(control,
-*, in_web=False) -> OptionList | None` (the list a combo box shows inside itself, `where="list"`),
+*, in_web=False) -> OptionList | None` (the list a combo box shows inside itself, `where="list"`; its rows may also be `AXTextField`s, as in
+AppKit on macOS 26),
 `combo_arrow(control)` (its pressable `AXButton` child, the arrow), `new_menus(root,
 baseline)` (visible menus not visible before, outermost first, menu bar excluded), `page_options(root,
 baseline, *, exclude=None) -> OptionList | None` (new titled option-like nodes in a web page, the outermost
@@ -292,7 +293,7 @@ open. `pointer_only: true` (a web control whose script listens to the mouse): `A
 `set_value` and `insert_text` change nothing (recorded as `ignored`), clicks work. `filters: {"list": id,
 "limit": n}` on a text field: when its text changes, the list shows the first `n` children whose label
 contains it. An AppKit combo box (`AXComboBox` with `options`, no `on_press`/`pointer_only`) shows its options
-as an `AXList` child of `AXStaticText` rows without `AXPress` (they take clicks) after `AXShowMenu`, a press of
+as an `AXList` child of `AXTextField` rows (as on macOS 26) without `AXPress` (they take clicks) after `AXShowMenu`, a press of
 its `AXButton` child or a click on its right-hand 18 pt; a click elsewhere only focuses it. A pick from that
 list or Return in it records `("combo_commit", {"handle", "value"})`; `set_value` only changes what it shows
 (like `NSComboBox`, issue #33). Clicks reach elements inside zero-size wrappers. Test helpers: `menu_state()` (the open

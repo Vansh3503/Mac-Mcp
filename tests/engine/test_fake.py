@@ -482,7 +482,7 @@ def test_an_appkit_combo_box_acts_only_on_a_pick_or_return(engine: FakeEngine) -
     listing = next(c for c in engine.capture_tree(app="TextEdit").root.children if c.role == "AXToolbar")
     box = next(c for c in listing.children if c.handle == size)
     rows = next(c for c in box.children if c.role == "AXList").children
-    assert {row.role for row in rows} == {"AXStaticText"}
+    assert {row.role for row in rows} == {"AXTextField"}
     assert all("AXPress" not in row.actions for row in rows)  # they take clicks
     eighteen = next(row for row in rows if row.value == "18")
     assert eighteen.frame is not None

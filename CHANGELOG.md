@@ -164,6 +164,9 @@ Pre-alpha. Nothing is published on PyPI yet.
   browsers ignore an accessibility value there. AXPilot now focuses each part (month, day, year,
   in the order the page shows them, whatever the language) and types it, then reads the parts
   back. Only a date is typed; a value with a time is refused with a hint (#26).
+- `select_option` and `set_value` on TextEdit's font-size box (macOS 26) found no options: its list
+  holds text-field rows, which AXPilot did not count as options. They are read now, so the size is
+  picked from the list.
 
 - `explore` listed the files of Finder's list view as sidebar sections: every outline's rows
   counted. Only an outline named like a sidebar, or a narrow one along a window edge, is a sidebar

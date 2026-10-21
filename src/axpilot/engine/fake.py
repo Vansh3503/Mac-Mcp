@@ -45,8 +45,8 @@ Tree nodes use the :mod:`axpilot.perception.serialize` format plus these fake-on
   an autocomplete.
 
 An AppKit combo box (an ``AXComboBox`` with ``options``, without ``on_press`` or ``pointer_only``)
-shows its options as an ``AXList`` child of ``AXStaticText`` rows (no ``AXPress``: they take
-clicks) after ``AXShowMenu``, a press of its ``AXButton`` child (the arrow) or a click on its
+shows its options as an ``AXList`` child of ``AXTextField`` rows (as on macOS 26; no ``AXPress``:
+they take clicks) after ``AXShowMenu``, a press of its ``AXButton`` child (the arrow) or a click on its
 right-hand :data:`_COMBO_ARROW_WIDTH` points; a click anywhere else only puts the text cursor in
 it. Like ``NSComboBox``, it acts on its value only when an option is picked from that list or
 Return is pressed in it, which records ``("combo_commit", {"handle", "value"})``; setting its text
@@ -1519,7 +1519,7 @@ class FakeEngine(Engine):
             titles = [
                 item.title or "" if item.role == "AXMenuItem" else str(item.value)
                 for item in menu.node.children
-                if item.role in ("AXMenuItem", "AXStaticText")
+                if item.role in ("AXMenuItem", "AXTextField")
             ]
             return {"owner": menu.owner.handle, "name": _node_label(menu.owner), "titles": titles}
 
@@ -1693,7 +1693,7 @@ class FakeEngine(Engine):
         """The ``AXList`` an AppKit combo box shows below itself, as wide as the box."""
         items = [
             RawNode(
-                role="AXStaticText",
+                role="AXTextField",
                 value=choice,
                 selected=str(owner.value) == choice,
                 frame=Rect(at.x, at.y + index * _MENU_ITEM_HEIGHT, at.w, _MENU_ITEM_HEIGHT),
