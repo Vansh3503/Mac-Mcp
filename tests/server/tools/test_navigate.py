@@ -258,17 +258,18 @@ async def test_explore_judges_a_pruned_outline_by_its_rows(ctx: ServerContext) -
     snap = ctx.build_snapshot(tree, mode="interactive", max_elements=500)
     outlines = {el.ref for el in snap.all_elements if el.ax_role == "AXOutline"}
     assert len(outlines) == 2
-    kept = [
-        dataclasses.replace(el, parent_ref=None) if el.parent_ref in outlines else el
-        for el in snap.all_elements
-        if el.ref not in outlines
-    ]
-    pruned = dataclasses.replace(snap, elements=kept, all_elements=kept)
-    names = [el.name for el in _sidebar_rows(pruned)]
-    assert "Desktop" in names
-    assert not any(name and "Quarterly Report.pdf" in name for name in names)
-    unnamed_window = dataclasses.replace(pruned, window=None)
-    assert _sidebar_rows(unnamed_window) == []
+    for orphan in (None, "e999999"):  # no parent, or a parent that is not in the snapshot
+        kept = [
+            dataclasses.replace(el, parent_ref=orphan) if el.parent_ref in outlines else el
+            for el in snap.all_elements
+            if el.ref not in outlines
+        ]
+        pruned = dataclasses.replace(snap, elements=kept, all_elements=kept)
+        names = [el.name for el in _sidebar_rows(pruned)]
+        assert "Desktop" in names
+        assert not any(name and "Quarterly Report.pdf" in name for name in names)
+        unnamed_window = dataclasses.replace(pruned, window=None)
+        assert _sidebar_rows(unnamed_window) == []
 
 
 WINDOW = Rect(100, 100, 1000, 600)

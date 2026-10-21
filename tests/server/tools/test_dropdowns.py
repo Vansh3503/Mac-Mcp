@@ -24,6 +24,7 @@ from mcp import Client
 
 from axpilot.engine.fake import FakeEngine
 from axpilot.errors import AXPilotError, ErrorCode
+from axpilot.models import AppInfo
 from axpilot.server.context import ServerContext
 from axpilot.server.results import error_code_of, text_of
 from axpilot.testing import connected_client, make_test_context, structured
@@ -632,9 +633,10 @@ async def test_select_option_still_refuses_an_option_the_combo_box_does_not_list
     assert shown(ctx, kind) == "12"
 
 
-def combo_desktop(*, dialog: bool = False) -> dict[str, Any]:
+def combo_desktop(*, dialog: bool = False, sheet: bool = False) -> dict[str, Any]:
     """One window of combo boxes: opened by their arrow button, by AXShowMenu, by a click on their
-    arrow, one with no list and one that is neither listed nor editable."""
+    arrow, one with no list and one that is neither listed nor editable. ``dialog``: the window is
+    a dialog; ``sheet``: they sit in a sheet."""
 
     def box(name: str, x: int, actions: list[str], **extra: Any) -> dict[str, Any]:
         return {
@@ -653,37 +655,36 @@ def combo_desktop(*, dialog: bool = False) -> dict[str, Any]:
     del plain["options"]
     fixed = box("fixed", 480, [], settable=False)
     del fixed["options"]
-    tree = {
-        "role": "AXWindow",
-        "subrole": "AXDialog" if dialog else "AXStandardWindow",
-        "children": [
-            box("arrowed", 120, ["AXConfirm"], children=[arrow]),
-            box("bare", 200, []),
-            box("menued", 280, ["AXShowMenu"]),
-            plain,
-            fixed,
-            {
-                "id": "ok",
-                "role": "AXButton",
-                "title": "OK",
-                "default": True,
-                "frame": [480, 440, 80, 24],
-                "actions": ["AXPress"],
-            },
-        ],
+    ok_button = {
+        "id": "ok",
+        "role": "AXButton",
+        "title": "OK",
+        "default": True,
+        "frame": [480, 440, 80, 24],
+        "actions": ["AXPress"],
     }
-    return {
-        "apps": [{"name": "Fonts", "bundle_id": "com.example.fonts", "pid": 900, "frontmost": True}],
-        "windows": [
-            {
-                "window_id": 1,
-                "app": "com.example.fonts",
-                "title": "Fonts",
-                "frame": [100, 100, 500, 400],
-                "tree": tree,
-            }
-        ],
-    }
+    controls: list[dict[str, Any]] = [
+        box("arrowed", 120, ["AXConfirm"], children=[arrow]),
+        box("bare", 200, []),
+        box("menued", 280, ["AXShowMenu"]),
+        plain,
+        fixed,
+        ok_button,
+    ]
+    if sheet:
+        controls = [{"role": "AXSheet", "frame": [100, 110, 500, 380], "children": controls}]
+    tree = {"role": "AXWindow", "subrole": "AXDialog" if dialog else "AXStandardWindow", "children": controls}
+    apps = [{"name": "Fonts", "bundle_id": "com.example.fonts", "pid": 900, "frontmost": True}]
+    windows: list[dict[str, Any]] = [
+        {
+            "window_id": 1,
+            "app": "com.example.fonts",
+            "title": "Fonts",
+            "frame": [100, 100, 500, 400],
+            "tree": tree,
+        }
+    ]
+    return {"apps": apps, "windows": windows}
 
 
 class DeafToShowMenu(FakeEngine):
@@ -769,3 +770,68 @@ async def test_set_value_chooses_in_a_java_combo_box_whose_text_cannot_be_set(
     assert data["strategy"] == "menu_window"
     assert shown(ctx, kind) == "All Tests"
     assert_closed(ctx, kind)
+
+
+async def test_a_combo_box_in_a_sheet_is_not_confirmed_with_return() -> None:
+    ctx, connecting = combo_client(FakeEngine.from_dict(combo_desktop(sheet=True)))
+    async with connecting as client:
+        data = await ok(client, "set_value", {"ref": await ref_of(client, "Arrowed"), "value": "15"})
+    assert data["strategy"] == "ax_value"
+    assert any("did not press Return" in warning for warning in data["warnings"])
+    assert not [e for e in fake(ctx).events_of("press_key") if e["key"] == "return"]
+
+
+class PaletteOverArrows(FakeEngine):
+    """A floating palette of another app covers the right end of every combo box."""
+
+    def app_at_point(self, point: Any) -> AppInfo | None:
+        if 245 <= point.x <= 260:  # the right end of "bare" (x 200-260), where its arrow is
+            return AppInfo(name="Palette", pid=901, bundle_id="com.example.palette")
+        return super().app_at_point(point)
+
+
+async def test_a_combo_box_arrow_under_another_window_is_not_clicked() -> None:
+    ctx, connecting = combo_client(PaletteOverArrows.from_dict(combo_desktop()))
+    async with connecting as client:
+        result, error = await call(
+            client, "select_option", {"ref": await ref_of(client, "Bare"), "option": "14"}
+        )
+    assert error == "ELEMENT_NOT_ACTIONABLE", text_of(result)
+    assert "covered by another window" in text_of(result)
+    assert not fake(ctx).events_of("mouse_click")
+    assert not ctx.control.busy
+
+
+class RejectsOnReturn(FakeEngine):
+    """An app that puts its old value back when Return confirms text it does not accept."""
+
+    def press_key(self, combo: Any) -> None:
+        super().press_key(combo)
+        if combo.key == "return":
+            self.set_value(self.resolve_ref("plain"), "12")
+
+
+async def test_a_combo_box_that_rejects_the_text_is_reported() -> None:
+    _, connecting = combo_client(RejectsOnReturn.from_dict(combo_desktop()))
+    async with connecting as client:
+        data = await ok(client, "select_option", {"ref": await ref_of(client, "Plain"), "option": "Bold"})
+    assert data["strategy"] == "ax_value+return"
+    assert any('shows "12" after Return' in warning for warning in data["warnings"])
+
+
+class SlowToSet(FakeEngine):
+    """The box's text cannot be set in time."""
+
+    def set_value(self, handle: Any, value: Any) -> None:
+        raise AXPilotError(ErrorCode.TIMEOUT, "the app did not answer")
+
+
+async def test_an_engine_failure_while_typing_into_a_combo_box_is_passed_on() -> None:
+    ctx, connecting = combo_client(SlowToSet.from_dict(combo_desktop()))
+    async with connecting as client:
+        result, error = await call(
+            client, "select_option", {"ref": await ref_of(client, "Plain"), "option": "x"}
+        )
+    assert error == "TIMEOUT", text_of(result)
+    assert not fake(ctx).events_of("press_key")
+    assert not ctx.control.busy
