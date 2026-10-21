@@ -162,6 +162,23 @@ async def test_an_approved_client_is_remembered(sock_dir: Path) -> None:
     assert host.pairing.decision("com.anthropic.claudefordesktop") == "always"
 
 
+async def test_a_known_client_is_asked_by_its_readable_name(sock_dir: Path) -> None:
+    """#21: Claude Code inside the Claude app reports a bundle named "claude"; the user is asked
+    about "Claude Code", and the decision is stored under the raw name."""
+    path = sock_dir / "axpilot.sock"
+    recorder = Recorder(True)
+    claude_code = Hello(client=ClientIdentity("claude", None, 4343))
+    async with (
+        running_host(make_ctx(), path, pairing_confirmer=recorder) as host,
+        Client(host_transport(path, claude_code)) as client,
+    ):
+        status = structured(await client.call_tool("status", {}))
+    assert "Allow Claude Code to" in recorder.requests[0].summary
+    assert status["client"] == "Claude Code"
+    assert host.pairing.decision("claude") == "always"
+    assert [entry.display for entry in host.pairing.entries()] == ["Claude Code"]
+
+
 async def test_a_denied_client_stays_denied(sock_dir: Path) -> None:
     path = sock_dir / "axpilot.sock"
     recorder = Recorder(False)

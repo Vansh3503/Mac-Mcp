@@ -617,7 +617,11 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
   `{"ok": false, "error": {...}}` (an `AXPilotError` dict). A hello with a newer `axpilot_bridge` version gets
   `NOT_SUPPORTED`; a malformed one, or an unknown profile or naming, `INVALID_ARGUMENT`. After the reply both
   directions carry raw MCP JSON-RPC lines; a line that is not JSON gets a JSON-RPC `-32700` parse error and the
-  session goes on. `ClientIdentity.key` (bundle id, else app name, else `pid:<n>`) keys pairing decisions.
+  session goes on. `ClientIdentity.key` (bundle id, else app name, else `pid:<n>`) keys pairing decisions;
+  `ClientIdentity.display` is what the pairing dialog, `status`, the pairing file and logs show:
+  `axpilot.clientnames.client_display_name(parent_app)` (a known client's readable name, `claude` → "Claude
+  Code", `codex` → "Codex CLI"…, case-sensitive; any other name unchanged), else the bundle id. Direct mode's
+  responsible app (`helpers.responsible_app_name`) uses the same names.
   `LineReader` reads lines from any anyio byte stream.
 - `axpilot/bridge/stdio_pipe.py`: `async def run_bridge(socket_path, hello, *, read_input=None,
   write_output=None, reply_timeout_s=REPLY_TIMEOUT_S) -> int` sends the hello, waits for the reply (pairing may

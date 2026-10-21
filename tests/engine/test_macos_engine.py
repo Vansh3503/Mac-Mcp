@@ -501,6 +501,14 @@ def test_app_bundle_and_responsible_app() -> None:
     assert h.responsible_app_name(exe for _, exe in h.ancestry(700, table)) == "Terminal"
     assert h.responsible_app_name(exe for _, exe in h.ancestry(801, table)) == "Visual Studio Code"
     assert h.responsible_app_name(["/bin/zsh", "/sbin/launchd"]) is None
+    # Claude Code inside the Claude app (macOS 26): its versioned bundle is named "claude" (#21)
+    claude_code = (
+        "/Users/u/Library/Application Support/Claude/claude-code/2.1.295/claude.app/Contents/MacOS/claude"
+    )
+    assert (
+        h.responsible_app_name([claude_code, "/Applications/Claude.app/Contents/MacOS/Claude"])
+        == "Claude Code"
+    )
 
 
 # ========================================================================= installed apps
