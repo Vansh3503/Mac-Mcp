@@ -637,7 +637,10 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
   `None` when nothing runs. The CLI starts it for `stdio --direct` and `host` with a non-fake engine on macOS
   and passes `ui.pump` to `axpilot.runloop`.
 - `axpilot/host/daemon.py`: `async def serve(ctx, socket_path=None, *, pairing=None, pairing_confirmer=None,
-  max_clients=8, task_status=...)` and the `Host` class behind it. The socket is created `0600` inside a `0700`
+  max_clients=8, parent_pid=None, task_status=...)` and the `Host` class behind it. With `parent_pid`
+  (`launcher_pid()`: the parent pid when `AXPILOT_LAUNCHER_VERSION` is set, i.e. AXPilot.app started the host)
+  serving ends once that process is no longer the parent (`watch_parent`, polled every `PARENT_POLL_S` = 1 s): a
+  force-quit launcher leaves no host holding the socket. The socket is created `0600` inside a `0700`
   folder; a live host on the path is `HOST_UNAVAILABLE`, a stale socket is removed, any other file in the way
   is never deleted. Each connection: peer uid check (`SO_PEERCRED` on Linux, `LOCAL_PEERCRED` on macOS; another
   user is refused with `BLOCKED_BY_POLICY`), hello within `hello_timeout_s`, `BUSY` past `max_clients`, the

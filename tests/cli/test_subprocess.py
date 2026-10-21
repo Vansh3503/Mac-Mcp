@@ -3,6 +3,7 @@ JSON-RPC on its stdout, and the full chain client â†’ ``axpilot stdio`` bridge â
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import signal
@@ -345,3 +346,50 @@ def test_the_launchers_command_starts_the_host(env: dict[str, str], sock_dir: Pa
         if process.poll() is None:
             process.kill()
             process.wait()
+
+
+LAUNCHER_STAND_IN = """
+import subprocess, sys, time
+host = subprocess.Popen(sys.argv[1:])
+print(host.pid, flush=True)
+time.sleep(120)
+"""
+
+
+def test_the_host_stops_when_its_launcher_is_killed(env: dict[str, str], sock_dir: Path) -> None:
+    """#29: AXPilot.app force-quit (SIGKILL) leaves the host re-parented; it must stop and free its
+    socket instead of holding it with nobody to restart it."""
+    path = sock_dir / "axpilot.sock"
+    command = [sys.executable, "-m", "axpilot.host", "--engine", "fake", "--yes", "--socket", str(path)]
+    launcher = subprocess.Popen(
+        [sys.executable, "-c", LAUNCHER_STAND_IN, *command],
+        env={**env, "AXPILOT_LAUNCHER_VERSION": "test"},
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    host_pid: int | None = None
+    try:
+        assert launcher.stdout is not None
+        host_pid = int(launcher.stdout.readline())
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline and not _accepts(path):
+            assert launcher.poll() is None, "the stand-in launcher exited"
+            time.sleep(0.1)
+        assert _accepts(path), "the host did not start"
+        launcher.kill()
+        launcher.wait(timeout=20)
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline and path.exists():
+            time.sleep(0.1)
+        assert not path.exists(), "the host kept its socket after its launcher died"
+        assert not _accepts(path)
+        stderr = launcher.stderr.read().decode() if launcher.stderr else ""
+        assert "Traceback" not in stderr
+        assert "is gone; the host stops" in stderr
+    finally:
+        if launcher.poll() is None:
+            launcher.kill()
+            launcher.wait()
+        if host_pid is not None:
+            with contextlib.suppress(ProcessLookupError):  # it normally exited on its own
+                os.kill(host_pid, signal.SIGKILL)

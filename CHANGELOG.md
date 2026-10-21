@@ -168,5 +168,8 @@ Pre-alpha. Nothing is published on PyPI yet.
   synchronously. They now run on the main thread, waiting at most 0.5 s for it, then as before on
   the worker; work left waiting there is cancelled, so a late restore can never undo a newer copy
   (#25).
+- When AXPilot.app crashed or was force-quit, the host it started kept running and held the
+  socket, with nothing left to restart it. A host started by AXPilot.app now notices within a
+  second that its launcher is gone and stops cleanly (#29).
 
 [Unreleased]: https://github.com/vansh3503/Mac-Mcp/commits/main

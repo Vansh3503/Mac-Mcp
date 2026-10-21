@@ -345,14 +345,15 @@ def host(
     yes: YesOption = False,
 ) -> None:
     """Run the AXPilot host on its Unix socket (what AXPilot.app starts)."""
-    from axpilot.host.daemon import serve  # noqa: PLC0415
+    from axpilot.host.daemon import launcher_pid, serve  # noqa: PLC0415
 
     ctx = _context(engine, fixture, yes=yes)
     ctx.mode = "host"
+    parent = launcher_pid()  # read at once: the launcher may die while the host starts
     ui = _start_ui(ctx)
     try:
         _run(
-            lambda: _until_signalled(lambda: serve(ctx, socket, max_clients=max_clients)),
+            lambda: _until_signalled(lambda: serve(ctx, socket, max_clients=max_clients, parent_pid=parent)),
             ui.pump if ui is not None else None,
         )
     finally:
