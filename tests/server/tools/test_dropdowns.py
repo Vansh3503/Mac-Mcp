@@ -25,6 +25,7 @@ from mcp import Client
 from axpilot.engine.fake import FakeEngine
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.models import AppInfo
+from axpilot.perception import dropdown as dd
 from axpilot.server.context import ServerContext
 from axpilot.server.results import error_code_of, text_of
 from axpilot.testing import connected_client, make_test_context, structured
@@ -580,6 +581,10 @@ async def test_a_combo_box_takes_the_option_picked_from_its_list(ctx: ServerCont
     assert data["attempts"] == ["open:ax:AXShowMenu", "pick:mouse"]  # its rows take clicks
     assert commits(ctx, "textedit.size") == ["24"]
     assert_closed(ctx, kind)
+    # its closed list stays valid (macOS 26): the box's AXExpanded tells it closed, so no stray Escape,
+    # which opens TextEdit's completion window
+    assert data["warnings"] == []
+    assert not [e for e in fake(ctx).events_of("press_key") if e["key"] == "escape"]
 
 
 async def test_a_combo_box_showing_a_value_it_was_never_told_gets_it_picked(
@@ -616,6 +621,9 @@ async def test_set_value_types_other_text_and_presses_return(
     data = await ok(client, "set_value", {"ref": ref, "value": value})
     assert data["strategy"] == "ax_value+return"
     assert "pressed Return" in data["message"]
+    # like TextEdit's on macOS 26, the box cannot take focus through accessibility: its text is clicked
+    size = fake(ctx).resolve_ref("textedit.size")
+    assert [e["target"] for e in fake(ctx).events_of("mouse_click")][-1] == size
     assert shown(ctx, kind) == value
     assert commits(ctx, "textedit.size") == [value]
     assert_closed(ctx, kind)
@@ -726,6 +734,23 @@ async def test_a_combo_box_opens_with_its_arrow(
     assert data["attempts"][-1] == "pick:mouse"
     assert commits(ctx, name.lower()) == ["14"]
     assert fake(ctx).menu_state() is None
+
+
+async def test_a_combo_box_whose_open_list_cannot_be_read_is_not_clicked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """TextEdit (macOS 26): the arrow opened a list AXPilot could not read, and the click on the arrow
+    that followed landed on the list covering it and chose 9 pt instead of 24."""
+    monkeypatch.setattr(dd, "combo_list", lambda *_args, **_kwargs: None)
+    ctx, connecting = combo_client(FakeEngine.from_dict(combo_desktop()))
+    async with connecting as client:
+        result, error = await call(
+            client, "select_option", {"ref": await ref_of(client, "Arrowed"), "option": "14"}
+        )
+    assert error == "ELEMENT_NOT_ACTIONABLE", text_of(result)
+    assert "cannot read" in text_of(result)
+    assert not fake(ctx).events_of("mouse_click")
+    assert commits(ctx, "arrowed") == []
 
 
 async def test_a_combo_box_without_a_list_gets_the_text_and_return() -> None:

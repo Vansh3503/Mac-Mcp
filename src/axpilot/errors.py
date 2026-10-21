@@ -30,6 +30,8 @@ class ErrorCode(StrEnum):
     SNAPSHOT_NOT_FOUND = "SNAPSHOT_NOT_FOUND"
     STALE_REF = "STALE_REF"
     ELEMENT_NOT_ACTIONABLE = "ELEMENT_NOT_ACTIONABLE"
+    ELEMENT_NOT_FOUND = "ELEMENT_NOT_FOUND"
+    LOCATOR_AMBIGUOUS = "LOCATOR_AMBIGUOUS"
 
     # Policy / user
     BLOCKED_BY_POLICY = "BLOCKED_BY_POLICY"
@@ -69,6 +71,14 @@ _DEFAULT_HINTS: dict[ErrorCode, str] = {
     ),
     ErrorCode.STALE_REF: "The UI changed since that snapshot. Call `snapshot` again and use the new refs.",
     ErrorCode.SNAPSHOT_NOT_FOUND: "Snapshots expire. Call `snapshot` again.",
+    ErrorCode.ELEMENT_NOT_FOUND: (
+        "Nothing in the window matches the locator. Check that the app shows it now (open its "
+        "window, sheet or menu first), or build the locator again with `locate`."
+    ),
+    ErrorCode.LOCATOR_AMBIGUOUS: (
+        "The locator matches several elements. Use `locate` on the one you mean for a locator that "
+        "names only it (or add within, name or index)."
+    ),
     ErrorCode.USER_ACTIVE: "The user is using the mouse/keyboard. Wait a moment and retry.",
     ErrorCode.PAUSED_BY_USER: ("The user paused AXPilot (kill switch). Ask them before continuing."),
     ErrorCode.NEEDS_USER: (

@@ -4,7 +4,7 @@
 > the macOS counterpart of [Windows-MCP](https://github.com/CursorTouch/Windows-MCP).
 > It installs in minutes, is safe by default, and works with any MCP client or agent framework.
 
-Status: **Draft v2. Decisions from review applied (see [§0.1](#01-decisions-log)).** · Last updated: 2026-10-19 · License: Apache-2.0
+Status: **Draft v2. Decisions from review applied (see [§0.1](#01-decisions-log)).** · Last updated: 2026-10-21 · License: Apache-2.0
 
 > **Name:** "AXPilot" is the proposed name (see [ADR-7](#adr-7-name-axpilot)). Until it's confirmed,
 > treat `axpilot` / `AXPilot` in this document as a placeholder that is easy to search and replace.
@@ -280,6 +280,7 @@ Toolsets toggle individually (`[tools] enable = ["browser"]`). `scripting` and `
 | `screenshot` | Display/window/region capture; returns image + `screenshot_id` + scale/origin | `target`, `display_id?`, `window_id?`, `rect?`, `max_edge` (1280), `format` |
 | `find` | Fuzzy element search | `text`, `role?`, `identifier?`, `app?`, `limit` |
 | `inspect` | Full attributes, actions, ancestry of a ref | `ref` |
+| `locate` | Portable locators for a ref, checked against the live window, or a check of a locator (§6.12) | `ref` \| `locator`, `formats`, `max_candidates` |
 | `ocr` | Vision text recognition with boxes | `window_id?`, `rect?`, `languages?` |
 | `list_apps` | Running (and optionally installed) apps | `include_installed` |
 | `list_windows` | Windows: id, app, title, frame, state | `app?` |
@@ -328,7 +329,7 @@ Coordinates accept `coordinate_space: points | screenshot` (+ `screenshot_id`).
 | FileSystem | — (official Filesystem MCP) + `spotlight_search`, `open` |
 | Registry | `defaults` |
 | Process / Clipboard / Notification / ControlStatus | `processes` / `clipboard` / `notify` / `status` |
-| *(Mac-only)* | `select_menu`, `set_value`, `perform_action`, `ocr`, `shortcuts`, `find`, `inspect` |
+| *(Mac-only)* | `select_menu`, `set_value`, `perform_action`, `ocr`, `shortcuts`, `find`, `inspect`, `locate` |
 
 ### 6.8 Windows-MCP naming profile
 - `[tools] naming = "windows-mcp"` (or `--naming windows-mcp`) exposes the tools under **Windows-MCP's PascalCase names and parameter shapes** (`Click`, `Type`, `Scroll`, `Move`, `Shortcut`, `Wait`, `WaitFor`, `MultiSelect`, `MultiEdit`, `Screenshot`, `Snapshot`, `DisplayInventory`, `App`, `Process`, `Clipboard`, `Notification`, `ControlStatus`, `Scrape`), mapped onto our implementations.
@@ -382,6 +383,20 @@ with Desktop.connect() as mac:            # via AXPilot.app (its permissions), o
 - `Desktop.fake()` uses the simulated desktop, so automation scripts can be unit-tested in CI without a Mac.
 - CLI for shell scripts and other languages: `axpilot tools` (list tools and schemas) and `axpilot call <tool> --arg key=value | --json '{...}'` (prints the result as JSON; exit codes per QUALITY.md A9).
 - Later (post-1.0): record and replay of action sequences as scripts.
+
+### 6.12 Locators for automation scripts
+People who automate a Mac app need to address one specific element (say the Download button in a
+toolbar) in a way that still works tomorrow, but refs only live for one session. The plan, in
+[dev/locators-plan.md](dev/locators-plan.md): a portable, versioned **locator** (JSON: app, role,
+identifier, name, optional ancestors and window), a read-only `locate` tool that builds ranked
+candidates for a ref and proves each is unique in the live window, `find(locator=…)` and the SDK's
+`mac.locate(…)` to resolve them in scripts, and exports to the AXPilot SDK and CLI, Appium Mac2,
+XCUITest and AppleScript. The intended workflow is an agent in VS Code (or any MCP client) that
+looks at the real app with AXPilot and writes the script for the user.
+
+Phase L1 is implemented: the locator format, `locate(ref | locator)`, `find(locator=…)` (with
+`scroll`), the `axpilot` and `axpilot-python` exports, and `find(locator=…)` in the SDK with the
+`ELEMENT_NOT_FOUND` and `LOCATOR_AMBIGUOUS` codes ([Locators](locators.md)). *Planned:* L2 to L4.
 
 ---
 

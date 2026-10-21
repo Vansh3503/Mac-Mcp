@@ -49,6 +49,7 @@ TOOL_MODULES: tuple[str, ...] = (
     "browser",
     "computer",
     "navigate",
+    "locate",
 )
 """Every module of :mod:`axpilot.server.tools`; importing one registers its tools."""
 

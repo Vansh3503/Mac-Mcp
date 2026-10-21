@@ -34,6 +34,7 @@ TOOLSETS: dict[str, tuple[str, ...]] = {
         "explore",
         "read",
         "inspect",
+        "locate",
         "ocr",
         "list_apps",
         "list_windows",

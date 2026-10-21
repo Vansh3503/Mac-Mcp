@@ -69,6 +69,9 @@ OPTION_ROLES: frozenset[str] = frozenset(
 """Roles an option can have: menu items (menus, ARIA menus), static text (Chromium and WebKit
 expose ARIA ``option`` as ``AXStaticText``), rows (tables, outlines, Java lists) and the
 clickable roles custom pickers use."""
+COMBO_OPTION_ROLES: frozenset[str] = OPTION_ROLES | {"AXTextField"}
+"""Roles of the options in a combo box's own list: on macOS 26 an AppKit combo box's list holds one
+``AXTextField`` per row (TextEdit's font sizes)."""
 WEB_AREA_ROLE = "AXWebArea"
 MENU_BAR_ROLES: frozenset[str] = frozenset({"AXMenuBar", "AXMenuBarItem"})
 
@@ -250,7 +253,7 @@ def combo_list(control: RawNode, *, in_web: bool = False) -> OptionList | None:
             or not _on_screen(node.frame)
         ):
             continue
-        options = _list_children(node)
+        options = _list_children(node, COMBO_OPTION_ROLES)
         if options:
             return OptionList(node, options, "list", in_web=in_web)
     return None
@@ -312,10 +315,10 @@ def page_options(root: RawNode, baseline: HandleIndex, *, exclude: object = None
     return None
 
 
-def _list_children(container: RawNode) -> list[Option]:
+def _list_children(container: RawNode, roles: frozenset[str] = OPTION_ROLES) -> list[Option]:
     options: list[Option] = []
     for child in container.children:
-        if child.role in OPTION_ROLES and child.visible and _on_screen(child.frame):
+        if child.role in roles and child.visible and _on_screen(child.frame):
             title = option_title(child)
             if title:
                 options.append(Option(title, child))

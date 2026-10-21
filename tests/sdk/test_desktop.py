@@ -113,6 +113,41 @@ def test_find_and_read(mac: Desktop) -> None:
     assert read.pages >= 1
 
 
+def test_find_with_a_locator_acts_only_on_a_unique_match(mac: Desktop) -> None:
+    back = {"v": 1, "app": "com.apple.finder", "role": "AXButton", "name": "Back"}
+    found = mac.find(locator=back)
+    assert found.unique is True
+    assert found.first.element is not None
+    assert found.first.element.name == "Back"
+    assert found.click().strategy is not None
+    assert events(mac, "press")
+    with pytest.raises(AXPilotError) as ambiguous:
+        mac.find(locator={"app": "com.apple.finder", "role": "AXButton"}).click()
+    assert ambiguous.value.code is ErrorCode.LOCATOR_AMBIGUOUS
+    assert ambiguous.value.details["count"] > 1
+    assert ambiguous.value.hint
+    assert "locate" in ambiguous.value.hint
+    with pytest.raises(AXPilotError) as missing:
+        _ = mac.find(locator={"app": "com.apple.finder", "name": "Nope"}).first
+    assert missing.value.code is ErrorCode.ELEMENT_NOT_FOUND
+    assert "com.apple.finder" in missing.value.message
+    assert mac.find("Back", app="Finder").unique is None  # a fuzzy search says nothing about uniqueness
+
+
+def test_find_with_an_invalid_locator_raises_invalid_argument(mac: Desktop) -> None:
+    with pytest.raises(AXPilotError) as exc:
+        mac.find(locator={"app": "com.apple.finder", "colour": "red"})
+    assert exc.value.code is ErrorCode.INVALID_ARGUMENT
+
+
+@pytest.mark.anyio
+async def test_async_find_with_a_locator() -> None:
+    async with AsyncDesktop.fake() as mac:
+        found = await mac.find(locator={"app": "Finder", "role": "button", "name": "Back"})
+        assert isinstance(found.first, AsyncElementHandle)
+        assert found.unique is True
+
+
 # =========================================================================== input
 def test_input_methods(mac: Desktop) -> None:
     mac.app("Notes").activate()

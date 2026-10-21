@@ -88,6 +88,32 @@ is authoritative for its exact parameters.
   tool), keep each command small and readable, and say what it does before running it.
 - Keep screenshots to when you need pixels: snapshots are cheaper and work without Screen Recording.
 
+## Writing automation scripts
+
+Call `locate` only when the person asks for locators, a script or a test. In an ordinary task
+("log in and send the report") just do the task: never locate elements along the way unasked.
+
+1. Find the element (`explore`, `find`, `snapshot`), then call `locate` with its ref. Use the
+   `recommended` locator: it was checked against the live window and names only that element.
+   For a flow ("open the app, log in, export the report, and give me all the locators"), do the
+   task screen by screen, and on each screen call `locate` with `refs` for every element you are
+   about to use **before** you act there: once you sign in or close a sheet, the elements of that
+   screen are gone and can't be located any more (`STALE_REF`). At the end, give the person one
+   script with every locator in the order of the steps (`formats: ["axpilot-python"]` writes each
+   screen's part).
+2. Never put refs (`e12`) or coordinates in a script: they only last for this session. Put the
+   locator (a small JSON object) in the script and look it up with `find(locator=…)`; with the
+   AXPilot SDK that is `mac.find(locator=LOCATOR).click()`, and `formats: ["axpilot-python"]`
+   writes the snippet for you.
+3. Read the grade and the warnings, and pass them on. `high` (an AXIdentifier) survives language
+   and layout changes; `medium` (role and name) breaks when the app's wording or language changes;
+   `low` (a position) breaks when the layout changes. If the person builds the app, the warning
+   says how to give the element an identifier.
+4. To check a locator, including one from an existing script, call `locate(locator=…)` or
+   `find(locator=…)`: `count` and `unique` say whether it still names exactly one element. This
+   clicks nothing; run the script itself only when the person asks.
+5. Don't write typed secrets, clipboard contents or personal data into scripts.
+
 ## When something goes wrong
 
 Errors come back as `CODE: message` with a `Hint:`. Follow the hint. In particular:

@@ -19,6 +19,21 @@ the `AXPilot.app` you grant Accessibility and Screen Recording to once.
 
 ### Added
 
+- Locators for automation scripts. `locate` turns an element ref into a *locator*: a small JSON
+  object that names the element by its AXIdentifier, role and name, its containers or its
+  position, and still works in later sessions (refs only last for one). It returns a few
+  candidates, best first, each checked against a fresh capture of the window so that it names only
+  that element, graded `high` (an identifier), `medium` (role and name, which change with the app's
+  language) or `low` (a position), with warnings such as a missing identifier or a toolbar that can
+  overflow; it can also write the locator as an AXPilot SDK snippet. `locate(locator=…)` checks a
+  locator against the live window, and `locate(refs=[…])` locates every element of a screen in one
+  call, with one script for all of them (the steps of a flow: the agent locates each screen before
+  leaving it, since a closed screen's elements can't be checked; a secure field's text comes from
+  an environment variable). Agents call it only when asked for locators, a script or a test.
+  `find(locator=…)` looks one up with exact matching (also with
+  `scroll=true`) and reports `count` and `unique`; in the SDK, `find(locator=…).click()` raises the
+  new error codes `ELEMENT_NOT_FOUND` and `LOCATOR_AMBIGUOUS` instead of guessing. See
+  [Locators](docs/locators.md).
 - Dropdowns in every kind of app: `select_option` opens the control, waits for its menu or list,
   picks the option by title or index, checks that the control took it, and closes the menu again
   if anything fails (including the kill switch). It covers pop-up buttons (also when their menu
@@ -169,7 +184,23 @@ the `AXPilot.app` you grant Accessibility and Screen Recording to once.
   browsers ignore an accessibility value there. AXPilot now focuses each part (month, day, year,
   in the order the page shows them, whatever the language) and types it, then reads the parts
   back. Only a date is typed; a value with a time is refused with a hint (#26).
-
+- `select_option` and `set_value` on TextEdit's font-size box (macOS 26) found no options: its list
+  holds text-field rows, which AXPilot did not count as options. They are read now, so the size is
+  picked from the list.
+- When a combo box's list opened but could not be read, AXPilot clicked the box's arrow next; on
+  macOS 26 the list can cover the box, so that click chose whatever option lay there (9 pt instead
+  of 24). AXPilot no longer clicks a combo box that reports its list open, and says so.
+- `set_value` with a size TextEdit's font-size box does not list (15) failed with "cannot take
+  keyboard focus": on macOS 26 that box refuses focus through accessibility. AXPilot now clicks its
+  text instead, then presses Return.
+- After a pick from TextEdit's font-size list, `select_option` warned that the list "may still be
+  open" and pressed Escape, which opened TextEdit's word-completion popup: macOS 26 keeps the closed
+  list's elements valid. The box's own expanded state now tells whether its list is open.
+- Web date fields still failed in Safari and Chrome (macOS 26): a part's digits went in as one key
+  event, and the browsers keep only its first character, so "03" set the month to 0 and "2026"
+  the year to 2. Each digit is now its own keystroke.
+- In Chrome, a web date field that took the date was then reported as failed: the parts read back
+  as numbers (2026.0), which AXPilot compared as 20260. They are read as numbers now.
 - `explore` listed the files of Finder's list view as sidebar sections: every outline's rows
   counted. Only an outline named like a sidebar, or a narrow one along a window edge, is a sidebar
   now; a wide one is the window's content and stays under scroll areas (#19).

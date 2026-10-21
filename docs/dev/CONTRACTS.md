@@ -186,7 +186,8 @@ What an opened dropdown shows, over raw trees: `visible_handles(root) -> HandleI
 before opening), `find_node(root, handle) -> (node, ancestors) | None`, `in_web_content(ancestors)`,
 `option_title(node)`, `menu_options(menu) -> list[Option]` (titled visible `AXMenuItem`s; separators are
 untitled), `open_menu_of(control)` (its visible `AXMenu` child or grandchild with items), `combo_list(control,
-*, in_web=False) -> OptionList | None` (the list a combo box shows inside itself, `where="list"`),
+*, in_web=False) -> OptionList | None` (the list a combo box shows inside itself, `where="list"`; its rows may also be `AXTextField`s, as in
+AppKit on macOS 26),
 `combo_arrow(control)` (its pressable `AXButton` child, the arrow), `new_menus(root,
 baseline)` (visible menus not visible before, outermost first, menu bar excluded), `page_options(root,
 baseline, *, exclude=None) -> OptionList | None` (new titled option-like nodes in a web page, the outermost
@@ -206,6 +207,50 @@ list is shown).
 identifier: str | None = None, limit: int = 20) -> list[tuple[Element, float]]` — searches
 `all_elements`; case-insensitive fuzzy match over name/value/identifier/description (exact > prefix >
 substring > token overlap; `difflib` ratio as tiebreaker); `role` accepts short or AX roles. Sorted by score desc.
+
+### `axpilot/perception/locators.py`
+Portable locators for automation scripts (docs/dev/locators-plan.md). A locator is a JSON object
+(`{"v": 1, "app": "com.apple.finder", "role": "AXButton", "name": "Back"}`) that never holds a pid, window id,
+ref, coordinate or value.
+```python
+LOCATOR_VERSION = 1
+EXPORT_FORMATS: tuple[ExportFormat, ...]       # ("axpilot", "axpilot-python")
+@dataclass(frozen=True) class LocatorStep: role, identifier, name          # one `within` ancestor
+@dataclass(frozen=True) class WindowSelector: title, match: "exact"|"prefix" = "exact", index
+@dataclass(frozen=True) class LocatorSpec:
+    app: str; window: WindowSelector | None; within: tuple[LocatorStep, ...]; role; subrole; identifier;
+    name; name_match: "exact"|"prefix"|"contains" = "exact"; index: int | None; path: Path | None
+    def to_dict(self) -> dict      # canonical: "v" first, only fields that are set, path as "AXToolbar[0]/AXButton[2]"
+    def to_json(self) -> str
+    def describe(self) -> str      # 'AXButton "Back" in com.apple.finder'
+@dataclass(frozen=True) class Candidate: spec, strategy, grade: "high"|"medium"|"low", matches, unique: bool|None, reasons
+def parse_locator(data: Any) -> LocatorSpec              # INVALID_ARGUMENT naming the field; unknown fields refused
+def parse_path(value: str | list[str]) -> Path; def format_path(path: Path) -> str
+def normalize_name(text: str) -> str                    # whitespace collapsed, "..." → "…"
+def match_elements(snap: Snapshot, spec: LocatorSpec) -> list[Element]
+    # every field given must hold: role (AX role, or short role), subrole, identifier (exact, case-sensitive),
+    # name (normalized; exact/prefix/contains, case-sensitive), path, within (ancestors as a subsequence,
+    # outermost first); then index picks one in document order. OCR elements never match. app/window are not
+    # checked here (they choose the window to capture).
+def is_unique(snap: Snapshot, count: int) -> bool | None  # None: one match in a truncated capture
+def candidates_for(snap, el, *, app: str, window: WindowSelector | None = None, limit: int = 3) -> list[Candidate]
+    # snap is a `full` snapshot of el's window. Tried in order: identifier (+ identified ancestors, + name):
+    # high (low if looks_generated); role + name (+ up to 3 scope ancestors: toolbar, sheet, list, named group or row…):
+    # medium; for buttons and menu items whose name has a number, also a name prefix; role inside its scope
+    # ancestors (unnamed elements): low; index among the most specific non-unique form: low (only when nothing
+    # else is unique); path: low. Each kept candidate matches exactly el; a truncated capture lowers every grade
+    # by one and makes unique None. Sorted by grade (stable). NOT_SUPPORTED for OCR, INVALID_ARGUMENT for limit < 1.
+def looks_generated(identifier: str) -> bool             # _NS:<n>, digits, UUIDs, long hex
+def locator_warnings(snap, el, recommended: Candidate | None) -> list[str]
+    # no (or only a generated) identifier, toolbar overflow, inside a menu/popover/sheet, truncated capture
+def default_window(windows) -> WindowInfo | None         # focused > main > front (minimized skipped)
+def window_selector_for(windows, window) -> WindowSelector | None  # None for the default window; title if unique
+def pick_window(windows, selector, app: str) -> WindowInfo         # WINDOW_NOT_FOUND
+def export_locator(spec, fmt: ExportFormat, *, element: Element | None = None) -> str  # INVALID_ARGUMENT
+def export_locators(items: Sequence[tuple[LocatorSpec, Element | None]], fmt) -> str
+    # a flow: axpilot = JSON object of named locators; axpilot-python = constants (repeats get _2…) and one SDK
+    # call per step; a secure field types os.environ[NAME]. INVALID_ARGUMENT for no items or an unknown format.
+```
 
 ### `axpilot/perception/store.py`
 ```python
@@ -288,12 +333,13 @@ open at a time, with fresh item handles, as the element's `AXMenu` child (`menu_
 last child of the window root (`"app"`). Pressing an item (AX or click) chooses it and closes the menu;
 `AXCancel`, Escape, Return, pressing the owner again, a click outside (swallowed), another app coming
 forward or the window closing close it without choosing; other keys and typing go nowhere while it is
-open. `pointer_only: true` (a web control whose script listens to the mouse): `AXPress`, `AXShowMenu`,
+open. `focusable: false`: `focus` fails (`ELEMENT_NOT_ACTIONABLE`), a click still focuses it. `pointer_only: true` (a web control whose script listens to the mouse): `AXPress`, `AXShowMenu`,
 `set_value` and `insert_text` change nothing (recorded as `ignored`), clicks work. `filters: {"list": id,
 "limit": n}` on a text field: when its text changes, the list shows the first `n` children whose label
 contains it. An AppKit combo box (`AXComboBox` with `options`, no `on_press`/`pointer_only`) shows its options
-as an `AXList` child of `AXStaticText` rows without `AXPress` (they take clicks) after `AXShowMenu`, a press of
-its `AXButton` child or a click on its right-hand 18 pt; a click elsewhere only focuses it. A pick from that
+as an `AXList` child of `AXTextField` rows (as on macOS 26) without `AXPress` (they take clicks) after `AXShowMenu`, a press of
+its `AXButton` child or a click on its right-hand 18 pt, and reports itself `expanded` while it is open (once closed,
+the list leaves the tree but stays valid, as on macOS 26); a click elsewhere only focuses it. A pick from that
 list or Return in it records `("combo_commit", {"handle", "value"})`; `set_value` only changes what it shows
 (like `NSComboBox`, issue #33). Clicks reach elements inside zero-size wrappers. Test helpers: `menu_state()` (the open
 menu's owner and item titles) and `set_enabled(ref, enabled)`. The demo desktop also has menus on Notes'
@@ -302,7 +348,8 @@ Chrome checkout page (a `<select>`, a mouse-only combo box, an autocomplete that
 an ARIA menu, a date field), a Slack (Electron) picker and an IntelliJ (Java) combo box whose list is a window.
 A web date field is a node that cannot be set (`settable: false`) whose parts carry `digits: n` (Chrome's spin
 buttons): a part takes focus from `focus` or a click, typed digits fill it (the first after focus starts over;
-other characters are ignored), and a full part moves the focus to the next one.
+other characters are ignored; of text typed without a pause, one key event, it keeps only the first character,
+as Safari and Chrome do; its value is then a number, `5.0`), and a full part moves the focus to the next one.
 
 ---------------------------------------------------------------------------------------------------
 
@@ -351,7 +398,7 @@ def enabled_tools(profile: str, enable: Sequence[str] = (), disable: Sequence[st
 def toolset_of(tool: str) -> str
 ```
 Toolsets:
-- observe: snapshot, screenshot, find, explore, read, inspect, ocr, list_apps, list_windows, list_displays, wait_for, status
+- observe: snapshot, screenshot, find, explore, read, inspect, locate, ocr, list_apps, list_windows, list_displays, wait_for, status
 - input: click, type_text, press_keys, scroll, drag, move_mouse, set_value, select_option, perform_action, select_menu, fill_form, handle_dialog
 - apps: app, window, open
 - system: clipboard, notify, spotlight_search, system_info, system_control, processes
@@ -549,6 +596,25 @@ function's model (an explicit `null` is accepted). Real unions (a list or its JS
 `[tools] prefix` (`^[A-Za-z0-9_-]{0,24}$`) is put before every public name after the naming; audit records and
 the policy keep canonical names; calling a tool without the prefix gets `INVALID_ARGUMENT` naming the prefixed one.
 
+Locators (`axpilot/server/tools/locate.py`, observe toolset; docs/dev/locators-plan.md):
+- `locate(ref | refs | locator, snapshot_id, formats=["axpilot"], max_candidates=3)`, read-only, exactly one of
+  `ref`, `refs` (1–30, repeats dropped) and `locator` (`snapshot_id` only with `ref`/`refs`). The tool description
+  tells agents to call it only when asked for locators, a script or a test, and to locate a flow screen by
+  screen. With `refs`: one capture per window, `items` (`element`, `snapshot_id`, `candidates`, `recommended`,
+  `warnings`) in the given order, snippets from `export_locators` of every recommended locator, top-level
+  `warnings` merged (`"e7, e9: …"`); any element gone → one `STALE_REF` naming all of them. With `ref`: re-captures the ref's window as a stored `full`
+  snapshot (refs carried; window or app gone → `STALE_REF`; OCR ref → `NOT_SUPPORTED`), names the window with
+  `window_selector_for(list_windows(app))`, and returns `perception.locators.candidates_for` with snippets of the
+  recommended one. With `locator`: `locator_snapshot`, then `count`, `unique`, up to 20 `matches`, and candidates
+  when exactly one matched. Neither raises for 0 or several matches (warnings say so).
+- `locator_snapshot(ctx, spec)`: `engine.find_app(spec.app)` (`APP_NOT_FOUND` "not running"), the `observe`
+  policy on the app **before** its windows are listed, `pick_window` when the locator names a window, then
+  `take_snapshot(app=pid, window_id, mode="full", store=False)` (which checks the policy on the window again).
+- `find(locator=...)` uses it instead of text/role/identifier/app/window_id (combining them is
+  `INVALID_ARGUMENT`); with `container`, the container's app must match and the locator must not name a window.
+  `scroll=true` works as for text. The result adds `locator` (normalized) and `unique`; `count` is every match,
+  not only those returned.
+
 Controls (`axpilot/server/tools/controls.py`, input toolset):
 - `select_option(ref, option | index, snapshot_id, report)`: pop-up buttons, menu buttons, web combo boxes and
   native combo boxes chosen by index → the dropdown flow below; a native combo box chosen by title →
@@ -566,7 +632,8 @@ Controls (`axpilot/server/tools/controls.py`, input toolset):
   is `select_option` (`free_text=False`) and `set_value`/`fill_form` (`True`, exact titles) on a native combo
   box: setting its text alone does not make an AppKit combo box act, so the value is picked from its list,
   even when the box already shows it; with no list (or, with `free_text`, no option titled exactly so) the text
-  is set, the box focused and Return pressed (strategy `ax_value+return`), except in a sheet or `AXDialog`
+  is set, the box focused (by a click on its text when it cannot take focus through accessibility, as
+  TextEdit's on macOS 26) and Return pressed (strategy `ax_value+return`), except in a sheet or `AXDialog`
   window, where only the text is set (strategy `ax_value`, with a warning: Return would press the default
   button); a box whose text cannot be set either keeps the first error. `in_web(ctx, target)`: the control's
   locator path has an `AXWebArea`, or its app is Electron/CEF. Steps: capture the window (baseline: visible
@@ -808,7 +875,8 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
 - Results (`axpilot/sdk/results.py`) keep `data` (structured content), `text` and `images`: `ToolResult`,
   `ActionResult` (`message`, `strategy`, `snapshot_id`, `diff`, `changed`), `SnapshotResult` (`elements`,
   `focused`, `find(name, role=, exact=)` → handle, `find_all`, `element(ref)`), `FindResult` (`found`, `matches`,
-  `first`; handle methods act on the best match), `ReadResult` (`content`, `lines`/`rows`, `complete`,
+  `unique`, `first`; handle methods act on the best match; after `find(locator=...)`, `first` raises
+  `ELEMENT_NOT_FOUND` for no match and `LOCATOR_AMBIGUOUS` (`details["count"]`) for several), `ReadResult` (`content`, `lines`/`rows`, `complete`,
   `at_end`, `pages`), `ScreenshotResult` (`image`, `save(path)`). `ElementHandle`/`AsyncElementHandle`
   (`click`, `type_text`, `set_value`, `perform_action`, `inspect`, `scroll_into_view`) and
   `AppHandle`/`AsyncAppHandle` (`launch`, `activate`, `hide`, `quit`, `windows`, `snapshot`).

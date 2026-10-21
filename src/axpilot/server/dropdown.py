@@ -40,7 +40,7 @@ from typing import Any
 import anyio
 
 from axpilot.errors import AXPilotError, ErrorCode
-from axpilot.models import AppInfo, KeyCombo, Point, RawNode, RawTree, Rect
+from axpilot.models import AppInfo, KeyCombo, RawNode, RawTree, Rect
 from axpilot.perception import dropdown as dd
 from axpilot.perception.appkind import detect_app_kind
 from axpilot.perception.format import quote
@@ -159,6 +159,8 @@ def _locate(tree: RawTree, target: Target, baseline: _Baseline, web: bool) -> dd
         if control.role == "AXComboBox":
             listing = dd.combo_list(control, in_web=dd.in_web_content(ancestors))
             if listing is not None:
+                # macOS 26 keeps a closed AppKit combo list valid and "visible": the box's AXExpanded tells
+                listing.control = control
                 return listing
     menus = dd.new_menus(tree.root, baseline.visible)
     if menus:
@@ -265,15 +267,33 @@ async def _click_arrow(ctx: ServerContext, target: Target) -> str:
     if frame is None or frame.w <= 0 or frame.h <= 0:
         used, _ = await click_target(ctx, target, button="left", count=1, modifiers=(), strategy="mouse")
         return f"open:{used}"
-    point = Point(frame.x + frame.w - min(COMBO_ARROW_INSET, frame.w / 2), frame.y + frame.h / 2)
-    arrow = await resolve_point(ctx, point.x, point.y)
-    if target.app is not None and (arrow.app is None or arrow.app.pid != target.app.pid):
+    used = await _click_box(ctx, target, frame.x + frame.w - min(COMBO_ARROW_INSET, frame.w / 2), "arrow")
+    return f"open:{used}:arrow"
+
+
+async def _click_box(ctx: ServerContext, target: Target, x: float, part: str) -> str:
+    """Click a combo box at ``x`` on its middle line, like a user. Refused while the box says its list
+    is open: on macOS 26 that list can cover the box, so the click would pick whatever option lies
+    there."""
+    el = target.el
+    assert el is not None
+    assert el.frame is not None
+    assert target.handle is not None
+    shown = await ctx.run_engine(ctx.engine.refresh_element, target.handle)
+    if shown.expanded:
         raise AXPilotError(
             ErrorCode.ELEMENT_NOT_ACTIONABLE,
-            f"The arrow of {target.describe()} is covered by another window.",
+            f"{target.describe()} shows a list whose options AXPilot cannot read.",
+            hint="Take a snapshot to see the list and click an option by ref, or press Escape to close it.",
         )
-    used, _ = await click_target(ctx, arrow, button="left", count=1, modifiers=(), strategy="mouse")
-    return f"open:{used}:arrow"
+    point = await resolve_point(ctx, x, el.frame.y + el.frame.h / 2)
+    if target.app is not None and (point.app is None or point.app.pid != target.app.pid):
+        raise AXPilotError(
+            ErrorCode.ELEMENT_NOT_ACTIONABLE,
+            f"The {part} of {target.describe()} is covered by another window.",
+        )
+    used, _ = await click_target(ctx, point, button="left", count=1, modifiers=(), strategy="mouse")
+    return used
 
 
 async def _press_keys(ctx: ServerContext, target: Target, combo: KeyCombo) -> None:
@@ -679,8 +699,7 @@ async def _enter_text(ctx: ServerContext, target: Target, value: str, cause: AXP
         )
         return DropdownOutcome("ax_value", value, f"set to {shown}", attempts, [warning])
     await _bring_forward(ctx, target)
-    await ctx.run_engine(ctx.engine.focus, target.handle)
-    attempts.append("focus")
+    attempts.append(await _focus_box(ctx, target))
     await _press_keys(ctx, target, RETURN)
     attempts.append("key:return")
     outcome = DropdownOutcome("ax_value+return", value, f"set to {shown} and pressed Return", attempts)
@@ -689,6 +708,21 @@ async def _enter_text(ctx: ServerContext, target: Target, value: str, cause: AXP
         shows = quote(str(after.value or ""), 60)
         outcome.warnings.append(f"{target.describe()} shows {shows} after Return; take a snapshot to check.")
     return outcome
+
+
+async def _focus_box(ctx: ServerContext, target: Target) -> str:
+    """Give the combo box keyboard focus: through accessibility, else by a click on its text, away from
+    the arrow (TextEdit's font-size box cannot take focus through accessibility on macOS 26)."""
+    assert target.handle is not None
+    try:
+        await ctx.run_engine(ctx.engine.focus, target.handle)
+        return "focus"
+    except AXPilotError as err:
+        frame = target.el.frame if target.el is not None else None
+        if err.code is not ErrorCode.ELEMENT_NOT_ACTIONABLE or frame is None or frame.w <= 0 or frame.h <= 0:
+            raise
+    used = await _click_box(ctx, target, frame.x + min(COMBO_ARROW_INSET, frame.w / 4), "text")
+    return f"focus:{used}"
 
 
 async def _in_dialog(ctx: ServerContext, target: Target) -> bool:

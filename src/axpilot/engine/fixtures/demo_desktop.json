@@ -647,6 +647,7 @@
               {
                 "id": "textedit.size", "role": "AXComboBox", "description": "Font Size", "value": "12",
                 "frame": [542, 172, 50, 22], "actions": ["AXConfirm", "AXShowMenu"],
+                "focusable": false,
                 "options": ["9", "10", "11", "12", "13", "14", "18", "24", "36"]
               },
               {

@@ -98,6 +98,7 @@ NAMES: dict[str, str] = {
     "explore": "Explore",
     "read": "Read",
     "inspect": "Inspect",
+    "locate": "Locate",
     "ocr": "OCR",
     "list_apps": "ListApps",
     "list_windows": "ListWindows",

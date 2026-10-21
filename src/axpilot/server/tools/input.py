@@ -92,6 +92,9 @@ TYPE_CHUNK = 400
 """Long text is typed in chunks of this many characters, checking the kill switch in between."""
 PASTE_SETTLE_S = 0.15
 """Wait after ⌘V before the clipboard is restored (the app reads it asynchronously)."""
+DATE_KEY_INTERVAL_S = 0.02
+"""Pause after each digit typed into a web date field's part: one key event per digit, because a part
+keeps only the first character of an event (Safari and Chrome, macOS 26)."""
 STEP_LIMIT = 200
 """``set_value`` on a stepper presses AXIncrement/AXDecrement at most this many times."""
 FORM_LIMIT = 50
@@ -813,11 +816,11 @@ async def require_keyboard(ctx: ServerContext) -> None:
         )
 
 
-async def type_keystrokes(ctx: ServerContext, text: str) -> None:
+async def type_keystrokes(ctx: ServerContext, text: str, interval_s: float = 0.0) -> None:
     await require_keyboard(ctx)
     for start in range(0, len(text), TYPE_CHUNK):
         ctx.control.ensure_running()
-        await ctx.run_engine(ctx.engine.type_text, text[start : start + TYPE_CHUNK])
+        await ctx.run_engine(ctx.engine.type_text, text[start : start + TYPE_CHUNK], interval_s)
 
 
 async def _press(ctx: ServerContext, combo: KeyCombo) -> None:
@@ -1293,7 +1296,7 @@ async def _set_web_date(ctx: ServerContext, target: Target, value: str) -> _SetO
         )
         attempts.append(f"{part}:{focus}")
         await ensure_frontmost(ctx, target.app)
-        await type_keystrokes(ctx, date_part_digits(wanted, part))
+        await type_keystrokes(ctx, date_part_digits(wanted, part), DATE_KEY_INTERVAL_S)
     field = await _field_node(ctx, target)
     shown = {part: node.value for node, part in (_date_parts(field) or [])} if field is not None else {}
     date = wanted[:10]
@@ -1328,8 +1331,11 @@ def _date_parts(field: RawNode) -> list[tuple[RawNode, DatePart]] | None:
 
 
 def _same_number(shown: Any, wanted: str) -> bool:
-    digits = re.sub(r"\D", "", str(shown or ""))
-    return bool(digits) and int(digits) == int(wanted)
+    try:
+        return float(str(shown)) == int(wanted)  # Safari and Chrome report a part as a number: 2026.0
+    except ValueError:
+        digits = re.sub(r"\D", "", str(shown or ""))
+        return bool(digits) and int(digits) == int(wanted)
 
 
 def _same_moment(shown: Any, wanted: str, *, time_only: bool) -> bool:
