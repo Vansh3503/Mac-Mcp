@@ -305,7 +305,7 @@ an ARIA menu, a date field), a Slack (Electron) picker and an IntelliJ (Java) co
 A web date field is a node that cannot be set (`settable: false`) whose parts carry `digits: n` (Chrome's spin
 buttons): a part takes focus from `focus` or a click, typed digits fill it (the first after focus starts over;
 other characters are ignored; of text typed without a pause, one key event, it keeps only the first character,
-as Safari and Chrome do), and a full part moves the focus to the next one.
+as Safari and Chrome do; its value is then a number, `5.0`), and a full part moves the focus to the next one.
 
 ---------------------------------------------------------------------------------------------------
 

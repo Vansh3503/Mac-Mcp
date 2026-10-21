@@ -59,8 +59,8 @@ A web date field (``<input type="date">``) is a node whose value cannot be set (
 false``) with one child per part, each marked ``"digits": n`` (2 for month and day, 4 for the
 year), like Chrome's spin buttons: a part takes keyboard focus from ``focus`` or a click; typed
 digits fill it (the first one after it gained focus starts over; text typed without a pause is one key
-event, of which it keeps only the first character), other characters are ignored, and once it holds
-``n`` digits the focus moves on to the next part, as browsers do.
+event, of which it keeps only the first character; its value is then a number, 5.0), other characters
+are ignored, and once it holds ``n`` digits the focus moves on to the next part, as browsers do.
 
 Menus that elements show (see ``menu`` above; a pop-up button with ``options`` and no
 ``on_press`` shows its options, the current one selected; an ``AXPopUpButton`` or
@@ -1585,7 +1585,7 @@ class FakeEngine(Engine):
             size = int(self._behaviour[part.handle]["digits"])
             typed = (self._typed_digits.get(part.handle, "") + char)[-size:]
             self._typed_digits[part.handle] = typed
-            part.value = typed
+            part.value = float(typed)  # browsers report a part's value as a number (2026.0)
             if len(typed) < size:
                 continue
             parent = self._parents.get(part.handle)

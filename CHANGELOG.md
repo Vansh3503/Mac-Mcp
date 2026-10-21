@@ -179,6 +179,8 @@ Pre-alpha. Nothing is published on PyPI yet.
 - Web date fields still failed in Safari and Chrome (macOS 26): a part's digits went in as one key
   event, and the browsers keep only its first character, so "03" set the month to 0 and "2026"
   the year to 2. Each digit is now its own keystroke.
+- In Chrome, a web date field that took the date was then reported as failed: the parts read back
+  as numbers (2026.0), which AXPilot compared as 20260. They are read as numbers now.
 
 - `explore` listed the files of Finder's list view as sidebar sections: every outline's rows
   counted. Only an outline named like a sidebar, or a narrow one along a window edge, is a sidebar

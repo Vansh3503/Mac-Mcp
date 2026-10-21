@@ -1331,8 +1331,11 @@ def _date_parts(field: RawNode) -> list[tuple[RawNode, DatePart]] | None:
 
 
 def _same_number(shown: Any, wanted: str) -> bool:
-    digits = re.sub(r"\D", "", str(shown or ""))
-    return bool(digits) and int(digits) == int(wanted)
+    try:
+        return float(str(shown)) == int(wanted)  # Safari and Chrome report a part as a number: 2026.0
+    except ValueError:
+        digits = re.sub(r"\D", "", str(shown or ""))
+        return bool(digits) and int(digits) == int(wanted)
 
 
 def _same_moment(shown: Any, wanted: str, *, time_only: bool) -> bool:
