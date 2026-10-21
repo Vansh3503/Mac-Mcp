@@ -1167,7 +1167,10 @@ Set a control to a value, the way its role expects:
   it is already in that state.
 - slider / stepper: a number (clamped to the control's range; a warning says so).
 - disclosure triangle: "true" (expanded) or "false" (collapsed).
-- text field / search field / text area / combo box: the new text (replaces it).
+- text field / search field / text area: the new text (replaces it).
+- combo box: the option with exactly that title is picked from its list (so the app takes it);
+  other text is typed in and confirmed with Return (not in a dialog, where Return would press its
+  default button).
 - date picker: an ISO 8601 date, "2026-10-20" or "2026-10-20 14:30"; a time field: "14:30".
 - pop-up button: the title of the option to choose.
 Color wells can't be set: click one to open the Colors panel.
@@ -1374,6 +1377,12 @@ async def set_control(ctx: ServerContext, target: Target, value: str) -> _SetOut
 
         chosen = await choose_option(ctx, target, option=value, index=None)
         return _SetOutcome(chosen.strategy or "none", chosen.changed, chosen.message, chosen.warnings)
+    if role == "combobox":  # a native one acts only on a pick from its list or Return (#33)
+        from axpilot.server.dropdown import in_web, set_combo  # noqa: PLC0415 - it imports this module
+
+        if not in_web(ctx, target):
+            chosen = await set_combo(ctx, target, value, free_text=True)
+            return _SetOutcome(chosen.strategy or "none", chosen.changed, chosen.message, chosen.warnings)
     if role in TEXT_ROLES or role == "secure":
         ctx.policy.check_secure_target(el.secure)
     if role in TYPED_ROLES:

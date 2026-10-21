@@ -185,7 +185,9 @@ other content). `match_snapshots(before, after) -> dict[int, int]` exposes the p
 What an opened dropdown shows, over raw trees: `visible_handles(root) -> HandleIndex` (the baseline taken
 before opening), `find_node(root, handle) -> (node, ancestors) | None`, `in_web_content(ancestors)`,
 `option_title(node)`, `menu_options(menu) -> list[Option]` (titled visible `AXMenuItem`s; separators are
-untitled), `open_menu_of(control)` (its visible `AXMenu` child or grandchild with items), `new_menus(root,
+untitled), `open_menu_of(control)` (its visible `AXMenu` child or grandchild with items), `combo_list(control,
+*, in_web=False) -> OptionList | None` (the list a combo box shows inside itself, `where="list"`),
+`combo_arrow(control)` (its pressable `AXButton` child, the arrow), `new_menus(root,
 baseline)` (visible menus not visible before, outermost first, menu bar excluded), `page_options(root,
 baseline, *, exclude=None) -> OptionList | None` (new titled option-like nodes in a web page, the outermost
 of nested ones, grouped by their nearest `AXList`/`AXMenu`/`AXTable`/`AXOutline`; a real list wins, other
@@ -195,7 +197,7 @@ title, levels=3)` (static text outside lists near the control), `fold(text)` and
 option) -> int` (exact, the first of identical titles, then unique prefix, also after leading marks such
 as an emoji; case-insensitive, "…"/"..." and a trailing "." ignored; a word inside a longer title never
 matches; `INVALID_ARGUMENT` listing the options, or the titles that contain it). `Option(title, node)`;
-`OptionList(container, options, where: "menu"|"app_menu"|"page"|"window", in_web, window_id, control)`
+`OptionList(container, options, where: "menu"|"app_menu"|"page"|"window"|"list", in_web, window_id, control)`
 (`control`: for `menu`, the control whose child the list is; its `AXExpanded`, once True, tells whether the
 list is shown).
 
@@ -289,7 +291,11 @@ forward or the window closing close it without choosing; other keys and typing g
 open. `pointer_only: true` (a web control whose script listens to the mouse): `AXPress`, `AXShowMenu`,
 `set_value` and `insert_text` change nothing (recorded as `ignored`), clicks work. `filters: {"list": id,
 "limit": n}` on a text field: when its text changes, the list shows the first `n` children whose label
-contains it. Clicks reach elements inside zero-size wrappers. Test helpers: `menu_state()` (the open
+contains it. An AppKit combo box (`AXComboBox` with `options`, no `on_press`/`pointer_only`) shows its options
+as an `AXList` child of `AXStaticText` rows without `AXPress` (they take clicks) after `AXShowMenu`, a press of
+its `AXButton` child or a click on its right-hand 18 pt; a click elsewhere only focuses it. A pick from that
+list or Return in it records `("combo_commit", {"handle", "value"})`; `set_value` only changes what it shows
+(like `NSComboBox`, issue #33). Clicks reach elements inside zero-size wrappers. Test helpers: `menu_state()` (the open
 menu's owner and item titles) and `set_enabled(ref, enabled)`. The demo desktop also has menus on Notes'
 Format and Share and Finder's Action buttons, an app-level pop-up menu (TextEdit's line spacing), a Google
 Chrome checkout page (a `<select>`, a mouse-only combo box, an autocomplete that opens with Down and filters,
@@ -532,21 +538,33 @@ the policy keep canonical names; calling a tool without the prefix gets `INVALID
 Controls (`axpilot/server/tools/controls.py`, input toolset):
 - `select_option(ref, option | index, snapshot_id, report)`: pop-up buttons, menu buttons, web combo boxes and
   native combo boxes chosen by index → the dropdown flow below; a native combo box chosen by title →
-  `set_value` with the text, falling back to the flow when its value cannot be set (`ELEMENT_NOT_ACTIONABLE`);
+  `set_combo(..., free_text=False)` (below);
   radio group, tab group, segmented control, group → press the matching child (`radio`, `tab`, `button`,
   `toggle`, `checkbox`); list/table/outline → click the matching row; an option element itself (radio, tab, row)
   is pressed. Matching: `perception.dropdown.match_option`; ambiguity or no match is `INVALID_ARGUMENT` listing
-  the options. An already selected option is not pressed again (a pop-up that already shows it is not opened).
-- The dropdown flow (`axpilot/server/dropdown.py`): `choose_option(ctx, target, *, option, index) ->
-  DropdownOutcome(strategy: "menu"|"menu_window"|"listbox"|None, chosen, message, attempts, warnings)`, also
-  used by `set_value`/`fill_form` on pop-ups. `in_web(ctx, target)`: the control's locator path has an
-  `AXWebArea`, or its app is Electron/CEF. Steps: capture the window (baseline: visible handles, the app's
-  window ids); open (native: `AXPress`, else `AXShowMenu`, else a mouse click; web: a mouse click); poll up to
-  2 s, re-capturing, for the control's menu, a new menu, (web) a new option list, or a new app window with a
-  menu or list; a web text combo box with nothing shown gets Down; a web text combo box without a matching
-  option gets the title typed once (filter: wait up to 1.5 s for a match). Pick (title or index; disabled →
-  `ELEMENT_NOT_ACTIONABLE`), press (menu items and native lists: `AXPress`; web options: a mouse click on
-  their visible part, `AXScrollToVisible` or `AXPress` when off screen, refused when covered by another app).
+  the options. An already selected option is not pressed again (a pop-up that already shows it is not opened;
+  a native combo box is, since what it shows may never have reached the app).
+- The dropdown flow (`axpilot/server/dropdown.py`): `choose_option(ctx, target, *, option, index, exact=False)
+  -> DropdownOutcome(strategy: "menu"|"menu_window"|"list"|"listbox"|None, chosen, message, attempts,
+  warnings)`, also used by `set_value`/`fill_form` on pop-ups; `exact` picks only an option with exactly that
+  title (`INVALID_ARGUMENT`, `details.reason == "no_match"` otherwise); nothing opened is
+  `ELEMENT_NOT_ACTIONABLE` with `details.reason == "no_options"`. `set_combo(ctx, target, value, *, free_text)`
+  is `select_option` (`free_text=False`) and `set_value`/`fill_form` (`True`, exact titles) on a native combo
+  box: setting its text alone does not make an AppKit combo box act, so the value is picked from its list,
+  even when the box already shows it; with no list (or, with `free_text`, no option titled exactly so) the text
+  is set, the box focused and Return pressed (strategy `ax_value+return`), except in a sheet or `AXDialog`
+  window, where only the text is set (strategy `ax_value`, with a warning: Return would press the default
+  button); a box whose text cannot be set either keeps the first error. `in_web(ctx, target)`: the control's
+  locator path has an `AXWebArea`, or its app is Electron/CEF. Steps: capture the window (baseline: visible
+  handles, the app's window ids); open (native: `AXPress`, else `AXShowMenu`, else a mouse click; a native combo
+  box: its arrow button, else `AXShowMenu`/`AXPress`, else a click 9 pt from its right edge, and that click as
+  a second rung when an action showed nothing; web: a mouse click); poll up to 2 s, re-capturing, for the
+  control's menu, the list a combo box shows inside itself, a new menu, (web) a new option list, or a new app
+  window with a menu or list; a web text combo box with nothing shown gets Down; a web text combo box without a
+  matching option gets the title typed once (filter: wait up to 1.5 s for a match). Pick (title or index;
+  disabled → `ELEMENT_NOT_ACTIONABLE`), press (menu items and native lists: `AXPress`, a click when they have
+  none; web options: a mouse click on their visible part, `AXScrollToVisible` or `AXPress` when off screen,
+  refused when covered by another app).
   Verify: a list still open is closed (warning); a menu button needs nothing more; the control showing the
   title passes; a native pop-up that does not is `ELEMENT_NOT_ACTIONABLE` ("it shows …"); a web control
   passes when static text near it or the option's selected state shows the choice, else a warning. Every

@@ -14,9 +14,11 @@ the item) is tested too.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from typing import Any
 
+import anyio
 import pytest
 from mcp import Client
 
@@ -88,6 +90,7 @@ KINDS = [
         "menu",
         disabled="Copy Link",
     ),
+    Kind("appkit-combobox", "TextEdit", "combobox:Font Size", "24", "24", "textedit.size", "12", "list"),
     Kind(
         "java-menu-window",
         "IntelliJ IDEA",
@@ -545,3 +548,224 @@ async def test_escape_or_a_click_outside_closes_an_open_menu(ctx: ServerContext,
     await ok(client, "click", {"x": 1300, "y": 600})
     assert fake(ctx).menu_state() is None
     assert not fake(ctx).events_of("menu_choose")
+
+
+# =========================================================================== native combo boxes (#33)
+def commits(ctx: ServerContext, control: str) -> list[str]:
+    """The values the app took from the combo box (``combo_commit`` events)."""
+    engine = fake(ctx)
+    handle = engine.resolve_ref(control)
+    return [event["value"] for event in engine.events_of("combo_commit") if event["handle"] == handle]
+
+
+def instant(ctx: ServerContext) -> ServerContext:
+    """Waits in the dropdown flow take no real time."""
+    now = [0.0]
+
+    async def sleep(seconds: float) -> None:
+        now[0] += seconds
+        await anyio.lowlevel.checkpoint()
+
+    ctx.clock = lambda: now[0]
+    ctx.sleep = sleep
+    return ctx
+
+
+async def test_a_combo_box_takes_the_option_picked_from_its_list(ctx: ServerContext, client: Client) -> None:
+    kind = next(k for k in KINDS if k.id == "appkit-combobox")
+    ref = await control_ref(client, kind)
+    data = await ok(client, "select_option", {"ref": ref, "option": "24"})
+    assert data["strategy"] == "list"
+    assert data["attempts"] == ["open:ax:AXShowMenu", "pick:mouse"]  # its rows take clicks
+    assert commits(ctx, "textedit.size") == ["24"]
+    assert_closed(ctx, kind)
+
+
+async def test_a_combo_box_showing_a_value_it_was_never_told_gets_it_picked(
+    ctx: ServerContext, client: Client
+) -> None:
+    """The issue: setting the text made the box show 24 while the text kept its size, and choosing
+    24 then did nothing because the box already showed it."""
+    kind = next(k for k in KINDS if k.id == "appkit-combobox")
+    ref = await control_ref(client, kind)
+    engine = fake(ctx)
+    engine.set_value(engine.resolve_ref("textedit.size"), "24")  # shown, not taken
+    assert commits(ctx, "textedit.size") == []
+    data = await ok(client, "select_option", {"ref": ref, "option": "24"})
+    assert data["strategy"] == "list"
+    assert commits(ctx, "textedit.size") == ["24"]
+
+
+async def test_set_value_picks_a_listed_value_from_the_combo_box(ctx: ServerContext, client: Client) -> None:
+    kind = next(k for k in KINDS if k.id == "appkit-combobox")
+    ref = await control_ref(client, kind)
+    data = await ok(client, "set_value", {"ref": ref, "value": "18"})
+    assert data["strategy"] == "list"
+    assert shown(ctx, kind) == "18"
+    assert commits(ctx, "textedit.size") == ["18"]
+    assert_closed(ctx, kind)
+
+
+@pytest.mark.parametrize("value", ["15", "1"])  # "1" is not a prefix of 10, 11, 12…: it is a size
+async def test_set_value_types_other_text_and_presses_return(
+    ctx: ServerContext, client: Client, value: str
+) -> None:
+    kind = next(k for k in KINDS if k.id == "appkit-combobox")
+    ref = await control_ref(client, kind)
+    data = await ok(client, "set_value", {"ref": ref, "value": value})
+    assert data["strategy"] == "ax_value+return"
+    assert "pressed Return" in data["message"]
+    assert shown(ctx, kind) == value
+    assert commits(ctx, "textedit.size") == [value]
+    assert_closed(ctx, kind)
+
+
+async def test_select_option_still_refuses_an_option_the_combo_box_does_not_list(
+    ctx: ServerContext, client: Client
+) -> None:
+    kind = next(k for k in KINDS if k.id == "appkit-combobox")
+    ref = await control_ref(client, kind)
+    result, error = await call(client, "select_option", {"ref": ref, "option": "15"})
+    assert error == "INVALID_ARGUMENT", text_of(result)
+    assert "24" in text_of(result)
+    assert commits(ctx, "textedit.size") == []
+    assert shown(ctx, kind) == "12"
+
+
+def combo_desktop(*, dialog: bool = False) -> dict[str, Any]:
+    """One window of combo boxes: opened by their arrow button, by AXShowMenu, by a click on their
+    arrow, one with no list and one that is neither listed nor editable."""
+
+    def box(name: str, x: int, actions: list[str], **extra: Any) -> dict[str, Any]:
+        return {
+            "id": name,
+            "role": "AXComboBox",
+            "description": name.title(),
+            "value": "12",
+            "frame": [x, 120, 60, 22],
+            "actions": actions,
+            "options": ["10", "12", "14", "24"],
+            **extra,
+        }
+
+    arrow = {"id": "arrowed.arrow", "role": "AXButton", "frame": [166, 120, 14, 22], "actions": ["AXPress"]}
+    plain = box("plain", 400, [])
+    del plain["options"]
+    fixed = box("fixed", 480, [], settable=False)
+    del fixed["options"]
+    tree = {
+        "role": "AXWindow",
+        "subrole": "AXDialog" if dialog else "AXStandardWindow",
+        "children": [
+            box("arrowed", 120, ["AXConfirm"], children=[arrow]),
+            box("bare", 200, []),
+            box("menued", 280, ["AXShowMenu"]),
+            plain,
+            fixed,
+            {
+                "id": "ok",
+                "role": "AXButton",
+                "title": "OK",
+                "default": True,
+                "frame": [480, 440, 80, 24],
+                "actions": ["AXPress"],
+            },
+        ],
+    }
+    return {
+        "apps": [{"name": "Fonts", "bundle_id": "com.example.fonts", "pid": 900, "frontmost": True}],
+        "windows": [
+            {
+                "window_id": 1,
+                "app": "com.example.fonts",
+                "title": "Fonts",
+                "frame": [100, 100, 500, 400],
+                "tree": tree,
+            }
+        ],
+    }
+
+
+class DeafToShowMenu(FakeEngine):
+    """A combo box that ignores AXShowMenu, as some may on a real Mac."""
+
+    def perform_action(self, handle: Any, action: str) -> None:
+        if action == "AXShowMenu":
+            self.events.append(("ignored", {"action": action}))
+            return
+        super().perform_action(handle, action)
+
+
+def combo_client(engine: FakeEngine) -> tuple[ServerContext, AbstractAsyncContextManager[Client]]:
+    ctx = instant(make_ctx(engine))
+    return ctx, connected_client(ctx)
+
+
+async def ref_of(client: Client, name: str) -> str:
+    snap = await ok(client, "snapshot", {"app": "Fonts"})
+    return next(el["ref"] for el in snap["elements"] if el.get("name") == name and el["role"] == "combobox")
+
+
+@pytest.mark.parametrize(
+    ("name", "opened", "engine_type"),
+    [
+        ("Arrowed", ["open:ax:arrow"], FakeEngine),
+        ("Bare", ["open:mouse:arrow"], FakeEngine),
+        ("Menued", ["open:ax:AXShowMenu"], FakeEngine),
+        ("Menued", ["open:ax:AXShowMenu", "open:mouse:arrow"], DeafToShowMenu),
+    ],
+)
+async def test_a_combo_box_opens_with_its_arrow(
+    name: str, opened: list[str], engine_type: type[FakeEngine]
+) -> None:
+    ctx, connecting = combo_client(engine_type.from_dict(combo_desktop()))
+    async with connecting as client:
+        data = await ok(client, "select_option", {"ref": await ref_of(client, name), "option": "14"})
+    assert data["attempts"][:-1] == opened
+    assert data["attempts"][-1] == "pick:mouse"
+    assert commits(ctx, name.lower()) == ["14"]
+    assert fake(ctx).menu_state() is None
+
+
+async def test_a_combo_box_without_a_list_gets_the_text_and_return() -> None:
+    ctx, connecting = combo_client(FakeEngine.from_dict(combo_desktop()))
+    async with connecting as client:
+        data = await ok(client, "select_option", {"ref": await ref_of(client, "Plain"), "option": "Bold"})
+    assert data["strategy"] == "ax_value+return"
+    assert data["attempts"][-3:] == ["ax_value", "focus", "key:return"]
+    assert commits(ctx, "plain") == ["Bold"]
+
+
+async def test_a_combo_box_that_is_neither_listed_nor_editable_is_reported() -> None:
+    ctx, connecting = combo_client(FakeEngine.from_dict(combo_desktop()))
+    async with connecting as client:
+        result, error = await call(client, "set_value", {"ref": await ref_of(client, "Fixed"), "value": "x"})
+    assert error == "ELEMENT_NOT_ACTIONABLE", text_of(result)
+    assert "showed no menu or list" in text_of(result)
+    assert not fake(ctx).events_of("press_key")
+    assert not ctx.control.busy
+
+
+async def test_text_typed_into_a_combo_box_in_a_dialog_is_not_confirmed_with_return() -> None:
+    """Return there would press the dialog's default button (OK)."""
+    ctx, connecting = combo_client(FakeEngine.from_dict(combo_desktop(dialog=True)))
+    async with connecting as client:
+        data = await ok(client, "set_value", {"ref": await ref_of(client, "Arrowed"), "value": "15"})
+    assert data["strategy"] == "ax_value"
+    assert any("did not press Return" in warning for warning in data["warnings"])
+    engine = fake(ctx)
+    assert engine.refresh_element(engine.resolve_ref("arrowed")).value == "15"
+    assert not [e for e in engine.events_of("press_key") if e["key"] == "return"]
+    assert not [e for e in engine.events_of("press") if e["handle"] == engine.resolve_ref("ok")]
+    assert engine.menu_state() is None
+
+
+async def test_set_value_chooses_in_a_java_combo_box_whose_text_cannot_be_set(
+    ctx: ServerContext, client: Client
+) -> None:
+    kind = next(k for k in KINDS if k.id == "java-menu-window")
+    ref = await control_ref(client, kind)
+    data = await ok(client, "set_value", {"ref": ref, "value": "All Tests"})
+    assert data["strategy"] == "menu_window"
+    assert shown(ctx, kind) == "All Tests"
+    assert_closed(ctx, kind)

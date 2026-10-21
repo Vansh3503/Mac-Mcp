@@ -171,5 +171,12 @@ Pre-alpha. Nothing is published on PyPI yet.
 - When AXPilot.app crashed or was force-quit, the host it started kept running and held the
   socket, with nothing left to restart it. A host started by AXPilot.app now notices within a
   second that its launcher is gone and stops cleanly (#29).
+- `set_value` and `select_option` reported success on a native combo box such as TextEdit's font
+  size, but the text kept its size: setting a combo box's text only changes what it shows, and the
+  app acts on a pick from its list or on Return. Both tools now pick the value from the box's own
+  list (opened with its arrow), even when the box already shows it; `set_value` with text that is
+  not an option types it and presses Return, except in a dialog, where Return would press the
+  default button and a warning says so instead. `set_value` also works on Java and Qt combo boxes,
+  whose text cannot be set (#33).
 
 [Unreleased]: https://github.com/vansh3503/Mac-Mcp/commits/main
