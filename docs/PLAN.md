@@ -4,7 +4,7 @@
 > the macOS counterpart of [Windows-MCP](https://github.com/CursorTouch/Windows-MCP).
 > It installs in minutes, is safe by default, and works with any MCP client or agent framework.
 
-Status: **Draft v2. Decisions from review applied (see [§0.1](#01-decisions-log)).** · Last updated: 2026-10-19 · License: Apache-2.0
+Status: **Draft v2. Decisions from review applied (see [§0.1](#01-decisions-log)).** · Last updated: 2026-10-21 · License: Apache-2.0
 
 > **Name:** "AXPilot" is the proposed name (see [ADR-7](#adr-7-name-axpilot)). Until it's confirmed,
 > treat `axpilot` / `AXPilot` in this document as a placeholder that is easy to search and replace.
@@ -382,6 +382,16 @@ with Desktop.connect() as mac:            # via AXPilot.app (its permissions), o
 - `Desktop.fake()` uses the simulated desktop, so automation scripts can be unit-tested in CI without a Mac.
 - CLI for shell scripts and other languages: `axpilot tools` (list tools and schemas) and `axpilot call <tool> --arg key=value | --json '{...}'` (prints the result as JSON; exit codes per QUALITY.md A9).
 - Later (post-1.0): record and replay of action sequences as scripts.
+
+### 6.12 Locators for automation scripts (*planned*)
+People who automate a Mac app need to address one specific element (say the Download button in a
+toolbar) in a way that still works tomorrow, but refs only live for one session. The plan, in
+[dev/locators-plan.md](dev/locators-plan.md): a portable, versioned **locator** (JSON: app, role,
+identifier, name, optional ancestors, menu path), a read-only `locate` tool that builds ranked
+candidates for a ref and proves each is unique in the live window, `find(locator=…)` and the SDK's
+`mac.locate(…)` to resolve them in scripts, and exports to the AXPilot SDK and CLI, Appium Mac2,
+XCUITest and AppleScript. The intended workflow is an agent in VS Code (or any MCP client) that
+looks at the real app with AXPilot and writes the script for the user.
 
 ---
 
