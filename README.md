@@ -19,9 +19,10 @@ on by default.
 </p>
 <p align="center"><sub>A real recording on macOS 26: Claude Code (left) drives TextEdit (right) through AXPilot. Sped up in places; the speed is shown on screen.</sub></p>
 
-> **Project status: alpha.** The first alpha, 0.1.0a1, is [on PyPI](#install-from-pypi-alpha); you
-> can also [run it from source](#run-from-source-today). It is verified on macOS 26 on Apple
-> silicon; macOS 14 and 15 and Intel Macs are not tested yet. Expect breaking changes until 1.0. See the [roadmap](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/PLAN.md#15-roadmap-and-milestones-one-maintainer--ai-assistance).
+> **Project status: alpha.** The first alpha, 0.1.0a1, is [on PyPI](https://pypi.org/project/axpilot/):
+> `uv tool install axpilot`, then [three commands](#install) to connect it. It is verified on
+> macOS 26 on Apple silicon; macOS 14 and 15 and Intel Macs are not tested yet. Expect breaking
+> changes until 1.0. See the [roadmap](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/PLAN.md#15-roadmap-and-milestones-one-maintainer--ai-assistance).
 
 ## Why AXPilot
 
@@ -30,6 +31,10 @@ on by default.
   guessing pixels. Text-only and local models work; vision is optional.
 - **Acts reliably.** Each action tries the most robust strategy first (an Accessibility action),
   falls back to synthetic mouse and keyboard events, and returns a diff of what changed.
+- **Scripts that outlive the session.** Ask for a script and `locate` turns the elements an agent
+  used into stable [locators](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/locators.md)
+  (the AXIdentifier first, then role and name), each checked to match exactly one element, plus a
+  ready-to-run Python script.
 - **Safe by default.** Scripting is off, destructive actions need your confirmation, password
   managers and the Privacy & Security settings are off limits, secure fields are never read, and
   there is **no telemetry**.
@@ -83,10 +88,31 @@ macOS then attributes permissions to whichever app started the server (your term
 
 **Requirements:** macOS 14 Sonoma or later, Apple silicon or Intel.
 
-### Run from source (today)
+### From PyPI (alpha)
 
-You need [uv](https://docs.astral.sh/uv/) and the Xcode Command Line Tools
-(`xcode-select --install`), which build the launcher.
+You need [uv](https://docs.astral.sh/uv/) (or pipx).
+
+```sh
+uv tool install axpilot          # or: pipx install axpilot
+axpilot setup                    # installs ~/Applications/AXPilot.app and its runtime
+axpilot connect claude-desktop   # or claude-code, cursor, vscode, … (see --list)
+axpilot doctor                   # checks the installation
+```
+
+Restart your MCP client, then ask it to use AXPilot ("take a snapshot of Finder"):
+
+1. The first time a client connects, AXPilot asks you whether to allow it. Allow it.
+2. The first tool call makes macOS ask whether AXPilot may control your computer. Open System
+   Settings, switch on **AXPilot** under Accessibility, and ask again; no restart is needed.
+3. Screenshots and OCR also need **Screen Recording** for AXPilot. macOS applies that grant only
+   after AXPilot restarts: run `killall AXPilot`, then restart your MCP client.
+
+Details and other channels: [docs/install.md](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/install.md).
+Permissions explained: [docs/permissions.md](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/permissions.md).
+
+### From source (contributors)
+
+You need uv and the Xcode Command Line Tools (`xcode-select --install`), which build the launcher.
 
 ```sh
 git clone https://github.com/vansh3503/Mac-Mcp.git axpilot
@@ -98,12 +124,8 @@ uv run axpilot connect claude-desktop  # or claude-code, cursor, vscode, … (se
 uv run axpilot doctor                  # checks the installation
 ```
 
-Restart your MCP client, then ask it to use AXPilot ("take a snapshot of Finder"):
-
-1. The first time a client connects, AXPilot asks you whether to allow it. Allow it.
-2. The first tool call makes macOS ask whether AXPilot may control your computer. Open System
-   Settings, switch on **AXPilot** under Accessibility, and ask again; no restart is needed.
-   Screenshots and OCR ask for Screen Recording the same way.
+A launcher you build yourself has a different code signature from the published one, so macOS
+asks for the permissions again when you switch between the two.
 
 Other ways to run it, without the launcher:
 
@@ -116,25 +138,7 @@ uv run axpilot stdio --direct        # direct mode: grant Accessibility to the a
 the [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
 `npx @modelcontextprotocol/inspector uv run axpilot stdio --engine fake`.
 
-### Install from PyPI (alpha)
-
-```sh
-uv tool install axpilot     # or: pipx install axpilot
-axpilot setup               # checks your Mac and walks you through permissions
-axpilot connect claude-desktop
-```
-
-Details, the one-line installer and other channels: [docs/install.md](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/install.md).
-Permissions explained: [docs/permissions.md](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/permissions.md).
-
 ## Connect a client
-
-### Today, from source
-
-In the clone, `uv run axpilot connect <client>` writes the client's config for you (with a
-backup), pointing it at the checkout's `axpilot` by absolute path. Restart the client afterwards.
-For direct mode, or to write the config by hand, see
-[docs/clients.md](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/clients.md#from-source-today).
 
 ### Installed from PyPI
 
@@ -162,6 +166,13 @@ claude mcp add axpilot -- axpilot stdio
 
 More clients (Windsurf, Zed, Codex CLI, Gemini CLI, LM Studio, Goose, Cline, Continue):
 [docs/clients.md](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/clients.md).
+
+### From a source checkout
+
+In the clone, `uv run axpilot connect <client>` writes the client's config for you (with a
+backup), pointing it at the checkout's `axpilot` by absolute path. Restart the client afterwards.
+For direct mode, or to write the config by hand, see
+[docs/clients.md](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/clients.md#from-source-today).
 
 ## Use it from an agent framework
 
