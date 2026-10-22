@@ -10,6 +10,12 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 
 ## [Unreleased]
 
+### Fixed
+
+- `wait_for(condition="element")` timed out on plain text that `find` matched (VS Code's "Search settings",
+  "13 Settings Found"): element waits looked only at interactive elements. They now search what `find` searches
+  (#44).
+
 ## [0.1.0a1] - 2026-10-21
 
 The first alpha, for early testers: AXPilot on PyPI for macOS 14 or later. It is verified on

@@ -311,6 +311,15 @@ async def test_wait_for_conditions_that_already_hold_return_at_once(
     assert error is None, text_of(result)
 
 
+async def test_wait_for_an_element_matches_static_text_as_find_does(client: Client) -> None:
+    found, _ = await call(client, "find", {"text": "Downloads", "role": "text", "app": "Finder"})
+    assert structured(found)["found"] is True
+    wait = {"condition": "element", "query": "Downloads", "role": "text", "app": "Finder", "timeout_ms": 500}
+    result, error = await call(client, "wait_for", wait)
+    assert error is None, text_of(result)
+    assert structured(result)["element"]["role"] == "text"
+
+
 async def test_wait_for_idle_needs_a_quiet_period(client: Client) -> None:
     result, error = await call(client, "wait_for", {"condition": "idle", "app": "Notes", "timeout_ms": 2000})
     assert error is None
