@@ -50,8 +50,10 @@ Settings still shows AXPilot as enabled. Run `axpilot doctor` and follow its ste
 tccutil reset Accessibility io.github.vansh3503.axpilot
 ```
 
-then grant Accessibility to AXPilot again. This only happens when the changelog announces a new
-launcher version.
+then grant Accessibility to AXPilot again. Let AXPilot ask for it (use any tool and switch AXPilot on
+from the prompt) rather than adding the app by hand with **+** in System Settings, which may leave the
+old decision in place: see [When the launcher changes](permissions.md#when-the-launcher-changes). This
+only happens when the changelog announces a new launcher version.
 
 ## Screenshots fail with `PERMISSION_SCREEN_RECORDING`
 

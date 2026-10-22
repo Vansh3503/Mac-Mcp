@@ -18,6 +18,9 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 - With two copies of an app running (VS Code started twice, one with its own profile), `app="<bundle id>"` and
   locators silently used whichever process macOS listed first, possibly the wrong window. AXPilot now prefers the
   frontmost copy and adds a warning naming the other pids; `app=<pid>` picks one exactly (#45).
+- After a launcher change, re-adding AXPilot by hand with **+** in System Settings did not restore Accessibility
+  on macOS 26; removing the old entry and letting AXPilot ask did. `docs/permissions.md`, the troubleshooting page
+  and `axpilot doctor`'s hint now give those steps (#46).
 
 ## [0.1.0a1] - 2026-10-21
 
