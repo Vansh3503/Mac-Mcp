@@ -82,7 +82,7 @@ async def locator_snapshot(ctx: ServerContext, spec: LocatorSpec) -> Snapshot:
     it names none). The ``observe`` policy is checked on the app before its windows are listed.
     Raises ``APP_NOT_FOUND``, ``WINDOW_NOT_FOUND`` or ``BLOCKED_BY_POLICY``."""
     try:
-        app = await ctx.run_engine(ctx.engine.find_app, spec.app)
+        app = await ctx.resolve_app(spec.app)  # several copies running: the frontmost, with a warning
     except AXPilotError as err:
         if err.code is ErrorCode.APP_NOT_FOUND:
             raise AXPilotError(
@@ -91,6 +91,7 @@ async def locator_snapshot(ctx: ServerContext, spec: LocatorSpec) -> Snapshot:
                 hint='Launch it first (app with action="launch"), then try again.',
             ) from err
         raise
+    assert app is not None  # a named app resolves or raises
     ctx.policy.check_app(app, kind="observe")
     window_id: int | None = None
     if spec.window is not None:

@@ -15,6 +15,9 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 - `wait_for(condition="element")` timed out on plain text that `find` matched (VS Code's "Search settings",
   "13 Settings Found"): element waits looked only at interactive elements. They now search what `find` searches
   (#44).
+- With two copies of an app running (VS Code started twice, one with its own profile), `app="<bundle id>"` and
+  locators silently used whichever process macOS listed first, possibly the wrong window. AXPilot now prefers the
+  frontmost copy and adds a warning naming the other pids; `app=<pid>` picks one exactly (#45).
 
 ## [0.1.0a1] - 2026-10-21
 

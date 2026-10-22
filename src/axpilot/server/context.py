@@ -137,6 +137,8 @@ class CallState:
     mcp: Any = None
     """The MCP SDK's request context of this call (client capabilities, protocol version and the
     answers of an elicitation retry), when the call came through MCP."""
+    warnings: list[str] = field(default_factory=list)
+    """Notes found while serving the call (e.g. an ambiguous app); the guard adds them to the result."""
 
 
 _CURRENT_CALL: ContextVar[CallState | None] = ContextVar("axpilot_current_call", default=None)
@@ -402,7 +404,30 @@ class ServerContext:
         ``None`` (which may itself be ``None``). Raises ``APP_NOT_FOUND``."""
         if app is None:
             return await self.run_engine(self.engine.frontmost_app)
-        return await self.run_engine(self.engine.find_app, app)
+        found = await self.run_engine(self.engine.find_app, app)
+        if app.strip().isdigit():
+            return found
+        return await self._one_of_several(app, found)
+
+    async def _one_of_several(self, query: str, found: AppInfo) -> AppInfo:
+        """When several running processes match ``query`` (two copies of one app), prefer the
+        frontmost and say which pids were passed over, so the choice is never silent."""
+        apps = await self.run_engine(self.engine.list_apps)
+        matching = [a for a in apps if a.pid and a.matches(query)]
+        if len(matching) < 2:
+            return found
+        chosen = next((a for a in matching if a.frontmost), found)
+        others = [a.pid for a in matching if a.pid != chosen.pid]
+        label = "The other: pid" if len(others) == 1 else "The others: pids"
+        note = (
+            f"{len(matching)} running processes match {query!r}; using pid {chosen.pid}"
+            f"{' (frontmost)' if chosen.frontmost else ''}. "
+            f"{label} {', '.join(map(str, others))}. Pass app=<pid> to choose."
+        )
+        state = current_call()
+        if state is not None and note not in state.warnings:
+            state.warnings.append(note)
+        return chosen
 
     async def find_window(self, window_id: int) -> WindowInfo:
         """The on-screen window with ``window_id``. Raises ``WINDOW_NOT_FOUND``."""

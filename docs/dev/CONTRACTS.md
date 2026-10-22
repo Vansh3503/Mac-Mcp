@@ -607,7 +607,8 @@ Locators (`axpilot/server/tools/locate.py`, observe toolset; docs/dev/locators-p
   `window_selector_for(list_windows(app))`, and returns `perception.locators.candidates_for` with snippets of the
   recommended one. With `locator`: `locator_snapshot`, then `count`, `unique`, up to 20 `matches`, and candidates
   when exactly one matched. Neither raises for 0 or several matches (warnings say so).
-- `locator_snapshot(ctx, spec)`: `engine.find_app(spec.app)` (`APP_NOT_FOUND` "not running"), the `observe`
+- `locator_snapshot(ctx, spec)`: `ctx.resolve_app(spec.app)` (`APP_NOT_FOUND` "not running"; when several
+  running processes match, the frontmost, with a call warning naming the others), the `observe`
   policy on the app **before** its windows are listed, `pick_window` when the locator names a window, then
   `take_snapshot(app=pid, window_id, mode="full", store=False)` (which checks the policy on the window again).
 - `find(locator=...)` uses it instead of text/role/identifier/app/window_id (combining them is

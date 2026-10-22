@@ -31,12 +31,12 @@ import inspect
 import json
 import time
 import typing
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Annotated, Any
 
 import anyio
 from mcp.server.mcpserver import Context
-from mcp_types import CallToolResult, InputRequiredResult
+from mcp_types import CallToolResult, InputRequiredResult, TextContent
 from pydantic import BaseModel, ValidationError
 
 from axpilot.errors import AXPilotError, ErrorCode
@@ -56,6 +56,7 @@ __all__ = [
     "internal_error",
     "output_model_of",
     "record_audit",
+    "with_call_warnings",
 ]
 
 CONTEXT_PARAM = "mcp_context"
@@ -71,6 +72,26 @@ _DETAIL_MAX_CHARS = 2000
 
 
 # --------------------------------------------------------------------------- helpers
+def with_call_warnings(result: CallToolResult, warnings: Sequence[str]) -> CallToolResult:
+    """``result`` with the call's ``warnings`` merged in, each once: into ``structured_content``'s
+    ``warnings`` and as ``warning: …`` text lines. A failed result is returned as it is."""
+    if result.is_error or not warnings:
+        return result
+    data = dict(result.structured_content or {})
+    have = list(data.get("warnings") or [])
+    new = [w for w in warnings if w not in have]
+    if not new:
+        return result
+    data["warnings"] = [*have, *new]
+    lines = [f"warning: {w}" for w in new]
+    content = list(result.content)
+    if content and isinstance(content[0], TextContent):
+        content[0] = TextContent(type="text", text="\n".join([content[0].text.rstrip(), *lines]))
+    else:
+        content.insert(0, TextContent(type="text", text="\n".join(lines)))
+    return result.model_copy(update={"content": content, "structured_content": data})
+
+
 def output_model_of(fn: ToolFn) -> type[BaseModel] | None:
     """The pydantic model in ``Annotated[CallToolResult, Model]`` (the tool's output schema)."""
     try:
@@ -208,7 +229,7 @@ class _Call:
                 result = await self.fn(**args)
         else:
             result = await self.fn(**args)
-        return self._checked(result)
+        return self._checked(with_call_warnings(result, state.warnings))
 
     async def _confirm(self, state: CallState, args: Mapping[str, Any]) -> None:
         spec, ctx = self.spec, self.ctx
