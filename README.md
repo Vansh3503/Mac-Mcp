@@ -44,6 +44,14 @@ on by default.
 - **Permissions that just work.** A tiny frozen `AXPilot.app` launcher holds the macOS
   permissions, so you grant Accessibility once, to AXPilot, and every client can use it, across updates.
 
+## Electron apps too: VS Code
+
+<p align="center">
+  <img src="docs/assets/axpilot-vscode-replay.gif" width="900"
+       alt="A Python script built from AXPilot locators sets up a fresh VS Code in real time: light theme, Auto Save, a new hello.py and an extension search, while each locator it uses lights up and a clock counts 18 seconds">
+</p>
+<p align="center"><sub>A real recording on macOS 26 with AXPilot 0.1.0a1. Claude Code first drove a throwaway VS Code through AXPilot (light theme, Auto Save, a new file, an extension search); here a script built from AXPilot's locators replays that setup on a fresh VS Code, in real time.</sub></p>
+
 ## Features
 
 The feature set planned for 1.0. Every tool below is implemented and tested against the simulated
@@ -286,6 +294,9 @@ AXPilot is inspired by [Windows-MCP](https://github.com/CursorTouch/Windows-MCP)
 whose tool design and install experience set the bar for desktop MCP servers. Thanks also to the
 authors of [PyObjC](https://github.com/ronaldoussoren/pyobjc), the
 [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) and the projects listed above.
+
+Thanks to **Zeel Thakkar**, who helped ship the 0.1.0a1 release to PyPI and is working on automating
+Electron apps with AXPilot, starting with the VS Code demo above.
 
 "Mac" and "macOS" are trademarks of Apple Inc. Claude and Claude Code are trademarks of Anthropic.
 Other product and framework names mentioned here (such as Cursor, VS Code, LangChain and CrewAI) are
