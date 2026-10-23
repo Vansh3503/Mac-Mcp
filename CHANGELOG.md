@@ -21,6 +21,9 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 - After a launcher change, re-adding AXPilot by hand with **+** in System Settings did not restore Accessibility
   on macOS 26; removing the old entry and letting AXPilot ask did. `docs/permissions.md`, the troubleshooting page
   and `axpilot doctor`'s hint now give those steps (#46).
+- `type_text` into VS Code's inputs (Chromium EditContext) returned `ok` although the field still reported no
+  text, so an agent reading it back thought typing had failed. It now warns that it could not confirm the text
+  when the field that took it still reports none (#47).
 
 ## [0.1.0a1] - 2026-10-21
 
