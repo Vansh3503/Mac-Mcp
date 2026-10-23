@@ -122,6 +122,68 @@ def desktop() -> dict[str, Any]:
                 ),
             ],
         },
+        {
+            "id": "autosave",
+            "role": "AXPopUpButton",
+            "description": "files.autoSave",
+            "value": "off",
+            "frame": [520, 120, 160, 24],
+            "actions": ["AXPress"],
+            # VS Code rebuilds the page as the list opens: the settings outline returns with new identities
+            "on_press": [{"show": "autosave.layer"}, {"hide": "toc"}, {"show": "toc.again"}],
+        },
+        *(
+            {
+                "id": toc_id,
+                "role": "AXOutline",
+                "description": "Settings Table of Contents",
+                "visible": toc_id == "toc",
+                "frame": [110, 400, 180, 90],
+                "children": [
+                    {"role": "AXRow", "description": title, "frame": [110, 400 + 30 * i, 180, 30]}
+                    for i, title in enumerate(["Commonly Used", "Text Editor", "Workbench"])
+                ],
+            }
+            for toc_id in ("toc", "toc.again")
+        ),
+        {
+            # VS Code re-creates its titled workbench groups when a dropdown opens: the list
+            # arrives inside a new group that must not be taken for one big option
+            "id": "autosave.layer",
+            "role": "AXGroup",
+            "description": "\uea9b — \uea9c",
+            "visible": False,
+            "frame": [100, 100, 600, 500],
+            "children": [
+                {
+                    "id": "autosave.list",
+                    "role": "AXList",
+                    "description": "files.autoSave",
+                    "frame": [520, 146, 160, 54],
+                    "keys": {"⎋": {"hide": "autosave.layer"}},
+                    "children": [
+                        {
+                            "id": f"autosave.{value}",
+                            "role": "AXGroup",
+                            "description": f"{value}. {words}",
+                            "frame": [520, 146 + 27 * i, 160, 27],
+                            "actions": ["AXPress"],
+                            "on_press": [
+                                {"set_value": {"id": "autosave", "value": value}},
+                                {"hide": "autosave.list"},
+                                {"hide": "autosave.layer"},
+                            ],
+                        }
+                        for i, (value, words) in enumerate(
+                            [
+                                ("off", "default. An editor with changes is never automatically saved."),
+                                ("afterDelay", "An editor with changes is saved after a delay."),
+                            ]
+                        )
+                    ],
+                }
+            ],
+        },
     ]
     return {
         "apps": [
@@ -517,3 +579,14 @@ async def test_a_new_window_that_closes_while_read_is_skipped() -> None:
     engine.broken = frozenset()
     assert await dropdown._in_new_window(ctx, target, baseline) is None
     assert await dropdown._window_ids(ctx, None) == frozenset()
+
+
+# =========================================================================== opening
+async def test_a_web_list_inside_a_new_titled_group_is_still_found() -> None:
+    ctx = context()
+    target = await target_of(ctx, "files.autoSave")
+    outcome = await dropdown.choose_option(ctx, target, option="afterDelay", index=None)
+    assert outcome.attempts == ["open:mouse", "pick:mouse"]
+    assert outcome.strategy == "listbox"
+    assert outcome.warnings == []  # the box shows "afterDelay", the label of the row's title
+    assert fake(ctx).refresh_element(target.handle).value == "afterDelay"

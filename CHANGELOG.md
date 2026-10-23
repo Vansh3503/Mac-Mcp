@@ -12,6 +12,11 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 
 ### Fixed
 
+- `select_option` could not choose in VS Code's settings dropdowns ("showed no menu or list of options"): when
+  the list opens, VS Code re-creates its page, so every element looked new and a whole-window group was taken for
+  one big option. Groups that hold a list are no longer options, elements that look the same as before (role,
+  title, frame) no longer count as new, and a box showing an option's label ("afterDelay" for "afterDelay. An
+  editor with changes is…") confirms the choice (#43).
 - `wait_for(condition="element")` timed out on plain text that `find` matched (VS Code's "Search settings",
   "13 Settings Found"): element waits looked only at interactive elements. They now search what `find` searches
   (#44).

@@ -109,6 +109,8 @@ class _Baseline:
     tree: RawTree
     visible: HandleIndex
     windows: frozenset[int]
+    seen: frozenset[dd.Signature] = frozenset()
+    """Role, title and frame of what was visible: recognises nodes the app re-created."""
 
 
 def _app_key(app: AppInfo | None) -> str | None:
@@ -145,7 +147,12 @@ async def _window_ids(ctx: ServerContext, app: AppInfo | None) -> frozenset[int]
 
 async def _baseline(ctx: ServerContext, target: Target) -> _Baseline:
     tree = await _capture(ctx, target)
-    return _Baseline(tree, dd.visible_handles(tree.root), await _window_ids(ctx, target.app))
+    return _Baseline(
+        tree,
+        dd.visible_handles(tree.root),
+        await _window_ids(ctx, target.app),
+        dd.visible_signatures(tree.root),
+    )
 
 
 def _locate(tree: RawTree, target: Target, baseline: _Baseline, web: bool) -> dd.OptionList | None:
@@ -167,7 +174,7 @@ def _locate(tree: RawTree, target: Target, baseline: _Baseline, web: bool) -> dd
         menu, ancestors = menus[0]
         return dd.OptionList(menu, dd.menu_options(menu), "app_menu", in_web=dd.in_web_content(ancestors))
     if web:
-        return dd.page_options(tree.root, baseline.visible, exclude=target.handle)
+        return dd.page_options(tree.root, baseline.visible, exclude=target.handle, seen=baseline.seen)
     return None
 
 

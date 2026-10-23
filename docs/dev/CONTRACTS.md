@@ -183,17 +183,20 @@ other content). `match_snapshots(before, after) -> dict[int, int]` exposes the p
 
 ### `axpilot/perception/dropdown.py`
 What an opened dropdown shows, over raw trees: `visible_handles(root) -> HandleIndex` (the baseline taken
-before opening), `find_node(root, handle) -> (node, ancestors) | None`, `in_web_content(ancestors)`,
+before opening), `visible_signatures(root) -> frozenset[Signature]` (role, title and rounded frame of the visible
+nodes: recognises nodes the app re-created, as VS Code does when a dropdown opens), `find_node(root, handle) -> (node, ancestors) | None`, `in_web_content(ancestors)`,
 `option_title(node)`, `menu_options(menu) -> list[Option]` (titled visible `AXMenuItem`s; separators are
 untitled), `open_menu_of(control)` (its visible `AXMenu` child or grandchild with items), `combo_list(control,
 *, in_web=False) -> OptionList | None` (the list a combo box shows inside itself, `where="list"`; its rows may also be `AXTextField`s, as in
 AppKit on macOS 26),
 `combo_arrow(control)` (its pressable `AXButton` child, the arrow), `new_menus(root,
 baseline)` (visible menus not visible before, outermost first, menu bar excluded), `page_options(root,
-baseline, *, exclude=None) -> OptionList | None` (new titled option-like nodes in a web page, the outermost
-of nested ones, grouped by their nearest `AXList`/`AXMenu`/`AXTable`/`AXOutline`; a real list wins, other
+baseline, *, exclude=None, seen=frozenset()) -> OptionList | None` (new titled option-like nodes in a web page,
+not visible before by handle or, with `seen`, by signature; the outermost of nested ones, a group that holds a
+list never an option; grouped by their nearest `AXList`/`AXMenu`/`AXTable`/`AXOutline`; a real list wins, other
 groups need two options), `options_in(root)` (a pop-up window's first menu, else its biggest list),
-`shows_choice(node, title)` (value, title or description equal or containing it), `text_near(root, control,
+`shows_choice(node, title)` (value, title or description equal or containing it, or the option title's
+leading label before ". ", ": ", " — ", " – ", " - " or " ("), `text_near(root, control,
 title, levels=3)` (static text outside lists near the control), `fold(text)` and `match_option(names,
 option) -> int` (exact, the first of identical titles, then unique prefix, also after leading marks such
 as an emoji; case-insensitive, "…"/"..." and a trailing "." ignored; a word inside a longer title never
