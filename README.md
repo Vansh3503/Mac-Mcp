@@ -180,7 +180,7 @@ More clients (Windsurf, Zed, Codex CLI, Gemini CLI, LM Studio, Goose, Cline, Con
 In the clone, `uv run axpilot connect <client>` writes the client's config for you (with a
 backup), pointing it at the checkout's `axpilot` by absolute path. Restart the client afterwards.
 For direct mode, or to write the config by hand, see
-[docs/clients.md](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/clients.md#from-source-today).
+[docs/clients.md](https://github.com/vansh3503/Mac-Mcp/blob/main/docs/clients.md#from-a-source-checkout).
 
 ## Use it from an agent framework
 

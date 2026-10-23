@@ -26,8 +26,8 @@ text applies.
 
 ## Reporting and enforcement
 
-Report unacceptable behavior privately to the maintainer through
-[their GitHub profile](https://github.com/Vansh3503).
+Report unacceptable behavior privately to one of the maintainers through their GitHub profiles:
+[Vansh Malhotra](https://github.com/Vansh3503) or [Zeel Thakkar](https://github.com/zeelthakkar02).
 Please do not report conduct issues in a public issue.
 
 All complaints will be reviewed and investigated promptly and fairly, and community leaders will

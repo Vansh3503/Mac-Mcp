@@ -4,7 +4,7 @@ Guidance for AI coding agents working **on** this repository. (Agents that want 
 to operate a Mac should read [skills/axpilot/SKILL.md](skills/axpilot/SKILL.md) instead.)
 
 AXPilot is an open-source MCP server, written in Python, that lets AI agents see and operate macOS
-through the Accessibility API. It is **pre-alpha** (Phase 0/1 of [docs/PLAN.md](docs/PLAN.md)).
+through the Accessibility API. It is **alpha**: 0.1.0a1 is on PyPI (milestone v0.1 of [docs/PLAN.md](docs/PLAN.md)).
 
 ## Read first
 
@@ -77,7 +77,7 @@ Code:
   `from` the original exception. Pick the most specific code (QUALITY.md §A2). Messages name the
   target and never contain secrets, typed text, clipboard contents or tokens.
 - No network access and **no telemetry**, in code or tests.
-- Don't add dependencies to `pyproject.toml` without the maintainer's agreement. Available at
+- Don't add dependencies to `pyproject.toml` without the maintainers' agreement. Available at
   runtime: `mcp` (SDK v2, `MCPServer`), `pydantic`, `anyio`, `typer`, `tomli-w`, `pillow`, stdlib.
 - Every wait has a deadline. Blocking engine calls run in `anyio.to_thread.run_sync(...,
   abandon_on_cancel=True)`. Input actions are **never retried automatically**.

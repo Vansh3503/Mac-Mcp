@@ -11,6 +11,7 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
 authors = [{ name = "AXPilot contributors" }]
+maintainers = [{ name = "Vansh Malhotra" }, { name = "Zeel Thakkar" }]
 keywords = [
   "mcp",
   "model-context-protocol",
@@ -21,7 +22,7 @@ keywords = [
   "ai-agents",
 ]
 classifiers = [
-  "Development Status :: 2 - Pre-Alpha",
+  "Development Status :: 3 - Alpha",
   "Environment :: MacOS X",
   "Intended Audience :: Developers",
   "Operating System :: MacOS",

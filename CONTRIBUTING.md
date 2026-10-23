@@ -1,7 +1,7 @@
 # Contributing to AXPilot
 
 Thanks for your interest in AXPilot! This guide covers the development setup, the project layout,
-tests, and how changes get merged. AXPilot is pre-alpha, so the best contributions right now are
+tests, and how changes get merged. AXPilot is alpha (0.1.0a1 is on PyPI), so the best contributions right now are
 bug reports from real Macs, app-compatibility reports, spike results, tests and docs fixes.
 
 - Questions and ideas: [GitHub Discussions](https://github.com/vansh3503/Mac-Mcp/discussions).
@@ -232,7 +232,7 @@ Pull requests:
   versions you tested on, if any.
 - CI must be green. A maintainer may ask for a test on a real Mac for engine changes.
 - Changes to the launcher (`launcher/`) force every user to re-grant permissions, so they need a
-  maintainer's agreement before work starts (see [launcher/README.md](launcher/README.md#changing-the-launcher)).
+  maintainers' agreement before work starts (see [launcher/README.md](launcher/README.md#changing-the-launcher)).
 
 **No DCO or CLA is required.** By submitting a contribution you agree that it is licensed under the
 project's [Apache License 2.0](LICENSE) (section 5 of the license).

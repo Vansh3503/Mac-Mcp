@@ -10,9 +10,9 @@ axpilot connect claude-desktop --dry-run    # show the change without writing it
 axpilot connect cursor --scope project      # project config instead of user config, where supported
 ```
 
-## From source (today)
+## From a source checkout
 
-Until AXPilot is on PyPI, run `uv run axpilot connect <client>` inside the clone after
+For contributors working from a clone: run `uv run axpilot connect <client>` inside it after
 `launcher/build.sh` and `uv run axpilot setup --dev-source .` ([Install](install.md)): it writes the
 checkout's `axpilot` by absolute path, in launcher mode.
 

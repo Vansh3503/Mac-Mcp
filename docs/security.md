@@ -5,11 +5,12 @@ what it protects against, its default controls, and their limits. To report a vu
 [SECURITY.md](https://github.com/vansh3503/Mac-Mcp/blob/main/SECURITY.md) (privately, never in a
 public issue).
 
-> **Status:** pre-alpha. The policy layer (deny-lists, Terminal rule, secure fields, confirmations,
+> **Status:** alpha (0.1.0a1). The policy layer (deny-lists, Terminal rule, secure fields, confirmations,
 > rate limit, audit, yield-to-user), client pairing, the HTTP transport, the kill-switch hotkey and the
-> on-screen indicator are implemented and tested on Linux with a simulated desktop. None of it has
-> run on a real Mac yet (the macOS UI of the kill switch and indicator in particular); the menu-bar
-> app and release hardening come later. Each control below is marked accordingly.
+> on-screen indicator are implemented and tested with a simulated desktop. On a real Mac (macOS 26) the
+> app deny-list, yield-to-user, the audit log, client pairing and the launcher's pinned cdhash have run;
+> the kill-switch hotkey and the indicator have not yet. The menu-bar app and code scanning come later.
+> Each control below is marked accordingly.
 
 ## Principles
 
@@ -31,7 +32,7 @@ public issue).
 | 3 | **Runaway agent.** An agent loops, acts too fast, or keeps going after you want it to stop. | Rate limit (120 input actions/min); yield-to-user; confirmations; **kill switch** (⌃⌥⌘.: cancels in-flight work and pauses, so tools return `PAUSED_BY_USER`; press again to resume; menu-bar *Stop* later); Trash rather than delete. | Rate limit and yield v0.1; kill switch implemented, not yet run on a Mac |
 | 4 | **Data exfiltration.** Reading secrets through the UI, screenshots or the clipboard. | Secure-field values are never returned; deny-listed apps are excluded from snapshots and screenshots, and deny-listed windows from snapshots and window captures; clipboard reads are audited and can be disabled (an agent that can type can still paste the clipboard into a field and read it there); audit log redacts typed text. | v0.1 |
 | 5 | **Network exposure.** The optional HTTP transport is reached by other machines or by web pages (DNS rebinding). | Binds to `127.0.0.1`; bearer token required; `Origin` and `Host` checked; no CORS. Remote access needs `--allow-remote` plus TLS; SSH or Tailscale are recommended instead. | v0.2 |
-| 6 | **Supply chain and launcher integrity.** A tampered package, dependency or launcher. | PyPI trusted publishing with attestations; locked dependencies (`uv.lock`); Dependabot; code scanning; a published cdhash per launcher version, verified by `axpilot doctor`. The launcher is ad-hoc signed, so there is no signing key to leak. | v0.3 |
+| 6 | **Supply chain and launcher integrity.** A tampered package, dependency or launcher. | PyPI trusted publishing with attestations; locked dependencies (`uv.lock`); Dependabot; code scanning; a published cdhash per launcher version, verified by `axpilot doctor`. The launcher is ad-hoc signed, so there is no signing key to leak. | 0.1.0a1 (code scanning: planned) |
 
 Client pairing **raises the bar but is not a hard boundary** against malware that already runs as
 your user: such code can read your files and could, for example, rewrite the runtime AXPilot starts.

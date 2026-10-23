@@ -13,8 +13,8 @@
 #   5. runs `axpilot setup` (skip with --no-setup).
 # Running it again is safe: steps that are already done are skipped or become upgrades.
 #
-# Status: AXPilot is not yet published on PyPI. This script works once v0.1 is released; until then
-# use the from-source instructions in docs/install.md.
+# Status: AXPilot 0.1.0a1 is on PyPI, but this installer is not hosted yet (planned for v0.3). Until
+# then install with `uv tool install axpilot` and `axpilot setup` (docs/install.md).
 #
 # Options:
 #   -y, --yes       don't ask for confirmation
