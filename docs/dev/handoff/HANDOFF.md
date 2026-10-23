@@ -1,13 +1,14 @@
 # AXPilot: handoff for the next working session
 
-Give this whole file to the next coding session (any account). It is self-contained: what the project is,
-every decision made so far, the exact current state, the rules the owner set, and the ordered remaining work.
+> **History, not the current state.** This file records how AXPilot was built up to 0.1.0a1: the
+> decisions, the build rounds, and the logs of the two real-Mac sessions (§5, 2026-10-20 and
+> 2026-10-21). Its "current state" notes (a private repository, the `feature/axpilot-foundation`
+> branch, PR #18 not merged) are out of date: the repository is public, everything is on `main`,
+> and 0.1.0a1 is on PyPI. Open work lives in the
+> [GitHub issues](https://github.com/Vansh3503/Mac-Mcp/issues) (the phase epics #9–#12 and the
+> spikes #3–#7), and the roadmap in [PLAN §15](../../PLAN.md).
 
-- **Repository:** `github.com/Vansh3503/Mac-Mcp` (private). Default branch `main`.
-- **Working branch:** `feature/axpilot-foundation`. On `main`: PR #14 (up to `f6802e5`) and PR #16 (merge commit
-  `5f0fa59`, the work listed under "After PR #14"). **PR #18** carries the work listed under "After PR #16"
-  (dropdowns, the launcher CI build, the bridge stand-in); the owner merges it.
-- **Last verified work commit:** see `git log --oneline -20`; §5 lists what each commit did.
+- **Repository:** `github.com/Vansh3503/Mac-Mcp` (public). Default branch `main`.
 - **Owner:** Vansh Malhotra (GitHub `Vansh3503`).
 
 ---
