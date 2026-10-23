@@ -257,6 +257,11 @@ def test_shows_choice() -> None:
     assert dd.shows_choice(RawNode(role="AXComboBox", description="Express"), "Express")
     assert not dd.shows_choice(RawNode(role="AXPopUpButton", value="Body"), "Heading")
     assert not dd.shows_choice(RawNode(role="AXPopUpButton", value="Body"), "  ")
+    # VS Code: the row reads "label. description", the box shows the label
+    vscode = RawNode(role="AXPopUpButton", value="afterDelay")
+    assert dd.shows_choice(vscode, "afterDelay. An editor with changes is automatically saved after a delay.")
+    assert not dd.shows_choice(vscode, "afterDelayed save")  # a longer word is not the label
+    assert not dd.shows_choice(RawNode(role="AXPopUpButton", value="off"), "afterDelay. off by default")
 
 
 def test_text_near_the_control() -> None:

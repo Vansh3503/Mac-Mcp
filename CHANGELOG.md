@@ -10,6 +10,26 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 
 ## [Unreleased]
 
+### Fixed
+
+- `select_option` could not choose in VS Code's settings dropdowns ("showed no menu or list of options"): when
+  the list opens, VS Code re-creates its page, so every element looked new and a whole-window group was taken for
+  one big option. Groups that hold a list are no longer options, elements that look the same as before (role,
+  title, frame) no longer count as new, and a box showing an option's label ("afterDelay" for "afterDelay. An
+  editor with changes is…") confirms the choice (#43).
+- `wait_for(condition="element")` timed out on plain text that `find` matched (VS Code's "Search settings",
+  "13 Settings Found"): element waits looked only at interactive elements. They now search what `find` searches
+  (#44).
+- With two copies of an app running (VS Code started twice, one with its own profile), `app="<bundle id>"` and
+  locators silently used whichever process macOS listed first, possibly the wrong window. AXPilot now prefers the
+  frontmost copy and adds a warning naming the other pids; `app=<pid>` picks one exactly (#45).
+- After a launcher change, re-adding AXPilot by hand with **+** in System Settings did not restore Accessibility
+  on macOS 26; removing the old entry and letting AXPilot ask did. `docs/permissions.md`, the troubleshooting page
+  and `axpilot doctor`'s hint now give those steps (#46).
+- `type_text` into VS Code's inputs (Chromium EditContext) returned `ok` although the field still reported no
+  text, so an agent reading it back thought typing had failed. It now warns that it could not confirm the text
+  when the field that took it still reports none (#47).
+
 ## [0.1.0a1] - 2026-10-21
 
 The first alpha, for early testers: AXPilot on PyPI for macOS 14 or later. It is verified on

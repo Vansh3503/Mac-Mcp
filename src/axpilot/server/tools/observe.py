@@ -1073,7 +1073,7 @@ def _element_check(
         tree = await _poll_tree(ctx, app, remaining)
         if tree is None:
             return _Match(detail="the app is not running") if gone else None
-        snap = ctx.build_snapshot(tree, store=False)
+        snap = ctx.build_snapshot(tree, mode="full", store=False)  # what find searches: text and groups too
         found = [(el, score) for el, score in find_elements(snap, text=query, role=role, limit=1)
                  if not query or score >= _ELEMENT_MIN_SCORE]  # fmt: skip
         if gone:

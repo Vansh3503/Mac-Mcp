@@ -32,6 +32,7 @@ __all__ = [
     "OPTION_ROLES",
     "Option",
     "OptionList",
+    "Signature",
     "find_node",
     "fold",
     "in_web_content",
@@ -45,6 +46,7 @@ __all__ = [
     "shows_choice",
     "text_near",
     "visible_handles",
+    "visible_signatures",
 ]
 
 MAX_LISTED = 30
@@ -193,8 +195,26 @@ def visible_handles(root: RawNode) -> HandleIndex:
     return HandleIndex((node.handle, index) for index, (node, _) in enumerate(visible_nodes(root)))
 
 
-def _was_visible(baseline: HandleIndex, node: RawNode) -> bool:
-    return node.handle is not None and bool(baseline.find(node.handle))
+Signature = tuple[str, str | None, tuple[int, int, int, int] | None]
+"""What a node looks like on screen: its role, title and frame (rounded to points)."""
+
+
+def _signature(node: RawNode) -> Signature:
+    frame = node.frame
+    box = (round(frame.x), round(frame.y), round(frame.w), round(frame.h)) if frame is not None else None
+    return (node.role, option_title(node), box)
+
+
+def visible_signatures(root: RawNode) -> frozenset[Signature]:
+    """Role, title and frame of the nodes visible in ``root``: a baseline that still recognises a
+    node the app re-created with a new identity (VS Code rebuilds its page when a dropdown opens)."""
+    return frozenset(_signature(node) for node, _ in visible_nodes(root))
+
+
+def _was_visible(baseline: HandleIndex, node: RawNode, seen: frozenset[Signature] = frozenset()) -> bool:
+    if node.handle is not None and baseline.find(node.handle):
+        return True
+    return bool(seen) and _signature(node) in seen
 
 
 def find_node(root: RawNode, handle: object) -> tuple[RawNode, tuple[RawNode, ...]] | None:
@@ -286,17 +306,32 @@ def _container_of(ancestors: tuple[RawNode, ...]) -> RawNode | None:
     return ancestors[-1] if ancestors else None
 
 
-def page_options(root: RawNode, baseline: HandleIndex, *, exclude: object = None) -> OptionList | None:
+def page_options(
+    root: RawNode,
+    baseline: HandleIndex,
+    *,
+    exclude: object = None,
+    seen: frozenset[Signature] = frozenset(),
+) -> OptionList | None:
     """A list of options that appeared in a web page: new, visible, titled option-like nodes
     (the outermost of nested ones), grouped by the list that holds them. The group in a real
     list (``AXList``, ``AXMenu``, ``AXTable``, ``AXOutline``) with the most options wins; other
-    groups need at least two. ``exclude`` is the control's handle."""
+    groups need at least two. ``exclude`` is the control's handle.
+
+    A group that holds a list is a container, never an option: a page may re-create its outer
+    groups when a dropdown opens (VS Code's workbench does), and those new, titled groups would
+    otherwise be taken as one option holding the whole list. ``seen`` (:func:`visible_signatures`
+    of the baseline) also counts as already visible a node that looks the same as before."""
+    nodes = list(visible_nodes(root))
+    holds_list = {id(outer) for node, ancestors in nodes if node.role in LIST_ROLES for outer in ancestors}
     groups: dict[int, tuple[RawNode, list[Option], tuple[RawNode, ...]]] = {}
     chosen: set[int] = set()
-    for node, ancestors in visible_nodes(root):
+    for node, ancestors in nodes:
         if node.role not in OPTION_ROLES or not _on_screen(node.frame) or same_handle(node.handle, exclude):
             continue
-        if _was_visible(baseline, node) or any(id(ancestor) in chosen for ancestor in ancestors):
+        if node.role == "AXGroup" and id(node) in holds_list:
+            continue
+        if _was_visible(baseline, node, seen) or any(id(ancestor) in chosen for ancestor in ancestors):
             continue
         title = option_title(node)
         container = _container_of(ancestors)
@@ -344,15 +379,24 @@ def options_in(root: RawNode) -> OptionList | None:
 
 
 # --------------------------------------------------------------------------- verification
+_LABEL_SEPARATORS = (". ", ": ", " — ", " – ", " - ", " (")
+"""What separates an option's label from its description in a longer option title."""
+
+
 def shows_choice(node: RawNode, title: str) -> bool:
-    """True if the control shows ``title``: its value, title or description equals it, or (for
-    longer texts such as "Sort: Newest") contains it."""
+    """True if the control shows ``title``: its value, title or description equals it, (for
+    longer texts such as "Sort: Newest") contains it, or is the option's leading label (VS Code's
+    rows read "afterDelay. An editor with changes is…" while the box shows "afterDelay")."""
     wanted = fold(title)
     if not wanted:
         return False
     for text in (stringify_value(node.value, 400), node.title, node.description):
         shown = fold(text)
-        if shown and (shown == wanted or wanted in shown):
+        if shown and (
+            shown == wanted
+            or wanted in shown
+            or any(wanted.startswith(shown + sep) for sep in _LABEL_SEPARATORS)
+        ):
             return True
     return False
 

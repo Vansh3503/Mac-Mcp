@@ -14,6 +14,7 @@ from mcp import Client
 
 from axpilot.engine.fake import FakeEngine
 from axpilot.errors import ErrorCode
+from axpilot.models import AppInfo
 from axpilot.server.context import ServerContext
 from axpilot.server.results import error_code_of, text_of
 from axpilot.testing import connected_client, make_test_context, structured
@@ -531,3 +532,19 @@ async def test_a_ref_from_an_app_denied_since_is_refused(ctx: ServerContext, cli
         )
     assert error == "BLOCKED_BY_POLICY", text_of(result)
     assert batch_error == "BLOCKED_BY_POLICY", text_of(batch)
+
+
+async def test_a_locator_with_two_copies_of_its_app_uses_the_frontmost_and_says_so(
+    ctx: ServerContext, client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    engine = ctx.engine
+    assert isinstance(engine, FakeEngine)
+    real = engine.list_apps()
+    copy = AppInfo(name="Finder", pid=999, bundle_id=FINDER)
+    monkeypatch.setattr(engine, "list_apps", lambda include_installed=False: [copy, *real])
+    data = await ok(client, "find", {"locator": BACK})
+    assert data["count"] == 1
+    assert data["warnings"] == [
+        "2 running processes match 'com.apple.finder'; using pid 412 (frontmost). "
+        "The other: pid 999. Pass app=<pid> to choose."
+    ]

@@ -89,6 +89,14 @@ happens, System Settings may still show AXPilot as enabled while macOS no longer
 Tools then return `LAUNCHER_CHANGED`, and `axpilot doctor` guides you through a one-time re-grant.
 See [ADR-5](adr/0005-signing-and-distribution.md).
 
+To re-grant:
+
+1. In **System Settings → Privacy & Security → Accessibility**, select **AXPilot** and remove it with **−**.
+2. Use any AXPilot tool. AXPilot asks macOS, which adds AXPilot to the list; switch it on from the prompt.
+   Adding the app back by hand with **+** may leave the old decision in place (seen on macOS 26).
+3. For screenshots, do the same under **Screen & System Audio Recording**, then restart AXPilot
+   (`killall AXPilot`, and restart your MCP client).
+
 ## Resetting permissions
 
 `tccutil` clears a permission decision for one app (by bundle id), so macOS asks again:

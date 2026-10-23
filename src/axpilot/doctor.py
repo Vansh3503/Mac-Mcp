@@ -125,7 +125,9 @@ def _check_config() -> Check:
 
 _REGRANT_HINT = (
     "Run `axpilot setup` to install the launcher that ships with this AXPilot, then grant "
-    "Accessibility to AXPilot again: macOS ties the grant to the exact launcher build."
+    "Accessibility to AXPilot again: macOS ties the grant to the exact launcher build. In System Settings → "
+    "Privacy & Security → Accessibility, remove the old AXPilot entry (−) and let AXPilot ask on its next "
+    "tool call; adding the app back by hand (+) may not take."
 )
 
 

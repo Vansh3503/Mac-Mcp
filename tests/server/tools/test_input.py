@@ -1187,3 +1187,30 @@ async def test_a_web_date_field_that_drops_the_digits_is_reported() -> None:
     result, error, _ = await web_date_call(engine, "2026-03-05")
     assert error == "ELEMENT_NOT_ACTIONABLE", text_of(result)
     assert "its parts show" in text_of(result)
+
+
+# =========================================================================== text the field never reports
+class EditContextEngine(FakeEngine):
+    """Typed text reaches the app, but the field never reports it (VS Code's EditContext inputs)."""
+
+    def type_text(self, text: str, interval_s: float = 0.0) -> None:
+        self.events.append(("type_text", {"text": text, "unreported": True}))
+
+
+async def test_type_text_warns_when_the_field_never_reports_the_text() -> None:
+    ctx = fast(make_test_context({"tools.profile": "full"}, engine=EditContextEngine.demo()))
+    async with connected_client(ctx) as client:
+        refs = await refs_of(client, "Login Demo")
+        args = {"ref": refs["Email"], "text": "alex@example.com", "strategy": "keystrokes"}
+        result, error = await call(client, "type_text", args)
+    assert error is None, text_of(result)
+    warnings = structured(result)["warnings"]
+    assert any("could not confirm what it typed" in w and "EditContext" in w for w in warnings), warnings
+
+
+async def test_type_text_does_not_warn_when_the_field_shows_the_text(client: Client) -> None:
+    refs = await refs_of(client, "Login Demo")
+    args = {"ref": refs["Email"], "text": "alex@example.com", "strategy": "keystrokes"}
+    result, error = await call(client, "type_text", args)
+    assert error is None, text_of(result)
+    assert not any("could not confirm" in w for w in structured(result)["warnings"])

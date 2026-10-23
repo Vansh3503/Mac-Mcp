@@ -979,6 +979,8 @@ def type_text_tool(ctx: ServerContext) -> ToolFn:
             await _press(ctx, KeyCombo("return"))
             attempts.append("return")
         observation = await observe_after(ctx, app=app, before=before, report=report)
+        if text and not submit:
+            warnings.extend(_unconfirmed_text(ctx, observation, target))
         where = f" into {target.describe()}" if target is not None else ""
         what = f"{len(text)} characters" if text else "cleared the field"
         summary = f"typed {what}{where} via {used}" + (" and pressed Return" if submit else "")
@@ -993,6 +995,26 @@ def type_text_tool(ctx: ServerContext) -> ToolFn:
         )
 
     return type_text
+
+
+def _unconfirmed_text(ctx: ServerContext, observation: Observation, target: Target | None) -> list[str]:
+    """A warning when the field that took the text still reports none: VS Code's EditContext inputs
+    and other Chromium editors don't expose their text, so the typing can't be confirmed."""
+    if observation.snapshot_id is None:
+        return []
+    try:
+        snap = ctx.snapshots.get(observation.snapshot_id)
+    except AXPilotError:
+        return []
+    el = snap.element(target.el.ref) if target is not None and target.el is not None else snap.focused_element
+    if el is None or el.secure or el.role not in TYPED_ROLES or el.value:
+        return []
+    name = f" {quote(el.name, 40)}" if el.name else ""
+    return [
+        f"{el.ref} {el.role}{name} still reports no text, so AXPilot could not confirm what it typed: "
+        "the field does not expose its text to accessibility (VS Code and other Chromium EditContext "
+        "inputs). Check what the app shows instead."
+    ]
 
 
 # --------------------------------------------------------------------------- keys

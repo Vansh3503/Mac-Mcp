@@ -12,9 +12,11 @@ import pytest
 from axpilot.engine.fake import FakeEngine
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.models import AppInfo, RawTree
-from axpilot.server.context import ServerContext
+from axpilot.server.context import CallState, ServerContext, call_scope
+from axpilot.server.guard import with_call_warnings
+from axpilot.server.results import error_result, ok_result, text_of
 from axpilot.server.tools.input import observe_after
-from axpilot.testing import make_test_context
+from axpilot.testing import make_test_context, structured
 
 pytestmark = pytest.mark.anyio
 
@@ -114,3 +116,66 @@ async def test_observing_the_target_itself_may_enhance_it() -> None:
     finder = engine.find_app("Finder")
     await observe_after(ctx, app=finder, before=None, report="snapshot")
     assert [(call["app"], call["enhance"]) for call in engine.captures] == [("com.apple.finder", True)]
+
+
+# =========================================================================== several processes, one app
+TWO_CODES = [
+    AppInfo(name="Code", pid=100, bundle_id="com.microsoft.VSCode"),
+    AppInfo(name="Code", pid=200, bundle_id="com.microsoft.VSCode", frontmost=True),
+    AppInfo(name="Finder", pid=300, bundle_id="com.apple.finder"),
+]
+
+
+def two_codes(monkeypatch: pytest.MonkeyPatch, apps: list[AppInfo]) -> ServerContext:
+    engine = FakeEngine.demo()
+    monkeypatch.setattr(engine, "list_apps", lambda include_installed=False: list(apps))
+    return make_test_context({}, engine=engine)
+
+
+async def test_several_processes_of_one_app_resolve_to_the_frontmost_with_a_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ctx = two_codes(monkeypatch, TWO_CODES)
+    state = CallState(tool="snapshot", public_name="snapshot")
+    with call_scope(state):
+        app = await ctx.resolve_app("com.microsoft.VSCode")
+    assert app is not None
+    assert app.pid == 200
+    assert state.warnings == [
+        "2 running processes match 'com.microsoft.VSCode'; using pid 200 (frontmost). "
+        "The other: pid 100. Pass app=<pid> to choose."
+    ]
+
+
+async def test_without_a_frontmost_copy_the_first_process_is_used_and_named(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ctx = two_codes(monkeypatch, [app for app in TWO_CODES[:2] if not app.frontmost] + [
+        AppInfo(name="Code", pid=200, bundle_id="com.microsoft.VSCode")
+    ])  # fmt: skip
+    state = CallState(tool="find", public_name="find")
+    with call_scope(state):
+        app = await ctx.resolve_app("Code")
+    assert app is not None
+    assert app.pid == 100
+    assert state.warnings == [
+        "2 running processes match 'Code'; using pid 100. The other: pid 200. Pass app=<pid> to choose."
+    ]
+
+
+async def test_a_pid_or_a_unique_app_resolves_without_a_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    ctx = two_codes(monkeypatch, TWO_CODES)
+    state = CallState(tool="snapshot", public_name="snapshot")
+    with call_scope(state):
+        assert (await ctx.resolve_app("100")).pid == 100  # type: ignore[union-attr]
+        assert (await ctx.resolve_app("Finder")).pid == 300  # type: ignore[union-attr]
+    assert state.warnings == []
+
+
+def test_call_warnings_join_the_result_once() -> None:
+    result = ok_result("done", {"warnings": ["already there"]})
+    merged = with_call_warnings(result, ["already there", "2 running processes match 'Code'"])
+    assert structured(merged)["warnings"] == ["already there", "2 running processes match 'Code'"]
+    assert text_of(merged).splitlines()[-1] == "warning: 2 running processes match 'Code'"
+    failed = error_result(AXPilotError(ErrorCode.APP_NOT_FOUND, "No app."))
+    assert with_call_warnings(failed, ["ignored"]) is failed

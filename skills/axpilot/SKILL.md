@@ -21,7 +21,10 @@ is authoritative for its exact parameters.
    `press_keys`, `scroll`.
 3. **Verify.** Input tools return a diff of what changed (focus, new windows or dialogs, changed
    values). Check that the change is the one you intended before the next step. If nothing changed,
-   don't repeat the same action blindly: take a new snapshot and reconsider.
+   don't repeat the same action blindly: take a new snapshot and reconsider. Read the warnings
+   too: "N running processes match" means two copies of the app are open (pass `app=<pid>` to pick
+   one); "could not confirm what it typed" means the field hides its text (VS Code's inputs), so
+   check what the app shows instead of reading the field back.
 4. When the app is busy (loading, launching, saving), use `wait_for` (an element, a window, text, or
    UI idle) instead of guessing with repeated snapshots.
 
