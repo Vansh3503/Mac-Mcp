@@ -46,7 +46,7 @@ uv run axpilot stdio --direct
 ```
 
 `axpilot stdio` speaks MCP over stdin and stdout, so it waits silently for a client. Connect a
-client as described in [Connect a client](clients.md#from-source-today), or explore the tools in the
+client as described in [Connect a client](clients.md#from-a-source-checkout), or explore the tools in the
 [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
 
 ```sh
