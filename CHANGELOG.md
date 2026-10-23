@@ -29,6 +29,9 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 - `type_text` into VS Code's inputs (Chromium EditContext) returned `ok` although the field still reported no
   text, so an agent reading it back thought typing had failed. It now warns that it could not confirm the text
   when the field that took it still reports none (#47).
+- `list_windows` does not list windows on other Spaces (the Accessibility API does not see them), so with an
+  app in full screen in front, other apps looked windowless. When a listed window is in full screen, the result
+  now warns that windows on other Spaces are not listed; `docs/tools.md` and the Agent Skill say so too (#22).
 
 ## [0.1.0a1] - 2026-10-21
 

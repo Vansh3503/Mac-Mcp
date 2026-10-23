@@ -82,6 +82,9 @@ is authoritative for its exact parameters.
   says why in its warnings). `scroll` moves one area by pages, to `top`/`bottom`, or brings an
   element into view (`scroll_into_view`); `at_end` tells you when there is nothing more.
 - **Switch apps** with `app` (`activate`, `launch`), not by clicking the Dock.
+- **Spaces:** `list_windows` only lists windows on the current Space. When an app is in full
+  screen (its own Space) it warns that other windows are not listed; an app that seems to have no
+  windows may just be on another Space. `snapshot` with `app` still reads its focused window.
 - **Web pages:** when the browser tools are enabled, `browser_read` returns a page's text in
   reading order (page through long ones with `offset`), and `browser_tabs` lists, switches, opens
   and closes tabs. They are faster and more reliable than snapshotting a page.
