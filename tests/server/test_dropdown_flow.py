@@ -360,6 +360,7 @@ def select_desktop() -> dict[str, Any]:
                     "children": [
                         item("fruit.a", "Apple"),
                         item("fruit.b", "Banana"),
+                        item("fruit.c", "Banana split"),
                         item("fruit.d", "Durian", enabled=False),
                     ],
                 }
@@ -370,11 +371,28 @@ def select_desktop() -> dict[str, Any]:
 
 
 class ChromeSelect(FakeEngine):
-    """Its popup is a native menu outside the tree: open from a click until Escape, also after an
-    option is pressed by AX; only the control's AXExpanded shows it. The strip stays shown."""
+    """Its popup is a native menu outside the tree: open from a click until Escape or Return, also
+    after an option is pressed by AX; only the control's AXExpanded shows it. The strip stays shown.
+    ``keys`` is what the open popup does with the keyboard: ``"type-select"`` (typed text highlights
+    the first item whose title starts with it, and Return picks that item and closes the popup, as
+    in any macOS menu), ``"close"`` (Return closes it without a choice) or ``"ignore"``."""
+
+    keys = "type-select"
+    typed = ""
 
     def _in_strip(self, handle: Any) -> bool:
-        return handle in {self.resolve_ref(i) for i in ("fruit.menu", "fruit.a", "fruit.b", "fruit.d")}
+        ids = ("fruit.menu", "fruit.a", "fruit.b", "fruit.c", "fruit.d")
+        return handle in {self.resolve_ref(i) for i in ids}
+
+    def _fruit(self) -> RawNode:
+        fruit = self._lookup("fruit")
+        assert fruit is not None
+        return fruit
+
+    def type_text(self, text: str, interval_s: float = 0.0) -> None:
+        super().type_text(text, interval_s)
+        if self._fruit().expanded and self.keys == "type-select":
+            self.typed += text
 
     def element_valid(self, handle: Any) -> bool:
         return self._in_strip(handle) or super().element_valid(handle)
@@ -390,22 +408,83 @@ class ChromeSelect(FakeEngine):
 
     def press_key(self, combo: KeyCombo) -> None:
         super().press_key(combo)
+        fruit = self._fruit()
         if combo.key == "escape":
-            fruit = self._lookup("fruit")
-            assert fruit is not None
             fruit.expanded = False
+        elif combo.key == "return" and fruit.expanded and self.keys != "ignore":
+            menu = self._lookup("fruit.menu")
+            assert menu is not None
+            typed = self.typed.casefold()
+            item = next(
+                (i for i in menu.children if typed and str(i.value).casefold().startswith(typed)), None
+            )
+            if item is not None and item.enabled:
+                fruit.value = item.value
+            fruit.expanded = False
+            self.typed = ""
 
 
-async def test_a_select_whose_popup_stays_open_is_closed_and_seen_closed() -> None:
+async def test_a_select_popup_is_picked_by_type_select_and_return() -> None:
+    """#30: Chrome's popup closes as for a user, with no AX press, no Escape and no warning."""
     engine = ChromeSelect(select_desktop())
     ctx = context(engine)
     target = await target_of(ctx, "Fruit")
     outcome = await dropdown.choose_option(ctx, target, option="Banana", index=None)
+    assert (outcome.chosen, outcome.strategy, outcome.warnings) == ("Banana", "menu", [])
+    assert outcome.attempts[-1] == "pick:keys:type-select"
+    assert [e["text"] for e in engine.events_of("type_text")] == ["Banana"]
+    assert [e["key"] for e in engine.events_of("press_key")] == ["return"]
+    assert not [e for e in engine.events_of("perform_action") if e.get("action") == "AXPress"]
+    assert engine.refresh_element(target.handle).value == "Banana"
+    assert engine.refresh_element(target.handle).expanded is False
+
+
+async def test_a_select_popup_that_closes_without_a_choice_gets_the_ax_press() -> None:
+    engine = ChromeSelect(select_desktop())
+    engine.keys = "close"
+    ctx = context(engine)
+    target = await target_of(ctx, "Fruit")
+    outcome = await dropdown.choose_option(ctx, target, option="Banana", index=None)
+    assert outcome.attempts[-2:] == ["pick:keys:type-select", "pick:ax:AXPress"]
+    assert outcome.warnings == []
+    assert engine.refresh_element(target.handle).value == "Banana"
+
+
+async def test_a_select_whose_popup_stays_open_is_closed_and_seen_closed() -> None:
+    engine = ChromeSelect(select_desktop())
+    engine.keys = "ignore"
+    ctx = context(engine)
+    target = await target_of(ctx, "Fruit")
+    outcome = await dropdown.choose_option(ctx, target, option="Banana", index=None)
     assert outcome.chosen == "Banana"
+    assert outcome.attempts[-2:] == ["pick:keys:type-select", "pick:ax:AXPress"]
     assert outcome.warnings == [
         f"The options of {target.describe()} stayed open after the choice; AXPilot closed them."
     ]
     assert engine.refresh_element(target.handle).expanded is False
+
+
+async def test_a_select_option_whose_first_word_leads_elsewhere_is_pressed_by_ax() -> None:
+    """Type-select would land on "Banana" (Space would then choose it), so "Banana split" is pressed."""
+    engine = ChromeSelect(select_desktop())
+    ctx = context(engine)
+    target = await target_of(ctx, "Fruit")
+    outcome = await dropdown.choose_option(ctx, target, option="Banana split", index=None)
+    assert outcome.attempts[-1] == "pick:ax:AXPress"
+    assert not engine.events_of("type_text")
+    assert engine.refresh_element(target.handle).value == "Banana split"
+    assert any("stayed open" in warning for warning in outcome.warnings)
+
+
+async def test_a_select_popup_under_secure_input_is_pressed_by_ax() -> None:
+    engine = ChromeSelect(select_desktop())
+    ctx = context(engine)
+    target = await target_of(ctx, "Fruit")
+    engine.secure_input = True  # no keystroke can go out
+    outcome = await dropdown.choose_option(ctx, target, option="Banana", index=None)
+    assert outcome.attempts[-1] == "pick:ax:AXPress"
+    assert not engine.events_of("type_text")
+    assert engine.refresh_element(target.handle).value == "Banana"
 
 
 async def test_a_select_whose_choice_fails_is_closed() -> None:

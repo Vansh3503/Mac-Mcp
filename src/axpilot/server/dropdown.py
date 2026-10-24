@@ -18,7 +18,9 @@ the fake desktop exercises the same code that drives a real Mac.
    app holding a menu or list (Java and Qt pop-ups). See :mod:`axpilot.perception.dropdown`.
 3. **Pick** the option by title (exact, then unique prefix) or 1-based index. When a web text
    combo box lists no match, the title is typed to filter the list (autocomplete), once.
-4. **Press** it: menu items with ``AXPress``; options in web content with a real click.
+4. **Press** it: menu items with ``AXPress``; options in web content with a real click. Chrome's
+   native ``<select>`` popup, which lies outside the tree, gets type-select and Return instead,
+   as a user would pick (:func:`_type_select_text`), and ``AXPress`` if that did not take.
 5. **Verify**: a pop-up must show the chosen title (``ELEMENT_NOT_ACTIONABLE`` otherwise); a web
    picker should show it in its value, title or the text next to it (a warning when it does not:
    the page may show it elsewhere); a menu that stays open is closed with a warning.
@@ -358,6 +360,47 @@ async def _press_option(ctx: ServerContext, target: Target, found: dd.OptionList
     return f"pick:{used}"
 
 
+def _type_select_text(found: dd.OptionList, chosen: dd.Option) -> str | None:
+    """What to type in Chrome's native ``<select>`` popup to land on ``chosen``, or ``None`` to
+    press the option by accessibility instead.
+
+    Chrome (macOS 26) shows that popup outside the tree, and only the control's ``AXExpanded``
+    says it is open; an ``AXPress`` on an option changes the value but leaves it open, so every pick
+    ended with Escape and a warning (#30). Like any macOS menu, the popup highlights the first item
+    whose title starts with what is typed, and Return picks that item and closes it. The text is the
+    title's first word, because Space would choose the highlighted item: that word must lead to
+    ``chosen`` and to no option before it."""
+    control = found.control
+    if found.where != "menu" or not found.in_web or control is None or control.expanded is not True:
+        return None
+    words = chosen.title.split()
+    if not words:
+        return None
+    word = words[0].casefold()
+    first = next((o for o in found.options if o.title.strip().casefold().startswith(word)), None)
+    return words[0] if first is chosen else None
+
+
+async def _type_select(ctx: ServerContext, target: Target, text: str) -> str:
+    """Type ``text`` into the open native popup, then press Return (:func:`_type_select_text`)."""
+    await ensure_frontmost(ctx, target.app)
+    window = target.window
+    ctx.policy.check_app(target.app, kind="input", window_title=window.title if window is not None else None)
+    await type_keystrokes(ctx, text)
+    await ctx.run_engine(ctx.engine.press_key, RETURN)
+    return "pick:keys:type-select"
+
+
+async def _took(ctx: ServerContext, target: Target, found: dd.OptionList, chosen: dd.Option) -> bool:
+    """Whether the popup closed and the control shows ``chosen``."""
+    assert target.handle is not None
+    await ctx.sleep(ctx.config.perception.settle_ms / 1000)
+    if await _still_open(ctx, found, wait_s=CLOSE_WAIT_S):
+        return False
+    shown = await ctx.run_engine(ctx.engine.refresh_element, target.handle)
+    return dd.shows_choice(shown, chosen.title)
+
+
 async def _still_open(ctx: ServerContext, found: dd.OptionList, *, wait_s: float = 0.0) -> bool:
     """Whether the options are still shown, giving them up to ``wait_s`` to close by themselves:
     right after a pick a menu is still fading out (macOS 26), and AXCancel or Escape then would
@@ -624,6 +667,18 @@ async def _choose(
             f"The option {quote(chosen.title, 60)} of {target.describe()} is disabled.",
         )
     ctx.control.ensure_running()
+    text = _type_select_text(run.found, chosen)
+    if text is not None:
+        try:
+            run.attempts.append(await _type_select(ctx, target, text))
+        except AXPilotError as err:
+            # raised before any key went out (the app is not in front, secure input): press it by AX
+            if err.code not in (ErrorCode.ELEMENT_NOT_ACTIONABLE, ErrorCode.SECURE_INPUT_ACTIVE):
+                raise
+            _log.debug("No type-select in %s: %s", target.describe(), err.message)
+        else:
+            if await _took(ctx, target, run.found, chosen):
+                return chosen
     run.attempts.append(await _press_option(ctx, target, run.found, chosen))
     return chosen
 

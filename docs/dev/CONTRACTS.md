@@ -649,7 +649,9 @@ Controls (`axpilot/server/tools/controls.py`, input toolset):
   matching option gets the title typed once (filter: wait up to 1.5 s for a match). Pick (title or index;
   disabled → `ELEMENT_NOT_ACTIONABLE`), press (menu items and native lists: `AXPress`, a click when they have
   none; web options: a mouse click on their visible part, `AXScrollToVisible` or `AXPress` when off screen,
-  refused when covered by another app).
+  refused when covered by another app; Chrome's native `<select>` popup, which only the control's `AXExpanded`
+  shows, first gets the title's first word typed and Return when that word leads to the option and to no
+  option before it, and `AXPress` only if the popup did not close showing the choice).
   Verify: a list still open is closed (warning); a menu button needs nothing more; the control showing the
   title passes; a native pop-up that does not is `ELEMENT_NOT_ACTIONABLE` ("it shows …"); a web control
   passes when static text near it or the option's selected state shows the choice, else a warning. Every
@@ -658,7 +660,7 @@ Controls (`axpilot/server/tools/controls.py`, input toolset):
   opened is located if needed and closed (`AXCancel`, else Escape when the app is frontmost, not paused and
   secure input is off). Input is never repeated; each rung is tried only when the previous visibly did
   nothing, and `attempts` lists them (`open:ax:AXPress`, `open:mouse`, `open:keys:down`, `filter:keys`,
-  `pick:ax:AXPress`, `pick:mouse`).
+  `pick:keys:type-select`, `pick:ax:AXPress`, `pick:mouse`).
 - `handle_dialog(app, action=inspect|accept|cancel|press, button, text, report)`: the first `sheet`/`dialog`
   element of a full snapshot, else the window itself when its root subrole is `AXDialog`/`AXSystemDialog`.
   accept = OK/Allow/Continue/Done/Open/Save/Yes/Sign In/… else the bottom-rightmost enabled non-cancel button;
