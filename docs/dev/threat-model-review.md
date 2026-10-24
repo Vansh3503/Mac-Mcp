@@ -1,7 +1,7 @@
 # Threat-model review (PLAN §7)
 
 Review of the six threats in [PLAN §7](../PLAN.md#7-security-and-safety-model) against the code on
-`feature/axpilot-foundation`, for issue #12 (Phase 5). For each mitigation the plan or
+`feature/axpilot-foundation` (since merged into `main`), for issue #12 (Phase 5). For each mitigation the plan or
 [the security model](../security.md) promises, the review found the code that implements it and the
 tests that prove it, then tried to break it. Everything here ran on Linux with the simulated desktop;
 what only a Mac can confirm is listed at the end.
@@ -98,11 +98,11 @@ macOS-only and have not run on a Mac.
 |---|---|
 | Locked dependencies (`uv.lock`) | In place; CI installs with `uv sync --locked`. |
 | Dependabot (uv and GitHub Actions, weekly) | In place (`.github/dependabot.yml`). |
-| PyPI trusted publishing with attestations | Not yet: the release workflow is Phase 3 work (#10). See G4. |
+| PyPI trusted publishing with attestations | In place since 0.1.0a1 (`release.yml`, environment `pypi`). |
 | Code scanning | Not configured. See G4. |
-| Published launcher cdhash, checked by `axpilot doctor` | The check exists (`doctor.py`); the pinned row in `launcher/CDHASH.md` is still pending because no launcher has been built. See G4. |
+| Published launcher cdhash, checked by `axpilot doctor` | The check exists (`doctor.py`); the row for `launcher-v1` (1.0.0) is pinned in `launcher/CDHASH.md`, and `release.yml` refuses a launcher that differs from it. |
 
-**Verdict: partly in place**, as expected before the first release.
+**Verdict: in place except code scanning** (see G4).
 
 ## Findings fixed in this review
 

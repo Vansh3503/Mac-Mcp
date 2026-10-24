@@ -77,7 +77,9 @@ Rules for changes:
 
 ## Release flow
 
-The workflows exist; none has run yet, because no launcher has been published.
+Both workflows have run: `launcher.yml` published `launcher-v1` (launcher 1.0.0) on 2026-10-21,
+and `release.yml` published 0.1.0a1 to PyPI and as a GitHub pre-release from tag `v0.1.0a1`. The
+`mcp-registry` and `docs` jobs have not run yet: they skip pre-releases.
 
 1. **`launcher.yml`** (manual, rare): builds `AXPilot.app` on a macOS runner, runs the launcher
    tests, attests the build and publishes a `launcher-vN` release with `AXPilot.app.zip`,
@@ -103,5 +105,5 @@ Before tagging, bump `__version__`, move the Unreleased changelog entries under
 `## [X.Y.Z] - YYYY-MM-DD`, and run `uv run python scripts/release.py check vX.Y.Z`.
 
 One-time setup by the maintainer: a [trusted publisher](https://docs.pypi.org/trusted-publishers/)
-on PyPI for this repository (workflow `release.yml`, environment `pypi`), and GitHub Pages with
-source "GitHub Actions" (a private repository needs a paid plan for Pages, or goes public first).
+on PyPI for this repository (workflow `release.yml`, environment `pypi`; done), and GitHub Pages
+with source "GitHub Actions" (not turned on yet; needed before the first non-pre-release).
