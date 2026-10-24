@@ -6,9 +6,10 @@ takes the key combination away from other apps while AXPilot runs, and delivers
 AppKit's event queue is drained, which :class:`axpilot.host.ui.app.AppKitPump` does on the main
 thread.
 
-Permissions: none. Threading: main thread only. Checked on macOS 26 (2026-10-24): real presses of
-⌃⌥⌘P (and ⌃⌥⌘J, ⌃⌥⌘K, ⌃⌥⌘⎋) arrive through the pump, but ⌃⌥⌘. never does: the system takes it
-first (#59). macOS 14, 15 and 27 and non-US layouts are open checks.
+Permissions: none. Threading: main thread only. Checked on macOS 26 (2026-10-24), in direct mode and
+in the host: real presses of ⌃⌥⌘P (and ⌃⌥⌘J, ⌃⌥⌘K, ⌃⌥⌘⎋) arrive through the pump, but ⌃⌥⌘. never
+does: the system takes it first (#59). A press counts only when every modifier is down before the key,
+as for any macOS shortcut. macOS 14, 15 and 27 and non-US layouts are open checks.
 """
 
 from __future__ import annotations
