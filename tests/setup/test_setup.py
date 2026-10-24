@@ -114,6 +114,7 @@ def test_full_setup_on_macos(env: Path, runner: Any, checkout: Path, make_app: C
     assert login_item_installed()
     assert runner.kinds() == ["venv", "install", "probe", "warm_up", "open"]
     assert "Created" in report.steps[1].detail
+    assert report.steps[2].detail.startswith("Wrote ")
 
 
 def test_setup_twice_is_quiet(env: Path, runner: Any, checkout: Path, make_app: Callable[..., Path]) -> None:
@@ -122,6 +123,7 @@ def test_setup_twice_is_quiet(env: Path, runner: Any, checkout: Path, make_app: 
     report = mac_setup(runner, checkout, app)
     assert report.ok
     assert "Updated" in report.steps[1].detail
+    assert report.steps[2].detail.endswith("runtime.json is already up to date.")
     assert "already up to date" in report.steps[3].detail
 
 

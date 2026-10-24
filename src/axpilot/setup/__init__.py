@@ -200,16 +200,30 @@ def _step_runtime(
     return install
 
 
+def _file_identity(path: Path) -> tuple[int, int] | None:
+    try:
+        info = path.stat()
+    except OSError:
+        return None
+    return info.st_ino, info.st_mtime_ns
+
+
 def _step_manifest(report: SetupReport, install: RuntimeInstall | None) -> bool:
     if install is None:
         report.add("manifest", False, "Skipped because the runtime is not ready.")
         return False
+    target = paths.runtime_manifest()
+    before = _file_identity(target)
     try:
         write_manifest(install.python, axpilot_version=install.axpilot_version)
     except AXPilotError as exc:
         report.add("manifest", False, _error_detail(exc))
         return False
-    report.add("manifest", True, f"Wrote {display_path(paths.runtime_manifest())}.")
+    # write_manifest replaces the file atomically (a new inode) or leaves an identical one alone.
+    if before is not None and _file_identity(target) == before:
+        report.add("manifest", True, f"{display_path(target)} is already up to date.")
+    else:
+        report.add("manifest", True, f"Wrote {display_path(target)}.")
     return True
 
 
