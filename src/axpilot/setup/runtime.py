@@ -44,6 +44,7 @@ __all__ = [
     "detect_dev_source",
     "ensure_runtime",
     "find_uv",
+    "host_predates_runtime",
     "install_spec",
     "is_dev_version",
     "manifest_problems",
@@ -207,7 +208,9 @@ def write_manifest(
 ) -> RuntimeManifest:
     """Write ``runtime.json`` atomically (mode 0600, folder 0700) and return what was written.
 
-    ``python`` must be an absolute path; it is not required to exist yet.
+    ``python`` must be an absolute path; it is not required to exist yet. A file that already has
+    this content and mode is left untouched, so its modification time says when the runtime last
+    changed (:func:`host_predates_runtime`).
     """
     manifest = parse_manifest(
         RuntimeManifest(
@@ -219,8 +222,35 @@ def write_manifest(
     )
     target = path or paths.runtime_manifest()
     _ensure_private_dir(target.parent)
-    atomic_write_text(target, json.dumps(manifest.to_dict(), indent=2) + "\n", mode=0o600)
+    text = json.dumps(manifest.to_dict(), indent=2) + "\n"
+    if not _holds(target, text):
+        atomic_write_text(target, text, mode=0o600)
     return manifest
+
+
+def _holds(target: Path, text: str) -> bool:
+    """True if ``target`` already contains ``text`` with mode 0600."""
+    try:
+        return stat.S_IMODE(target.stat().st_mode) == 0o600 and target.read_text(encoding="utf-8") == text
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
+def host_predates_runtime(socket_path: Path | None = None, manifest_path: Path | None = None) -> bool:
+    """True if the host socket was created before ``runtime.json`` last changed: a host listening
+    there started before the last ``axpilot setup`` or ``update`` and still runs the code from before
+    (the launcher reads the manifest only when it starts the host). False if either file is missing.
+    It does not check that a host is listening.
+    """
+    # ponytail: the socket's mtime is when the host started listening, so this needs nothing from the
+    # host and also catches hosts older than the check. A reinstall that keeps the manifest as it was
+    # (a source checkout with the same dev version) goes unnoticed.
+    try:
+        socket_time = (socket_path or paths.socket_path()).stat().st_mtime
+        manifest_time = (manifest_path or paths.runtime_manifest()).stat().st_mtime
+    except OSError:
+        return False
+    return manifest_time > socket_time
 
 
 def manifest_problems(manifest: RuntimeManifest) -> list[str]:

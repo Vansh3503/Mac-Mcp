@@ -445,18 +445,38 @@ def setup(
 
 @app.command()
 def update(as_json: JsonOption = False) -> None:
-    """Update the runtime AXPilot.app runs to this AXPilot version (re-runs setup)."""
-    _setup_command(login_item=False, launch=False, dev_source=None, as_json=as_json)
+    """Update the runtime AXPilot.app runs to this AXPilot version (re-runs setup), then offer to
+    restart AXPilot if its host still runs the previous version."""
+    from axpilot.setup import offer_host_restart, restart_host  # noqa: PLC0415
+
+    def confirm(question: str) -> bool:
+        return typer.confirm(question, default=False)
+
+    def after(report: Any, runner: Any) -> None:
+        interactive = not as_json and sys.stdin.isatty()
+        offer_host_restart(
+            report, confirm=confirm if interactive else None, restart=lambda: restart_host(runner)
+        )
+
+    _setup_command(login_item=False, launch=False, dev_source=None, as_json=as_json, after=after)
 
 
-def _setup_command(*, login_item: bool, launch: bool, dev_source: Path | None, as_json: bool) -> None:
+def _setup_command(
+    *,
+    login_item: bool,
+    launch: bool,
+    dev_source: Path | None,
+    as_json: bool,
+    after: Callable[[Any, Any], None] | None = None,
+) -> None:
     from axpilot.setup import run_setup  # noqa: PLC0415
     from axpilot.system.runner import CommandRunner  # noqa: PLC0415
 
     _state.json = as_json
-    report = run_setup(
-        runner=CommandRunner(), login_item=login_item, dev_source=dev_source, launch_app=launch
-    )
+    runner = CommandRunner()
+    report = run_setup(runner=runner, login_item=login_item, dev_source=dev_source, launch_app=launch)
+    if after is not None:
+        after(report, runner)
     if as_json:
         _print_json(report.to_dict())
     else:

@@ -11,6 +11,9 @@ problem, so the user sees everything that needs attention at once:
    a ``quarantine`` step if Gatekeeper would assess it.
 5. ``login item`` (optional) and ``launch`` (optional).
 
+After an update, :func:`offer_host_restart` restarts a host that still runs the previous runtime
+(when the user agrees), because the launcher reads ``runtime.json`` only when it starts the host.
+
 All external commands go through the given :class:`~axpilot.system.runner.CommandRunner`.
 """
 
@@ -19,6 +22,8 @@ from __future__ import annotations
 import platform
 import re
 import sys
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -26,7 +31,7 @@ from typing import Any, NamedTuple
 import axpilot
 from axpilot import paths
 from axpilot.clients.fileops import display_path
-from axpilot.errors import AXPilotError
+from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.setup import launcher
 from axpilot.setup.launcher import (
     QUARANTINE_XATTR,
@@ -39,6 +44,7 @@ from axpilot.setup.runtime import (
     RuntimeInstall,
     detect_dev_source,
     ensure_runtime,
+    host_predates_runtime,
     is_dev_version,
     write_manifest,
 )
@@ -46,17 +52,25 @@ from axpilot.system.runner import CommandRunner
 
 __all__ = [
     "MIN_MACOS",
+    "STOP_TIMEOUT_S",
     "PlatformInfo",
     "SetupReport",
     "SetupStep",
     "check_platform",
+    "host_runs_old_runtime",
+    "offer_host_restart",
     "parse_version",
     "platform_info",
+    "restart_host",
     "run_setup",
 ]
 
 MIN_MACOS: tuple[int, int] = (14, 0)
 """The oldest supported macOS (14 Sonoma; ADR-3)."""
+STOP_TIMEOUT_S = 15.0
+"""How long :func:`restart_host` waits for AXPilot.app to quit (the launcher gives its host 10 s)."""
+_LAUNCHER_PROCESS = "AXPilot"  # the process name of AXPilot.app/Contents/MacOS/AXPilot
+_STOP_POLL_S = 0.2
 
 
 class SetupStep(NamedTuple):
@@ -295,3 +309,84 @@ def run_setup(
     if launch_app:
         _step_launch(report, runner, info, ready=manifest_ok and launcher_ok)
     return report
+
+
+# --------------------------------------------------------------------------------------------
+# Restarting the host after an update
+
+
+def host_runs_old_runtime(socket_path: Path | None = None) -> bool:
+    """True if a host serves the socket but started before the runtime last changed
+    (:func:`~axpilot.setup.runtime.host_predates_runtime`)."""
+    from axpilot.host.daemon import socket_is_live  # noqa: PLC0415 - the host's imports are heavy
+
+    path = socket_path or paths.socket_path()
+    return host_predates_runtime(path) and socket_is_live(path)
+
+
+def restart_host(
+    runner: CommandRunner,
+    *,
+    socket_path: Path | None = None,
+    app_path: Path | None = None,
+    platform: str = sys.platform,
+    live: Callable[[Path], bool] | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+) -> Path:
+    """Quit ``AXPilot.app`` (SIGTERM: its host stops cleanly and removes the socket), then open it
+    again and wait for the new host (:func:`axpilot.bridge.launch.ensure_host_running`).
+
+    Raises ``TIMEOUT`` if it is still running after :data:`STOP_TIMEOUT_S`, and ``HOST_UNAVAILABLE``
+    if the new host does not come up."""
+    from axpilot.bridge.launch import ensure_host_running  # noqa: PLC0415 - the host's imports are heavy
+    from axpilot.host.daemon import socket_is_live  # noqa: PLC0415
+
+    path = socket_path or paths.socket_path()
+    is_live = live or socket_is_live
+    runner.run(["pkill", "-TERM", "-x", _LAUNCHER_PROCESS], timeout_s=10)
+    deadline = clock() + STOP_TIMEOUT_S
+    # Opening the app while the old launcher is still quitting would only bring that one forward.
+    while runner.run(["pgrep", "-x", _LAUNCHER_PROCESS], timeout_s=10).ok or is_live(path):
+        if clock() >= deadline:
+            raise AXPilotError(
+                ErrorCode.TIMEOUT,
+                f"AXPilot did not quit within {STOP_TIMEOUT_S:g} s.",
+                hint="Quit AXPilot in Activity Monitor, then run `axpilot update` again.",
+            )
+        sleep(_STOP_POLL_S)
+    return ensure_host_running(
+        path, runner=runner, platform=platform, app_path=app_path, live=is_live, sleep=sleep, clock=clock
+    )
+
+
+def offer_host_restart(
+    report: SetupReport,
+    *,
+    confirm: Callable[[str], bool] | None,
+    restart: Callable[[], object],
+    stale: Callable[[], bool] = host_runs_old_runtime,
+) -> None:
+    """After an update: if the running host predates the runtime, restart it once ``confirm``
+    agrees, else add a ``host`` step that says how. ``confirm`` is ``None`` when nobody can be
+    asked (``--json``, no terminal). Does nothing after a failed update or without such a host."""
+    if not report.ok or not stale():
+        return
+    question = (
+        "AXPilot's host still runs the previous version. Restart AXPilot now? "
+        "Connected MCP clients lose their session."
+    )
+    if confirm is None or not confirm(question):
+        report.add(
+            "host",
+            True,
+            "Not restarted, so it still runs the previous version: run `axpilot update` in a terminal "
+            "and answer yes, or quit AXPilot (`pkill -x AXPilot`) and let the next MCP client open it.",
+        )
+        return
+    try:
+        restart()
+    except AXPilotError as exc:
+        report.add("host", False, _error_detail(exc))
+        return
+    report.add("host", True, "Restarted AXPilot; its host now runs the updated runtime.")

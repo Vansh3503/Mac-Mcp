@@ -10,6 +10,15 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 
 ## [Unreleased]
 
+### Fixed
+
+- After `axpilot update`, the running host kept the previous version (the launcher reads the runtime only when
+  it starts the host), and `axpilot doctor` reported everything as fine. In a terminal, `axpilot update` now
+  offers to restart AXPilot (connected MCP clients lose their session); otherwise it says how. `axpilot doctor`
+  warns while the host is older than the runtime, and setup leaves an unchanged `runtime.json` untouched so that
+  warning stays accurate. The bridge waits 20 s instead of 10 s for a host it starts, since cold starts after a
+  login or an update took 11 s (#56).
+
 ## [0.1.0a2] - 2026-10-24
 
 The second alpha: fixes from the VS Code demo and the real-Mac sessions. It embeds the same
