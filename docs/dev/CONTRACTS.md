@@ -722,7 +722,7 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
   `STAND_IN_ERRORS` = `HOST_UNAVAILABLE`, `USER_DENIED`, `BUSY`, `NOT_SUPPORTED`: raised by
   `ensure_host_running` or by `run_bridge` before the session starts, they are printed on stderr and the
   stand-in serves stdin/stdout (exit `0` when stdin ends); other errors (an unknown profile) still exit.
-- `axpilot/bridge/launch.py`: `ensure_host_running(socket_path=None, *, timeout_s=10, ...) -> Path` returns at
+- `axpilot/bridge/launch.py`: `ensure_host_running(socket_path=None, *, timeout_s=20, ...) -> Path` returns at
   once if a host answers; on macOS runs `open -g -a <launcher>` and polls the socket; elsewhere (and when the
   launcher is missing) raises `HOST_UNAVAILABLE` with a hint to use `--direct` or `--engine fake`.
   `identify_parent()` walks the parent processes with `ps` and names the outermost enclosing `.app` (name and
@@ -776,7 +776,8 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
 - `axpilot/cli.py` (Typer): `stdio [--direct] [--engine auto|macos|fake] [--fixture PATH] [--profile]
   [--naming] [--yes]` (in-process with `--direct`, `--engine fake` or `--fixture`, else the bridge),
   `http [--host] [--port] [--allow-remote --tls-cert --tls-key] [--allow-origin ...] [--show-token]`,
-  `host [--engine] [--socket] [--max-clients] [--yes]`, `setup`, `update`, `uninstall [--remove-launcher]
+  `host [--engine] [--socket] [--max-clients] [--yes]`, `setup`, `update` (then `setup.offer_host_restart`:
+  in a terminal it asks before restarting a host older than the runtime), `uninstall [--remove-launcher]
   [--yes]`, `doctor`, `connect <client>|--list [--dry-run] [--scope] [--project-dir] [--force]`, `disconnect`,
   `config get|set|edit|path|show`, `skill install [--target claude|claude-project|codex] [--dest] [--force]`,
   `debug dump-tree`, `tools`, `call`, `version`; most take `--json`. `main()` is the console-script entry

@@ -384,6 +384,17 @@ def test_host_running(env: Path, runner: Runner, listening_socket: Path) -> None
     assert "accepting connections" in check.detail
 
 
+def test_host_older_than_the_runtime(env: Path, runner: Runner, listening_socket: Path) -> None:
+    """macOS 26 (#56): after `axpilot update`, the host kept running the previous version."""
+    write_manifest(Path("/x/bin/python"))
+    os.utime(listening_socket, (1_000_000, 1_000_000))
+    check = linux_checks(runner)["Host"]
+    assert check.status == "warn"
+    assert "previous version" in check.detail
+    assert check.hint is not None
+    assert "axpilot update" in check.hint
+
+
 def test_host_stale_socket(env: Path, runner: Runner) -> None:
     path = paths.socket_path()
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)

@@ -119,11 +119,17 @@ Running it again is safe. Options: `--yes` (don't ask), `--no-setup` (skip step 
 ## Update and uninstall
 
 ```sh
+uv tool upgrade axpilot   # or pipx upgrade axpilot
 axpilot update        # upgrades the runtime; the launcher is untouched, so no re-grant is needed
 axpilot uninstall     # removes the login item, the runtime and its manifest; keeps config and logs
                       # (--remove-launcher also deletes AXPilot.app, which means granting permissions again)
 uv tool uninstall axpilot
 ```
+
+A host that is already running keeps the previous version until AXPilot restarts: the launcher
+reads the runtime only when it starts the host. In a terminal, `axpilot update` offers to restart
+AXPilot (connected MCP clients lose their session: restart them, or reconnect the server). Otherwise
+it says how, and `axpilot doctor` warns while the host still runs the previous version.
 
 When a release ships a new **launcher** version (rare, announced in the changelog), macOS asks you
 to grant Accessibility once more. `axpilot doctor` detects this and walks you through it.

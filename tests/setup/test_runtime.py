@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import stat
 import sys
 from collections.abc import Callable
@@ -20,6 +21,7 @@ from axpilot.setup.runtime import (
     detect_dev_source,
     ensure_runtime,
     find_uv,
+    host_predates_runtime,
     install_spec,
     is_dev_version,
     manifest_problems,
@@ -282,6 +284,33 @@ def test_write_manifest_defaults_and_cwd(env: Path) -> None:
 def test_write_manifest_requires_absolute_python(env: Path) -> None:
     with pytest.raises(AXPilotError):
         write_manifest(Path("bin/python"))
+
+
+def test_write_manifest_leaves_an_identical_file_untouched(env: Path) -> None:
+    """Its modification time says when the runtime last changed (host_predates_runtime)."""
+    target = paths.runtime_manifest()
+    write_manifest(Path("/x/bin/python"), axpilot_version="0.3.0")
+    os.utime(target, (1_000_000, 1_000_000))
+    write_manifest(Path("/x/bin/python"), axpilot_version="0.3.0")
+    assert target.stat().st_mtime == 1_000_000
+    target.chmod(0o644)
+    write_manifest(Path("/x/bin/python"), axpilot_version="0.3.0")
+    assert mode_of(target) == 0o600
+    os.utime(target, (1_000_000, 1_000_000))
+    write_manifest(Path("/x/bin/python"), axpilot_version="0.4.0")
+    assert target.stat().st_mtime > 1_000_000
+
+
+def test_host_predates_runtime(env: Path) -> None:
+    host_socket, manifest = paths.socket_path(), paths.runtime_manifest()
+    assert not host_predates_runtime()  # neither file exists
+    write_manifest(Path("/x/bin/python"))
+    assert not host_predates_runtime()  # no host socket
+    host_socket.write_text("")  # only its modification time matters
+    os.utime(host_socket, (1_000_000, 1_000_000))
+    assert host_predates_runtime()
+    os.utime(manifest, (900_000, 900_000))
+    assert not host_predates_runtime()
 
 
 def test_read_missing_manifest(env: Path) -> None:

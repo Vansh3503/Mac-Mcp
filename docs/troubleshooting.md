@@ -27,6 +27,9 @@ Until `doctor` lands, the checks below cover the same ground.
   MCP settings or output panels.
 - **Try the simulated desktop** to rule out permission problems: replace `--direct` with
   `--engine fake`. If that works, the problem is on the macOS side.
+- **`HOST_UNAVAILABLE`: "its host did not open … within 20 s".** The first start after a login
+  or an update can be slow. Run `axpilot doctor`; if the host is running now, restart the client
+  (or reconnect the server: `/mcp` in Claude Code).
 
 ## `PERMISSION_ACCESSIBILITY`
 

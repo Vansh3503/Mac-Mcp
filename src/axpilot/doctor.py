@@ -40,7 +40,7 @@ from axpilot.setup.launcher import (
     installed_cdhash,
     launcher_status,
 )
-from axpilot.setup.runtime import is_dev_version, manifest_problems, read_manifest
+from axpilot.setup.runtime import host_predates_runtime, is_dev_version, manifest_problems, read_manifest
 from axpilot.system.runner import CommandRunner
 
 if TYPE_CHECKING:
@@ -288,6 +288,15 @@ def _check_host() -> Check:
     except OSError as exc:  # e.g. a path longer than AF_UNIX allows
         return Check("Host", "fail", f"Cannot connect to {label}: {exc.strerror or exc}.", "Restart AXPilot.")
     if result == 0 or result in (errno.EINPROGRESS, errno.EAGAIN, errno.EWOULDBLOCK):
+        if host_predates_runtime(path):
+            return Check(
+                "Host",
+                "warn",
+                f"Running at {label}, but it started before the runtime was last updated, so it still "
+                "runs the previous version.",
+                "Restart AXPilot: run `axpilot update` in a terminal and answer yes (connected clients "
+                "lose their session).",
+            )
         return Check("Host", "ok", f"Running and accepting connections at {label}.")
     if result == errno.ECONNREFUSED:
         return Check(

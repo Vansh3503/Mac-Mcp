@@ -27,7 +27,10 @@ from axpilot.system.runner import CommandRunner
 
 __all__ = ["HOST_START_TIMEOUT_S", "ensure_host_running", "identify_parent", "parse_ps_parent"]
 
-HOST_START_TIMEOUT_S = 10.0
+HOST_START_TIMEOUT_S = 20.0
+"""How long a bridge waits for a host it started. Cold starts (after an update or a login) took
+11 s on macOS 26 although setup compiles and loads the runtime; Claude Code gives up on a server
+after 30 s, which also covers the bridge's own start."""
 _POLL_S = 0.1
 _MAX_ANCESTORS = 16
 _PS_TIMEOUT_S = 2.0
@@ -81,7 +84,7 @@ def ensure_host_running(
     raise AXPilotError(
         ErrorCode.HOST_UNAVAILABLE,
         f"AXPilot.app started but its host did not open {path} within {timeout_s:g} s.",
-        hint="Check AXPilot's menu-bar icon for a message, or run `axpilot doctor`.",
+        hint="Run `axpilot doctor` to check the installation, then try again.",
     )
 
 
