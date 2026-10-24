@@ -294,6 +294,20 @@ async def test_list_windows_and_displays(client: Client) -> None:
     assert len(structured(displays)["displays"]) == 2
 
 
+async def test_list_windows_warns_about_other_spaces_only_with_a_full_screen_window(client: Client) -> None:
+    before, _ = await call(client, "list_windows")
+    assert not structured(before).get("warnings")
+    notes = next(w for w in structured(before)["windows"] if w["app"] == "Notes")
+    _, error = await call(client, "window", {"action": "fullscreen", "window_id": notes["window_id"]})
+    assert error is None
+    after, error = await call(client, "list_windows")
+    assert error is None
+    [warning] = structured(after)["warnings"]
+    assert "other Spaces are not listed" in warning
+    assert "(Notes in full screen" in warning
+    assert f"warning: {warning}" in text_of(after)
+
+
 # =========================================================================== wait_for
 @pytest.mark.parametrize(
     "args",

@@ -967,7 +967,20 @@ def list_windows_tool(ctx: ServerContext) -> ToolFn:
             models.append(WindowModel.from_info(window, blocked=_blocked(ctx, owner, window.title)))
         header = f"{len(models)} window{'s' if len(models) != 1 else ''}" + (f" of {app}" if app else "")
         lines = [header + " (front to back):" if models else header + ".", *(_window_line(w) for w in models)]
-        return ok_result("\n".join(lines), WindowListModel(windows=models, count=len(models)))
+        # ponytail: Accessibility only sees the current Space (#22), so say so rather than list
+        # other Spaces; a full-screen window is the visible sign that the user is on another one.
+        fullscreen = ", ".join(dict.fromkeys(w.app for w in models if w.fullscreen))
+        warnings = (
+            [
+                f"Windows on other Spaces are not listed ({fullscreen} in full screen on its own Space); "
+                "snapshot(app=…) still reads an app's focused window there."
+            ]
+            if fullscreen
+            else []
+        )
+        return ok_result(
+            "\n".join(lines), WindowListModel(windows=models, count=len(models)), warnings=warnings
+        )
 
     return list_windows
 

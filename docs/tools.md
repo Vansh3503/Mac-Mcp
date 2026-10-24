@@ -35,6 +35,11 @@ coordinates read off a (possibly downscaled) screenshot.
 "Back"}`) that `find(locator=…)` looks up again in any later session. See
 [Locators for scripts](locators.md).
 
+**Windows and Spaces.** The Accessibility API only sees windows on the current Space, so
+`list_windows` does not list windows on other Spaces. When a window in its result is in full
+screen (on its own Space), the result warns about it. `snapshot` with `app` still reads the focused
+window of an app on another Space.
+
 **Act, then observe.** Input tools take `report: "diff" | "snapshot" | "none"` (default `diff`):
 after acting, AXPilot waits for the UI to settle and reports what changed (focus, added and
 removed elements, new windows or dialogs, changed values) with the new `snapshot_id`.

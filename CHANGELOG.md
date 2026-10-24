@@ -32,6 +32,9 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 - When ScreenCaptureKit hung (seen once on macOS 26), `screenshot` failed with `TIMEOUT`: AXPilot fell back to
   CoreGraphics only when ScreenCaptureKit failed outright. It now falls back on a timeout too. The call is still
   bounded by `server.engine_timeout_s` if CoreGraphics is slow as well (#51).
+- `list_windows` does not list windows on other Spaces (the Accessibility API does not see them), so with an
+  app in full screen in front, other apps looked windowless. When a listed window is in full screen, the result
+  now warns that windows on other Spaces are not listed; `docs/tools.md` and the Agent Skill say so too (#22).
 
 ## [0.1.0a1] - 2026-10-21
 
