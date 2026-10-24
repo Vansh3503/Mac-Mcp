@@ -415,7 +415,7 @@ Phase L1 is implemented: the locator format, `locate(ref | locator)`, `find(loca
 |---|---|
 | Profile | `standard`; `scripting` and `browser` off |
 | Confirmations | `destructive` (shell, AppleScript, JS eval, force quit, `defaults` write, process kill) |
-| Kill switch | **⌃⌥⌘.** + menu-bar Stop (cancels in-flight work and pauses) |
+| Kill switch | **⌃⌥⌘P** + menu-bar Stop (cancels in-flight work and pauses) |
 | Yield to user | On |
 | Indicator | Edge glow + click ripples + "Agent is controlling" pill, excluded from our own screenshots |
 | App deny-list | Keychain Access, password managers, the Privacy & Security pane in System Settings |

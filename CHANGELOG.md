@@ -10,6 +10,12 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 
 ## [Unreleased]
 
+### Changed
+
+- The default kill switch is now ⌃⌥⌘P (`[safety] kill_switch = "ctrl+option+cmd+p"`). The old default, ⌃⌥⌘.,
+  never fired on macOS 26: the system takes real presses of it before any app's hotkey sees them, so it could
+  not stop AXPilot. A kill switch you set yourself is kept (#59).
+
 ### Fixed
 
 - After `axpilot update`, the running host kept the previous version (the launcher reads the runtime only when
