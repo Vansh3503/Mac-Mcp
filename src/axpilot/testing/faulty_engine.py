@@ -446,6 +446,10 @@ class FaultyEngine(Engine):
     def notify(self, title: str, message: str, subtitle: str | None = None) -> None:
         return self._call("notify", title, message, subtitle)
 
+    def interrupt(self) -> None:
+        """Passed straight to the wrapped engine, never faulted: it must not block."""
+        self.inner.interrupt()
+
     # ------------------------------------------------------------------ cleanup
     def close(self) -> None:
         """Release hung calls and close the wrapped engine."""

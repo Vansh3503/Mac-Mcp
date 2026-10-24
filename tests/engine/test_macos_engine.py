@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import functools
+import importlib
 import os
 import plistlib
 import sys
@@ -848,6 +849,70 @@ def test_capture_plan_errors() -> None:
     expect(ErrorCode.DISPLAY_NOT_FOUND, h.capture_plan, [])
     expect(ErrorCode.INVALID_ARGUMENT, h.capture_plan, [MAIN], rect=Rect(0, 0, 0, 10))
     expect(ErrorCode.INVALID_ARGUMENT, h.capture_plan, [MAIN], rect=Rect(5000, 5000, 10, 10))
+
+
+class _RecordingPoster:
+    """Stands in for ``EventPoster``: records (type, location) instead of posting, and calls
+    ``gate.interrupt()`` (the kill switch) once ``when`` says so."""
+
+    source = None
+
+    def __init__(self, gate: Any, when: Any) -> None:
+        self._q: Any = importlib.import_module("Quartz")
+        self.gate, self.when = gate, when
+        self.events: list[tuple[int, Any]] = []
+
+    def post(self, event: Any) -> None:
+        self.events.append((int(self._q.CGEventGetType(event)), self._q.CGEventGetLocation(event)))
+        if self.when(self.events):
+            self.gate.interrupt()
+
+    def kinds(self, kind: int) -> int:
+        return sum(1 for posted, _ in self.events if posted == kind)
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="input imports PyObjC")
+def test_an_interrupted_mac_drag_goes_back_and_releases_at_its_start() -> None:
+    """#60: the kill switch returned at once while the abandoned drag went on and dropped at its
+    target. Nothing is posted: the events are recorded."""
+    Q: Any = importlib.import_module("Quartz")
+
+    from axpilot.engine.base import InputGate
+    from axpilot.engine.macos.input import Mouse
+
+    gate = InputGate()
+    poster = _RecordingPoster(
+        gate, lambda events: sum(1 for kind, _ in events if kind == Q.kCGEventLeftMouseDragged) == 4
+    )
+    mouse = Mouse(poster, gate)  # type: ignore[arg-type]
+    error = expect(ErrorCode.PAUSED_BY_USER, mouse.drag, Point(10, 10), Point(310, 10), 0.5)
+    assert "released at the start point" in error.message
+    (back, back_at), (up, up_at) = poster.events[-2:]
+    assert (back, up) == (Q.kCGEventLeftMouseDragged, Q.kCGEventLeftMouseUp)
+    assert (back_at.x, back_at.y, up_at.x, up_at.y) == (10, 10, 10, 10)
+    assert poster.kinds(Q.kCGEventLeftMouseDragged) == 5  # 4 steps of 30, then back to the start
+    assert poster.kinds(Q.kCGEventLeftMouseUp) == 1
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="input imports PyObjC")
+def test_interrupted_mac_glide_scroll_and_typing_stop_between_steps() -> None:
+    Q: Any = importlib.import_module("Quartz")
+
+    from axpilot.engine.base import InputGate
+    from axpilot.engine.macos.input import Mouse
+    from axpilot.engine.macos.keyboard import Keyboard
+
+    gate = InputGate()
+    poster = _RecordingPoster(gate, lambda events: len(events) == 3)
+    expect(ErrorCode.PAUSED_BY_USER, Mouse(poster, gate).move, Point(400, 300), 0.5)  # type: ignore[arg-type]
+    assert poster.kinds(Q.kCGEventMouseMoved) == 3  # of 30
+    poster = _RecordingPoster(gate, lambda events: len(events) == 1)
+    expect(ErrorCode.PAUSED_BY_USER, Mouse(poster, gate).scroll, None, 0, 40)  # type: ignore[arg-type]
+    assert poster.kinds(Q.kCGEventScrollWheel) == 1  # of 4 (10 lines each)
+    poster = _RecordingPoster(gate, lambda events: len(events) == 2)  # after the first segment (down, up)
+    keyboard = Keyboard(poster, layouts=None, gate=gate)  # type: ignore[arg-type]
+    expect(ErrorCode.PAUSED_BY_USER, keyboard.type_text, "x" * 100)  # 5 segments of 20
+    assert poster.kinds(Q.kCGEventKeyDown) == 1
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="capture imports PyObjC")

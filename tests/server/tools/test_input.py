@@ -11,9 +11,10 @@ import anyio
 import pytest
 from mcp import Client
 
-from axpilot.engine.fake import FakeEngine
+from axpilot.engine.fake import DEMO_FIXTURE, FakeEngine
 from axpilot.errors import ErrorCode
-from axpilot.models import AppAction, AppInfo, Rect, WindowInfo
+from axpilot.models import AppAction, AppInfo, Point, Rect, WindowInfo
+from axpilot.policy.control import ControlState
 from axpilot.server.context import ServerContext
 from axpilot.server.results import error_code_of, text_of
 from axpilot.testing import connected_client, make_test_context, structured
@@ -1214,3 +1215,70 @@ async def test_type_text_does_not_warn_when_the_field_shows_the_text(client: Cli
     result, error = await call(client, "type_text", args)
     assert error is None, text_of(result)
     assert not any("could not confirm" in w for w in structured(result)["warnings"])
+
+
+# =========================================================================== kill switch mid-input (#60)
+class PressedMidway(FakeEngine):
+    """The user presses the kill switch before input step ``at``: the hotkey handler runs
+    ``control.pause()``, which cancels the turn and interrupts the engine."""
+
+    at = 0
+    steps = 0
+    control: ControlState | None = None
+
+    def _input_step(self) -> None:
+        self.steps += 1
+        if self.steps == self.at and self.control is not None:
+            self.control.pause("kill switch ⌃⌥⌘P")
+
+
+def pressed_at(step: int) -> tuple[ServerContext, PressedMidway]:
+    engine = PressedMidway.from_fixture(DEMO_FIXTURE)
+    assert isinstance(engine, PressedMidway)
+    ctx = fast(make_test_context({"tools.profile": "full"}, engine=engine))
+    engine.control, engine.at = ctx.control, step
+    return ctx, engine
+
+
+async def test_the_kill_switch_stops_a_glide_where_it_is() -> None:
+    ctx, engine = pressed_at(10)
+    engine.mouse_move(Point(100, 100))
+    async with connected_client(ctx) as client:
+        _, error = await call(client, "move_mouse", {"x": 700, "y": 400, "duration_ms": 1000})
+        assert error == "PAUSED_BY_USER"
+        assert engine.cursor_position() == Point(190, 145)  # 9 of 60 steps, then nothing more
+        assert [e["action"] for e in events(ctx, "input_stopped")] == ["mouse_move"]
+        _, again = await call(client, "move_mouse", {"x": 700, "y": 400})
+        assert again == "PAUSED_BY_USER"  # still paused: refused before any input
+        ctx.control.resume()
+        _, resumed = await call(client, "move_mouse", {"x": 700, "y": 400, "duration_ms": 200})
+        assert resumed is None
+        assert engine.cursor_position() == Point(700, 400)
+
+
+async def test_the_kill_switch_takes_a_drag_back_to_its_start() -> None:
+    ctx, engine = pressed_at(5)
+    async with connected_client(ctx) as client:
+        _, error = await call(
+            client, "drag", {"from_x": 300, "from_y": 300, "to_x": 600, "to_y": 300, "duration_ms": 500}
+        )
+    assert error == "PAUSED_BY_USER"
+    assert engine.cursor_position() == Point(300, 300)
+    assert events(ctx, "input_stopped") == [
+        {"action": "mouse_drag", "at": [340.0, 300.0], "released_at": [300.0, 300.0]}  # 4 of 30 steps
+    ]
+
+
+async def test_the_kill_switch_stops_typing_between_segments() -> None:
+    ctx, engine = pressed_at(3)
+    text = "".join(f"{i:02d}" for i in range(50))  # 100 characters: 5 segments of 20
+    async with connected_client(ctx) as client:
+        refs = await refs_of(client, "Notes")
+        _, error = await call(
+            client,
+            "type_text",
+            {"ref": refs["Note body"], "text": text, "clear": True, "strategy": "keystrokes"},
+        )
+    assert error == "PAUSED_BY_USER"
+    assert engine.refresh_element("notes.body").value == text[:40]
+    assert events(ctx, "input_stopped")[-1]["typed"] == 40
