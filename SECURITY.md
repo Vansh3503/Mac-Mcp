@@ -6,13 +6,13 @@ threat model the project is designed against.
 
 ## Supported versions
 
-AXPilot is **alpha** (0.1.0a2, a pre-release on PyPI) and has no stable release yet. Until 1.0, only the latest pre-release and
+AXPilot is **alpha** (0.1.0a3, a pre-release on PyPI) and has no stable release yet. Until 1.0, only the latest pre-release and
 the `main` branch receive security fixes.
 
 | Version | Supported |
 |---|---|
 | `main` | Yes |
-| Latest `0.x` pre-release (now 0.1.0a2) | Yes |
+| Latest `0.x` pre-release (now 0.1.0a3) | Yes |
 | Older `0.x` pre-releases | No, please upgrade |
 
 After 1.0 we will support the latest minor release of the current major version, and announce
