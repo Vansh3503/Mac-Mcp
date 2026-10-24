@@ -10,6 +10,12 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 
 ## [Unreleased]
 
+## [0.1.0a2] - 2026-10-24
+
+The second alpha: fixes from the VS Code demo and the real-Mac sessions. It embeds the same
+launcher 1.0.0 (`launcher-v1`) as 0.1.0a1, so the Accessibility and Screen Recording grants you
+already gave `AXPilot.app` keep working: no re-grant is needed.
+
 ### Fixed
 
 - `select_option` could not choose in VS Code's settings dropdowns ("showed no menu or list of options"): when
@@ -251,5 +257,6 @@ the `AXPilot.app` you grant Accessibility and Screen Recording to once.
   default button and a warning says so instead. `set_value` also works on Java and Qt combo boxes,
   whose text cannot be set (#33).
 
-[Unreleased]: https://github.com/vansh3503/Mac-Mcp/compare/v0.1.0a1...HEAD
+[Unreleased]: https://github.com/vansh3503/Mac-Mcp/compare/v0.1.0a2...HEAD
+[0.1.0a2]: https://github.com/vansh3503/Mac-Mcp/releases/tag/v0.1.0a2
 [0.1.0a1]: https://github.com/vansh3503/Mac-Mcp/releases/tag/v0.1.0a1
