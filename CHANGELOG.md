@@ -10,6 +10,15 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 
 ## [Unreleased]
 
+## [0.1.0a3] - 2026-10-24
+
+The third alpha, mainly for the kill switch: it is now ⌃⌥⌘P, because the old ⌃⌥⌘. never fired on
+macOS 26, so 0.1.0a2 had no working kill switch there. It embeds the same launcher 1.0.0
+(`launcher-v1`) as 0.1.0a1 and 0.1.0a2, so the Accessibility and Screen Recording grants you
+already gave `AXPilot.app` keep working: no re-grant is needed. After `uv tool upgrade axpilot`, run
+`axpilot update` in a terminal and let it restart AXPilot: a host that is already running keeps the old
+kill switch until it restarts.
+
 ### Changed
 
 - The default kill switch is now ⌃⌥⌘P (`[safety] kill_switch = "ctrl+option+cmd+p"`). The old default, ⌃⌥⌘.,
@@ -282,6 +291,7 @@ the `AXPilot.app` you grant Accessibility and Screen Recording to once.
   default button and a warning says so instead. `set_value` also works on Java and Qt combo boxes,
   whose text cannot be set (#33).
 
-[Unreleased]: https://github.com/vansh3503/Mac-Mcp/compare/v0.1.0a2...HEAD
+[Unreleased]: https://github.com/vansh3503/Mac-Mcp/compare/v0.1.0a3...HEAD
+[0.1.0a3]: https://github.com/vansh3503/Mac-Mcp/releases/tag/v0.1.0a3
 [0.1.0a2]: https://github.com/vansh3503/Mac-Mcp/releases/tag/v0.1.0a2
 [0.1.0a1]: https://github.com/vansh3503/Mac-Mcp/releases/tag/v0.1.0a1
