@@ -18,6 +18,11 @@ line; a new launcher version requires a one-time permission re-grant, which is a
   warns while the host is older than the runtime, and setup leaves an unchanged `runtime.json` untouched so that
   warning stays accurate. The bridge waits 20 s instead of 10 s for a host it starts, since cold starts after a
   login or an update took 11 s (#56).
+- Every `select_option` on a `<select>` in Chrome ended with Escape and the warning "stayed open after the
+  choice": Chrome shows the options in a native popup outside the accessibility tree,
+  and pressing an option by accessibility changes the value but leaves that popup open. AXPilot now types the
+  option's first word and presses Return, as a user would, so the popup closes by itself; when that word would
+  lead to another option, or the popup does not take the choice, it presses the option as before (#30).
 
 ## [0.1.0a2] - 2026-10-24
 
