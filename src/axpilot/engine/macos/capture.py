@@ -17,7 +17,7 @@ How a capture works (macOS 14+):
 4. The ``CGImage`` is encoded with ``NSBitmapImageRep`` as PNG or JPEG. JPEG images are first
    flattened onto white (window corners are transparent).
 
-If ScreenCaptureKit is unavailable or fails unexpectedly, ``CGWindowListCreateImage`` is used
+If ScreenCaptureKit is unavailable, fails unexpectedly or times out, ``CGWindowListCreateImage`` is used
 instead (deprecated, but present); windows of excluded apps are then painted over in black.
 """
 
@@ -312,7 +312,9 @@ def take_screenshot(
         try:
             image = _sck_capture(SCK, plan, capture_window, excluded)
         except AXPilotError as exc:
-            if exc.code != ErrorCode.INTERNAL:
+            # ponytail: a hung ScreenCaptureKit (seen on macOS 26, #51) falls back too, but CoreGraphics
+            # was slow in that state as well (30 s); the tool's engine_timeout_s still bounds the call.
+            if exc.code not in (ErrorCode.INTERNAL, ErrorCode.TIMEOUT):
                 raise
             _log.warning("ScreenCaptureKit failed (%s); using CGWindowListCreateImage", exc.message)
     if image is None:
