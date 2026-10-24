@@ -353,6 +353,12 @@ A web date field is a node that cannot be set (`settable: false`) whose parts ca
 buttons): a part takes focus from `focus` or a click, typed digits fill it (the first after focus starts over;
 other characters are ignored; of text typed without a pause, one key event, it keeps only the first character,
 as Safari and Chrome do; its value is then a number, `5.0`), and a full part moves the focus to the next one.
+Input that takes time steps as on macOS: `mouse_move` (with a duration) and `mouse_drag` glide at 60 steps a
+second (at most 600) and `type_text` goes 20 characters at a time (one with `interval_s`). `interrupt()` (the
+`Engine` hook the kill switch uses; `InputGate` in `engine/base.py`) stops them between steps with
+`PAUSED_BY_USER`: a glide where it got to, a drag back at its start, released there, typing after the last
+segment; each records `("input_stopped", {"action", "at", "released_at" | "typed"})`. `_input_step()`, called
+before each step, does nothing; tests override it to press the kill switch part-way. Scrolling is one step.
 
 ---------------------------------------------------------------------------------------------------
 
@@ -467,7 +473,7 @@ class ControlState:
     def __init__(self, engine: Engine, *, yield_to_user: bool = True, idle_threshold_s: float = 1.0,
                  clock: Callable[[], float] = time.monotonic) -> None
     paused: bool; pause_reason: str | None
-    def pause(self, reason: str = "kill switch") -> None
+    def pause(self, reason: str = "kill switch") -> None   # cancels the turn and calls engine.interrupt()
     def resume(self) -> None
     def toggle_pause(self, reason: str = "kill switch") -> bool   # the kill switch; returns the new state
     def add_listener(self, listener: Callable[[str, str | None], None]) -> None  # turn_start/turn_end/paused/resumed

@@ -12,7 +12,7 @@ import pytest
 from PIL import Image
 
 from axpilot.engine import create_engine
-from axpilot.engine.base import Engine
+from axpilot.engine.base import Engine, InputGate
 from axpilot.engine.fake import DEMO_FIXTURE, FakeEngine, parse_shortcut
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.models import KeyCombo, MenuNode, Point, RawNode, Rect
@@ -692,6 +692,68 @@ def test_mouse_drag_and_scroll(engine: FakeEngine) -> None:
     assert engine.refresh_element(area).role == "AXScrollArea"
     assert engine.scroll_offsets[area] == (0.0, 5.0)
     expect(ErrorCode.INVALID_ARGUMENT, engine.mouse_drag, Point(0, 0), Point(1, 1), button="thumb")  # type: ignore[arg-type]
+
+
+class KillSwitchAt(FakeEngine):
+    """Presses the kill switch (``interrupt``) before input step ``at`` (1-based)."""
+
+    at = 0
+    steps = 0
+
+    def _input_step(self) -> None:
+        self.steps += 1
+        if self.steps == self.at:
+            self.interrupt()
+
+
+def kill_switch_at(step: int) -> KillSwitchAt:
+    engine = KillSwitchAt.from_fixture(DEMO_FIXTURE)
+    assert isinstance(engine, KillSwitchAt)
+    engine.at = step
+    return engine
+
+
+def test_input_gate_stops_only_input_that_started_before_the_interrupt() -> None:
+    gate = InputGate()
+    before = gate.ticket()
+    gate.interrupt()
+    after = gate.ticket()
+    assert gate.stopped(before)
+    assert not gate.stopped(after)
+    gate.check(after, "Typing")
+    error = expect(ErrorCode.PAUSED_BY_USER, gate.check, before, "Typing")
+    assert error.message == "Typing was stopped by the kill switch."
+
+
+def test_an_interrupted_glide_stops_where_it_is() -> None:
+    """#60: the kill switch returned at once, but the pointer glided on in the abandoned thread."""
+    engine = kill_switch_at(10)
+    engine.mouse_move(Point(0, 0))  # no glide, no step
+    expect(ErrorCode.PAUSED_BY_USER, engine.mouse_move, Point(600, 0), duration_s=1.0)  # 60 steps
+    assert engine.cursor_position() == Point(90, 0)  # 9 of 60 steps
+    assert engine.events_of("input_stopped") == [{"action": "mouse_move", "at": [90.0, 0.0]}]
+    engine.mouse_move(Point(600, 0), duration_s=0.5)  # input that starts afterwards runs normally
+    assert engine.cursor_position() == Point(600, 0)
+
+
+def test_an_interrupted_drag_goes_back_and_releases_at_its_start() -> None:
+    engine = kill_switch_at(5)
+    error = expect(ErrorCode.PAUSED_BY_USER, engine.mouse_drag, Point(10, 10), Point(310, 10), duration_s=0.5)
+    assert "released at the start point" in error.message
+    assert engine.cursor_position() == Point(10, 10)
+    assert engine.events_of("input_stopped") == [
+        {"action": "mouse_drag", "at": [50.0, 10.0], "released_at": [10.0, 10.0]}  # 4 of 30 steps
+    ]
+
+
+def test_interrupted_typing_stops_between_segments() -> None:
+    engine = kill_switch_at(3)
+    engine.app_control("activate", "TextEdit")
+    engine.mouse_click(Point(662, 469), count=3)  # select all, so typing replaces the text
+    text = "".join(f"{i:02d}" for i in range(50))  # 100 characters: 5 segments of 20
+    expect(ErrorCode.PAUSED_BY_USER, engine.type_text, text)
+    assert engine.refresh_element("textedit.body").value == text[:40]
+    assert engine.events_of("input_stopped")[-1]["typed"] == 40
 
 
 def test_typing_goes_to_the_focused_field_of_the_frontmost_app(engine: FakeEngine) -> None:

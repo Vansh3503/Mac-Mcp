@@ -19,8 +19,10 @@ A turn
    keyboard within ``idle_threshold_s`` (``engine.hid_idle_seconds()``, read in a worker
    thread);
 4. is cancelled by :meth:`ControlState.pause` while it runs, and then raises
-   ``PAUSED_BY_USER``. :meth:`~ControlState.pause` may be called from any thread (for
-   example the main thread's global hotkey handler).
+   ``PAUSED_BY_USER``; the engine also stops the input it is sending at its next step, so a
+   glide, drag or typing does not run on in the abandoned worker thread.
+   :meth:`~ControlState.pause` may be called from any thread (for example the main thread's
+   global hotkey handler).
 
 Turns are not re-entrant: do not open a turn inside another one.
 """
@@ -119,11 +121,17 @@ class ControlState:
 
     # -------------------------------------------------------------- pause / resume
     def pause(self, reason: str = "kill switch") -> None:
-        """Pause all input and stop the input action in progress. Thread-safe."""
+        """Pause all input and stop the input action in progress: the engine stops its input at
+        the next step (:meth:`~axpilot.engine.base.Engine.interrupt`) and the turn is cancelled.
+        Thread-safe."""
         with self._state:
             self.paused = True
             self.pause_reason = reason
             turns = list(self._turns)
+        try:
+            self.engine.interrupt()
+        except Exception:  # the kill switch must pause even if the engine cannot stop its input (A7)
+            _log.warning("The engine could not stop the input in progress", exc_info=True)
         for turn in turns:
             self._cancel(turn)
         self._notify("paused", reason)

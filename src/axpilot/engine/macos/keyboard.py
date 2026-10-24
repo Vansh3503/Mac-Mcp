@@ -22,6 +22,7 @@ import time
 import AppKit
 import Quartz as Q
 
+from axpilot.engine.base import InputGate
 from axpilot.engine.macos import helpers as h
 from axpilot.engine.macos.carbon import LayoutProvider
 from axpilot.engine.macos.input import EventPoster
@@ -43,9 +44,10 @@ MEDIA_KEY_SUBTYPE = 8
 class Keyboard:
     """Posts keyboard events through an :class:`EventPoster`."""
 
-    def __init__(self, poster: EventPoster, layouts: LayoutProvider) -> None:
+    def __init__(self, poster: EventPoster, layouts: LayoutProvider, gate: InputGate | None = None) -> None:
         self._poster = poster
         self._layouts = layouts
+        self._gate = gate or InputGate()
 
     # ------------------------------------------------------------------ resolution
     def resolve(self, key: str) -> tuple[int, frozenset[str]]:
@@ -155,10 +157,13 @@ class Keyboard:
 
     def type_text(self, text: str, interval_s: float = 0.0) -> None:
         """Type ``text``. With ``interval_s`` > 0 each character is a separate keystroke
-        followed by that pause; otherwise characters go in chunks of up to 20 UTF-16 units."""
+        followed by that pause; otherwise characters go in chunks of up to 20 UTF-16 units. An
+        interrupt (:class:`~axpilot.engine.base.InputGate`) stops it between two of them."""
+        ticket = self._gate.ticket()
         max_units = 1 if interval_s > 0 else h.MAX_EVENT_UTF16
         pause = interval_s if interval_s > 0 else CHUNK_GAP_S
         for kind, payload in h.type_segments(text, max_units):
+            self._gate.check(ticket, "Typing")
             if kind == "key":
                 self.press(KeyCombo(payload))
             else:

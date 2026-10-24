@@ -71,6 +71,12 @@ Escape, Return, pressing the element again, another app coming forward or a clic
 menu close it without choosing (the click is swallowed). Other keys and typing go nowhere while
 it is open.
 
+Input that takes time steps as on macOS (glides and drags at 60 steps a second, typing 20
+characters at a time), so :meth:`FakeEngine.interrupt` (the kill switch) stops it part-way: a glide
+where it got to, a drag back at its start, released there, typing after the last segment, each
+recording ``("input_stopped", {...})`` and raising ``PAUSED_BY_USER``. Tests override
+``_input_step()``, called before each step, to press the kill switch at a given step.
+
 Menu items (``title``, ``enabled``, ``checked``, ``shortcut`` in glyph form such as ``"⇧⌘S"``,
 ``children``) may add ``"separator": true``, ``"toggle": true`` (flip ``checked`` on select)
 and ``on_select`` effects. Apps without fixture menus get a standard menu bar. Standard items
@@ -135,7 +141,7 @@ from typing import Any
 
 from PIL import Image, ImageDraw
 
-from axpilot.engine.base import Engine
+from axpilot.engine.base import Engine, InputGate
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.models import (
     AppAction,
@@ -207,6 +213,11 @@ _CONTENT_ROWS_KEYS = frozenset({"rows", "row_height", "points_per_line", "offset
 _ROW_COLLECTION_ROLES = ("AXTable", "AXList", "AXOutline")
 _DEFAULT_ROW_HEIGHT = 24.0
 _DEFAULT_POINTS_PER_LINE = 10.0
+_GLIDE_RATE_HZ = 60.0
+_GLIDE_MAX_STEPS = 600
+_TYPE_SEGMENT = 20
+"""Glides and drags step at 60 Hz (at most 600 steps) and typing goes 20 characters at a time, as on
+macOS, so that :meth:`FakeEngine.interrupt` can stop them part-way."""
 """Points one scroll "line" moves (macOS's default pixels-per-line for line-unit scroll events)."""
 _CELL_TEXT_INSET = 4.0
 _MENU_KEYS = frozenset(
@@ -694,6 +705,7 @@ class FakeEngine(Engine):
         self._bundle_files: list[str] = []
         self._bundle_plists: dict[str, Mapping[str, Any]] = {}
         self._open_menu: _OpenMenu | None = None
+        self._gate = InputGate()
         """The menu an element shows right now (one at a time, like macOS)."""
         self._load(desktop)
 
@@ -2477,7 +2489,13 @@ class FakeEngine(Engine):
     def mouse_move(self, point: Point, duration_s: float = 0.0) -> None:
         with self._lock:
             self._require_accessibility()
+            ticket = self._gate.ticket()
             self._record("mouse_move", point=point.to_list(), duration_s=duration_s)
+            if duration_s > 0 and self._glide(self._cursor, point, duration_s, ticket):
+                self._record("input_stopped", action="mouse_move", at=self._cursor.to_list())
+                raise AXPilotError(
+                    ErrorCode.PAUSED_BY_USER, "Moving the mouse was stopped by the kill switch."
+                )
             self._cursor = point
 
     def mouse_click(
@@ -2571,6 +2589,7 @@ class FakeEngine(Engine):
             self._require_accessibility()
             if button not in _MOUSE_BUTTONS:
                 raise AXPilotError(ErrorCode.INVALID_ARGUMENT, f"Unknown mouse button {button!r}.")
+            ticket = self._gate.ticket()
             self._record(
                 "mouse_drag",
                 start=start.to_list(),
@@ -2579,6 +2598,15 @@ class FakeEngine(Engine):
                 modifiers=sorted(modifiers),
                 button=button,
             )
+            if self._glide(start, end, duration_s, ticket):
+                stopped_at, self._cursor = self._cursor, start  # back to the start, released there
+                self._record(
+                    "input_stopped", action="mouse_drag", at=stopped_at.to_list(), released_at=start.to_list()
+                )
+                raise AXPilotError(
+                    ErrorCode.PAUSED_BY_USER,
+                    "Dragging was stopped by the kill switch; the button was released at the start point.",
+                )
             self._cursor = end
 
     def scroll(self, point: Point | None, dx: float, dy: float) -> None:
@@ -2693,6 +2721,7 @@ class FakeEngine(Engine):
     def type_text(self, text: str, interval_s: float = 0.0) -> None:
         with self._lock:
             self._require_keyboard()
+            ticket = self._gate.ticket()
             node = None if self._open_menu is not None else self._focused_text(self._frontmost)
             if node is None:
                 part = None if self._open_menu is not None else self._focused_part(self._frontmost)
@@ -2706,7 +2735,32 @@ class FakeEngine(Engine):
                 self._record("type_text", target=node.handle, secure=True, length=len(text))
             else:
                 self._record("type_text", target=node.handle, text=text)
-            self._insert(node, text)
+            segment = 1 if interval_s > 0 else _TYPE_SEGMENT
+            for start in range(0, len(text), segment):
+                self._input_step()
+                if self._gate.stopped(ticket):
+                    self._record("input_stopped", action="type_text", target=node.handle, typed=start)
+                    raise AXPilotError(ErrorCode.PAUSED_BY_USER, "Typing was stopped by the kill switch.")
+                self._insert(node, text[start : start + segment])
+
+    def interrupt(self) -> None:
+        self._gate.interrupt()  # no lock: an input method holds it while this is called
+
+    def _input_step(self) -> None:
+        """Called before each step of a glide, a drag or typing. Does nothing; tests override it to
+        press the kill switch part-way."""
+
+    def _glide(self, start: Point, end: Point, duration_s: float, ticket: int) -> bool:
+        """Move the cursor from ``start`` to ``end`` in steps, as macOS does; True if
+        :meth:`interrupt` stopped it (the cursor then stays where it got to)."""
+        steps = 1 if duration_s <= 0 else max(2, min(_GLIDE_MAX_STEPS, round(duration_s * _GLIDE_RATE_HZ)))
+        for index in range(1, steps + 1):
+            self._input_step()
+            if self._gate.stopped(ticket):
+                return True
+            share = index / steps
+            self._cursor = Point(start.x + (end.x - start.x) * share, start.y + (end.y - start.y) * share)
+        return False
 
     def cursor_position(self) -> Point:
         with self._lock:

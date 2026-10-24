@@ -22,6 +22,13 @@ class StubEngine:
         self.error: BaseException | None = None
         self.gate: threading.Event | None = None
         self.called = threading.Event()
+        self.interrupts = 0
+        self.interrupt_error: BaseException | None = None
+
+    def interrupt(self) -> None:
+        self.interrupts += 1
+        if self.interrupt_error is not None:
+            raise self.interrupt_error
 
     def hid_idle_seconds(self) -> float:
         self.threads.append(threading.get_ident())
@@ -555,6 +562,23 @@ async def test_a_failing_listener_never_breaks_input(caplog: pytest.LogCaptureFi
     control.pause()
     assert control.paused
     assert "listener failed" in caplog.text
+
+
+def test_pause_stops_the_engine_input_in_progress() -> None:
+    """#60: the engine stops a glide, drag or typing at its next step, not only the turn."""
+    control, stub = make()
+    control.pause("kill switch ⌃⌥⌘P")
+    assert stub.interrupts == 1
+    control.resume()
+    assert stub.interrupts == 1  # resuming needs nothing from the engine
+
+
+def test_pause_holds_when_the_engine_cannot_stop_its_input(caplog: pytest.LogCaptureFixture) -> None:
+    control, stub = make()
+    stub.interrupt_error = RuntimeError("boom")
+    control.pause("kill switch")
+    assert control.paused
+    assert "could not stop the input in progress" in caplog.text
 
 
 def test_toggle_pause() -> None:

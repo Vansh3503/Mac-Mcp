@@ -18,6 +18,11 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 
 ### Fixed
 
+- The kill switch made the tool call return at once, but the input already under way went on in the
+  background: a pointer glide to its end, a drag to its target (where it dropped), up to 400 characters of
+  typing. Now the input stops at its next step: a glide where it is, a drag goes back to its start and releases
+  there, scrolling after the current wheel event, typing after the current 20 characters. Engines get an
+  optional `interrupt()` that pausing calls (#60).
 - After `axpilot update`, the running host kept the previous version (the launcher reads the runtime only when
   it starts the host), and `axpilot doctor` reported everything as fine. In a terminal, `axpilot update` now
   offers to restart AXPilot (connected MCP clients lose their session); otherwise it says how. `axpilot doctor`

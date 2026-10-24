@@ -53,7 +53,7 @@ import AppKit
 import Foundation
 import Quartz as Q
 
-from axpilot.engine.base import Engine
+from axpilot.engine.base import Engine, InputGate
 from axpilot.engine.macos import actions as actions_
 from axpilot.engine.macos import attributes as A
 from axpilot.engine.macos import capture as capture_
@@ -165,8 +165,9 @@ class MacEngine(Engine):
         self._enhancer = ElectronEnhancer(self._ax, enabled=enhance_electron_chrome)
         self._windows = WindowService(self._ax, self._apps, self._displays, self._enhancer)
         self._poster = EventPoster()
-        self._mouse = Mouse(self._poster)
-        self._keyboard = Keyboard(self._poster, carbon.LayoutProvider())
+        self._gate = InputGate()
+        self._mouse = Mouse(self._poster, self._gate)
+        self._keyboard = Keyboard(self._poster, carbon.LayoutProvider(), self._gate)
         self._menus = MenuService(self._ax, self._press_escape)
         self._lock = threading.Lock()
         self._responsible_lock = threading.Lock()
@@ -748,6 +749,9 @@ class MacEngine(Engine):
     @_guarded("Posting a notification")
     def notify(self, title: str, message: str, subtitle: str | None = None) -> None:
         notify_.post_notification(self._runner, title, message, subtitle)
+
+    def interrupt(self) -> None:
+        self._gate.interrupt()
 
     # ================================================================== cleanup
     def close(self) -> None:

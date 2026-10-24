@@ -19,6 +19,8 @@ Rules for implementations:
   the frontmost app.
 * Engines do **not** enforce safety policy; the server's policy layer does that before
   calling in. Engines must still never automate system authentication dialogs.
+* Input that takes time (a glide, a drag, typing, scrolling) stops at its next step once
+  :meth:`Engine.interrupt` is called (the kill switch); :class:`InputGate` does the counting.
 """
 
 from __future__ import annotations
@@ -47,6 +49,35 @@ from axpilot.models import (
     WindowAction,
     WindowInfo,
 )
+
+
+class InputGate:
+    """Lets :meth:`Engine.interrupt` stop input that is already running, without locks.
+
+    :meth:`interrupt` moves a counter on. An input method takes a :meth:`ticket` when it starts
+    and asks :meth:`stopped` (or :meth:`check`) between its steps, so input that started before
+    the interrupt stops and input that starts afterwards runs normally: nothing needs resetting.
+    """
+
+    def __init__(self) -> None:
+        self._epoch = 0
+
+    def interrupt(self) -> None:
+        """Stop the input in progress at its next step. Any thread; never blocks."""
+        self._epoch += 1  # two racing interrupts may count once: the epoch still moves
+
+    def ticket(self) -> int:
+        """Taken when an input method starts."""
+        return self._epoch
+
+    def stopped(self, ticket: int) -> bool:
+        """True once :meth:`interrupt` was called after ``ticket`` was taken."""
+        return self._epoch != ticket
+
+    def check(self, ticket: int, what: str) -> None:
+        """Raise ``PAUSED_BY_USER`` naming ``what`` once the input should stop."""
+        if self.stopped(ticket):
+            raise AXPilotError(ErrorCode.PAUSED_BY_USER, f"{what} was stopped by the kill switch.")
 
 
 class Engine(abc.ABC):
@@ -307,6 +338,17 @@ class Engine(abc.ABC):
 
     @abc.abstractmethod
     def notify(self, title: str, message: str, subtitle: str | None = None) -> None: ...
+
+    def interrupt(self) -> None:  # noqa: B027 - optional hook, intentionally empty
+        """Stop the synthetic input in progress at its next step (the kill switch).
+
+        Called from any thread, also while an input method runs in another one; never blocks or
+        raises. Input that starts afterwards runs normally. An interrupted ``mouse_move`` stops
+        where it is, ``mouse_drag`` goes back to its start point and releases the button there,
+        ``scroll`` stops after the current wheel event and ``type_text`` after the current
+        segment; each then raises ``PAUSED_BY_USER``. ``mouse_click`` and ``press_key`` are short
+        and always finish (a half click or a held modifier would be worse). Engines whose input
+        is instantaneous may ignore it."""
 
     # ------------------------------------------------------------------ cleanup
     def close(self) -> None:  # noqa: B027 - optional hook, intentionally empty

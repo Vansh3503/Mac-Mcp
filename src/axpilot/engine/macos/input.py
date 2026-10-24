@@ -20,6 +20,7 @@ from typing import Any
 
 import Quartz as Q
 
+from axpilot.engine.base import InputGate
 from axpilot.engine.macos import helpers as h
 from axpilot.errors import AXPilotError, ErrorCode
 from axpilot.models import MouseButton, Point
@@ -119,8 +120,9 @@ def _button(button: str) -> tuple[int, int, int, int]:
 class Mouse:
     """Pointer moves, clicks, drags and scrolling."""
 
-    def __init__(self, poster: EventPoster) -> None:
+    def __init__(self, poster: EventPoster, gate: InputGate | None = None) -> None:
         self._poster = poster
+        self._gate = gate or InputGate()
 
     def _event(self, event_type: int, point: Point, button: int, flags: int) -> Any:
         event = Q.CGEventCreateMouseEvent(self._poster.source, event_type, (point.x, point.y), button)
@@ -132,11 +134,14 @@ class Mouse:
         self._poster.post(self._event(Q.kCGEventMouseMoved, point, Q.kCGMouseButtonLeft, flags))
 
     def move(self, point: Point, duration_s: float = 0.0) -> None:
-        """Move the pointer, gliding over ``duration_s`` seconds when it is positive."""
+        """Move the pointer, gliding over ``duration_s`` seconds when it is positive. An
+        interrupt (:class:`~axpilot.engine.base.InputGate`) stops the glide where it is."""
         if duration_s > 0:
+            ticket = self._gate.ticket()
             path = h.interpolate(cursor_position(), point, h.motion_steps(duration_s))
             pause = duration_s / len(path)
             for step in path:
+                self._gate.check(ticket, "Moving the mouse")
                 self._post_move(step)
                 time.sleep(pause)
         else:
@@ -165,30 +170,46 @@ class Mouse:
     def drag(
         self, start: Point, end: Point, duration_s: float, button: MouseButton = "left", flags: int = 0
     ) -> None:
-        """Press at ``start``, move to ``end`` over ``duration_s`` seconds, release."""
+        """Press at ``start``, move to ``end`` over ``duration_s`` seconds, release. An interrupt
+        goes back to ``start`` and releases there, so the drop lands where the item came from."""
+        ticket = self._gate.ticket()
         down_type, up_type, drag_type, number = _button(button)
         self._post_move(start, flags)
         time.sleep(MOVE_SETTLE_S)
+        self._gate.check(ticket, "Dragging")  # not pressed yet: nothing to undo
         self._poster.post(self._event(down_type, start, number, flags))
         time.sleep(DRAG_HOLD_S)
+        release, stopped = end, False
         try:
             path = h.interpolate(start, end, h.motion_steps(duration_s))
             pause = max(duration_s, 0.0) / len(path)
             for step in path:
+                if self._gate.stopped(ticket):
+                    release, stopped = start, True
+                    self._poster.post(self._event(drag_type, start, number, flags))
+                    time.sleep(MOVE_SETTLE_S)
+                    break
                 self._poster.post(self._event(drag_type, step, number, flags))
                 time.sleep(pause)
         finally:
             # Always release the button, even if a move failed, so it is never left stuck down.
-            self._poster.post(self._event(up_type, end, number, flags))
+            self._poster.post(self._event(up_type, release, number, flags))
+        if stopped:
+            raise AXPilotError(
+                ErrorCode.PAUSED_BY_USER,
+                "Dragging was stopped by the kill switch; the button was released at the start point.",
+            )
 
     def scroll(self, point: Point | None, dx: float, dy: float) -> None:
         """Scroll by lines at ``point`` (or where the pointer is). Positive ``dy`` reveals
         content further down, positive ``dx`` further right."""
+        ticket = self._gate.ticket()
         vertical, horizontal = h.wheel_deltas(dx, dy)
         if point is not None:
             self._post_move(point)
             time.sleep(MOVE_SETTLE_S)
         for wheel_y, wheel_x in zip(vertical, horizontal, strict=True):
+            self._gate.check(ticket, "Scrolling")
             event = Q.CGEventCreateScrollWheelEvent(
                 self._poster.source, Q.kCGScrollEventUnitLine, 2, int(wheel_y), int(wheel_x)
             )
