@@ -84,7 +84,7 @@ for apps that don't work well.
 |---|---|---|
 | `STALE_REF` | The UI changed since the snapshot (a list scrolled, a dialog opened) | Call `snapshot` again and use the new refs |
 | `USER_ACTIVE` | You moved the mouse or typed while the agent was acting | Let go for a moment; the agent retries. To tune it, see `safety.user_idle_threshold_s` |
-| `PAUSED_BY_USER` | The kill switch was used *(v0.2)* | Resume from the menu bar when you want the agent to continue |
+| `PAUSED_BY_USER` | The kill switch (⌃⌥⌘P) was pressed | Press ⌃⌥⌘P again when you want the agent to continue |
 | `BLOCKED_BY_POLICY` | The app or window is deny-listed, not allowed, or a terminal | Intended. Change `[safety]` or enable `scripting` only if you really want this |
 | `SECURE_INPUT_ACTIVE` | A password field is focused, or a terminal has *Secure Keyboard Entry* on | Finish that step yourself, or turn off Secure Keyboard Entry in the terminal's menu |
 | `NEEDS_USER` | A system password or authorization dialog is open | Handle the dialog yourself |

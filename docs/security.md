@@ -112,15 +112,17 @@ you used them within the last second (`safety.user_idle_threshold_s`), the actio
 "virtual hand" at a time.
 
 The kill switch, **⌃⌥⌘P** (`safety.kill_switch`), cancels the input action in progress and pauses
-AXPilot; press it again to resume. While paused, every tool that changes something returns
+AXPilot; press it again to resume. Hold Control, Option and Command first, then press P: as with any
+macOS shortcut, a P that goes down before the last modifier does not count. While paused, every tool that changes something returns
 `PAUSED_BY_USER`; reading tools keep working. Because no tool can press keys while AXPilot is
 paused, an agent can't resume itself. While AXPilot acts, a frame around the screen and a pill at
 the top say so (`safety.indicator`); they turn orange while it is paused. Both run in the host and in
 direct mode with the real engine on macOS. The input in flight stops at its next step too: a pointer
 glide stops where it is, a drag goes back to where it started and releases there (so nothing is dropped
 part-way), scrolling stops after the current wheel event and typing after the current 20 characters.
-*(Checked on macOS 26 in direct mode: ⌃⌥⌘P pauses, stops the action in progress and resumes, and the
-indicator stays out of screenshots. A Stop item in the menu bar comes with the menu-bar app.)*
+*(Checked on macOS 26, in direct mode and through the host: ⌃⌥⌘P pauses, stops the action in progress
+and resumes, and the indicator stays out of screenshots. A Stop item in the menu bar comes with the
+menu-bar app.)*
 
 ## Audit log
 

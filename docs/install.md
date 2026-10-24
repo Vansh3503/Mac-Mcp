@@ -126,6 +126,9 @@ axpilot uninstall     # removes the login item, the runtime and its manifest; ke
 uv tool uninstall axpilot
 ```
 
+Right after a release, `uv tool upgrade` can still answer from uv's cached copy of the package index
+and keep the old version; `UV_NO_CACHE=1 uv tool upgrade axpilot` asks PyPI again.
+
 A host that is already running keeps the previous version until AXPilot restarts: the launcher
 reads the runtime only when it starts the host. In a terminal, `axpilot update` offers to restart
 AXPilot (connected MCP clients lose their session: restart them, or reconnect the server). Otherwise

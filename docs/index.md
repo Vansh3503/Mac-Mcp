@@ -18,7 +18,7 @@ by default.
   first and returns a diff of what changed.
 - **Safety.** Profiles and toolsets, app and window deny-lists, protection for password fields,
   confirmations for destructive actions, a rate limit, an audit log, yield-to-user, client pairing,
-  a kill switch and an on-screen indicator (not yet verified on a Mac). **No telemetry.**
+  a kill switch (⌃⌥⌘P) and an on-screen indicator. **No telemetry.**
 - **Any client, any framework.** Standard MCP over stdio or Streamable HTTP. Works
   with Claude Desktop, Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI, the OpenAI Agents SDK,
   LangGraph, Pydantic AI and anything else that speaks MCP.
