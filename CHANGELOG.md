@@ -29,6 +29,9 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 - `type_text` into VS Code's inputs (Chromium EditContext) returned `ok` although the field still reported no
   text, so an agent reading it back thought typing had failed. It now warns that it could not confirm the text
   when the field that took it still reports none (#47).
+- When ScreenCaptureKit hung (seen once on macOS 26), `screenshot` failed with `TIMEOUT`: AXPilot fell back to
+  CoreGraphics only when ScreenCaptureKit failed outright. It now falls back on a timeout too. The call is still
+  bounded by `server.engine_timeout_s` if CoreGraphics is slow as well (#51).
 
 ## [0.1.0a1] - 2026-10-21
 

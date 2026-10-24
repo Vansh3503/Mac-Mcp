@@ -19,6 +19,7 @@ Run on a Mac::
 from __future__ import annotations
 
 import concurrent.futures
+import functools
 import os
 import plistlib
 import sys
@@ -847,6 +848,47 @@ def test_capture_plan_errors() -> None:
     expect(ErrorCode.DISPLAY_NOT_FOUND, h.capture_plan, [])
     expect(ErrorCode.INVALID_ARGUMENT, h.capture_plan, [MAIN], rect=Rect(0, 0, 0, 10))
     expect(ErrorCode.INVALID_ARGUMENT, h.capture_plan, [MAIN], rect=Rect(5000, 5000, 10, 10))
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="capture imports PyObjC")
+@pytest.mark.parametrize(
+    ("code", "falls_back"),
+    [(ErrorCode.INTERNAL, True), (ErrorCode.TIMEOUT, True), (ErrorCode.PERMISSION_SCREEN_RECORDING, False)],
+)
+def test_screen_capture_kit_failures_fall_back_to_core_graphics(
+    monkeypatch: pytest.MonkeyPatch, code: ErrorCode, falls_back: bool
+) -> None:
+    """macOS 26 (#51): ScreenCaptureKit hung and the screenshot failed with TIMEOUT instead of
+    falling back to CGWindowListCreateImage. Nothing is captured: both paths are stubbed."""
+    from axpilot.engine.macos import capture as capture_
+
+    def sck_fails(*_: object) -> None:
+        raise AXPilotError(code, "Taking the screenshot failed.")
+
+    legacy: list[int | None] = []
+    monkeypatch.setattr(capture_, "screen_capture_allowed", lambda: True)
+    monkeypatch.setattr(capture_, "_screen_capture_kit", object)
+    monkeypatch.setattr(capture_, "_sck_capture", sck_fails)
+    monkeypatch.setattr(capture_, "_legacy_capture", lambda _plan, wid: legacy.append(wid) or "img")
+    monkeypatch.setattr(capture_, "encode_image", lambda image, *_, **__: (b"png", 2, 1))
+    shoot = functools.partial(
+        capture_.take_screenshot,
+        [MAIN],
+        display_id=None,
+        window_id=None,
+        rect=None,
+        max_edge=1280,
+        fmt="png",
+        quality=80,
+        exclude_bundle_ids=(),
+        bundle_of=lambda pid: None,
+    )
+    if falls_back:
+        assert shoot().data == b"png"
+        assert legacy == [None]
+    else:
+        expect(code, shoot)
+        assert legacy == []
 
 
 def test_resolve_languages() -> None:
