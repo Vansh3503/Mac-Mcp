@@ -5,10 +5,10 @@ ignores the mouse and is left out of screen sharing (``NSWindowSharingNone``). I
 coloured border and a pill at the top centre with the indicator's text (blue while AXPilot acts,
 orange while it is paused). :class:`axpilot.host.killswitch.Indicator` decides when it shows.
 
-Threading: main thread only. **Not run on a real Mac yet**: drawing, Spaces and full-screen
-apps, multiple displays, and whether ScreenCaptureKit leaves the windows out of AXPilot's own
-screenshots on macOS 15+ (``sharingType`` no longer guarantees it there; the capture filter
-should exclude AXPilot's windows too) are open checks in the handoff. Click ripples are planned.
+Threading: main thread only. Checked on macOS 26 (2026-10-24): the window shows while AXPilot acts
+and hides 2 s after, and it is in neither AXPilot's screenshots nor ``screencapture``. Still open:
+how it looks, Spaces and full-screen apps, multiple displays, and macOS 14, 15 and 27. Click
+ripples are planned.
 """
 
 from __future__ import annotations

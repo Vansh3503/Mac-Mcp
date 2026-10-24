@@ -63,7 +63,7 @@ is not a boundary against malware running as the same user; the security page sa
 |---|---|---|
 | Rate limit (120 input actions per minute, one host-wide budget) | `policy/ratelimit.py`, `server/guard.py` | `tests/policy/test_ratelimit.py`, `tests/server/test_guard.py` |
 | Yield to user (`USER_ACTIVE`), one input action at a time | `policy/control.py` | `tests/policy/test_control.py`, `tests/server/test_guard.py` |
-| Kill switch (⌃⌥⌘.) and indicator | `host/killswitch.py`, `host/ui/` | `tests/host/test_killswitch.py` |
+| Kill switch (⌃⌥⌘P) and indicator | `host/killswitch.py`, `host/ui/` | `tests/host/test_killswitch.py` |
 | Input never retried automatically; abandoned presses are not repeated | `server/tools/input.py` | `tests/server/tools/test_input.py` |
 | "Trash rather than delete" | no tool deletes files; `handle_dialog` asks before pressing a delete, discard or overwrite button | `tests/server/tools/test_controls.py` |
 

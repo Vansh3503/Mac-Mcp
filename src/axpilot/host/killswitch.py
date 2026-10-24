@@ -10,8 +10,8 @@
   otherwise. Control-state events may arrive on any thread; :meth:`Indicator.tick`, called on
   the main thread by the UI's run-loop pump, applies the change to the :class:`IndicatorView`.
 
-The AppKit and Carbon parts live in :mod:`axpilot.host.ui` (macOS only, not verified on a real
-Mac yet); everything here runs and is tested anywhere.
+The AppKit and Carbon parts live in :mod:`axpilot.host.ui` (macOS only; checked on macOS 26, see
+there); everything here runs and is tested anywhere.
 """
 
 from __future__ import annotations

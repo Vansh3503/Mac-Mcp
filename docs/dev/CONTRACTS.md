@@ -733,7 +733,7 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
   MCP `(read_stream, write_stream)` to the host, for `mcp.Client(host_transport())` in-process (the SDK's
   `Desktop.connect()` and the tests).
 - `axpilot/input/hotkeys.py`: `parse_hotkey(text) -> Hotkey(key, key_code, modifiers)` (US-ANSI key code,
-  `carbon_modifiers`, `label` such as `⌃⌥⌘.`); a key needs cmd, ctrl or option, never fn (`INVALID_ARGUMENT`).
+  `carbon_modifiers`, `label` such as `⌃⌥⌘P`); a key needs cmd, ctrl or option, never fn (`INVALID_ARGUMENT`).
   `[safety] kill_switch` is validated with it at config load.
 - `axpilot/host/killswitch.py` (pure): `KillSwitch(control, hotkey).pressed() -> bool` toggles
   `ControlState.toggle_pause` (presses < 0.5 s apart count once; never raises). `Indicator(view, hotkey_label)`

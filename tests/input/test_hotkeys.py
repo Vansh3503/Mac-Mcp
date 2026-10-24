@@ -10,14 +10,14 @@ from axpilot.input.hotkeys import CARBON_MODIFIERS, DEFAULT_KILL_SWITCH, parse_h
 
 def test_the_default_kill_switch() -> None:
     hotkey = parse_hotkey(DEFAULT_KILL_SWITCH)
-    assert hotkey.key == "."
-    assert hotkey.key_code == 47  # kVK_ANSI_Period
+    assert hotkey.key == "p"
+    assert hotkey.key_code == 35  # kVK_ANSI_P
     assert hotkey.modifiers == {"ctrl", "option", "cmd"}
     assert (
         hotkey.carbon_modifiers
         == CARBON_MODIFIERS["ctrl"] | CARBON_MODIFIERS["option"] | CARBON_MODIFIERS["cmd"]
     )
-    assert hotkey.label == "⌃⌥⌘."
+    assert hotkey.label == "⌃⌥⌘P"
 
 
 @pytest.mark.parametrize(

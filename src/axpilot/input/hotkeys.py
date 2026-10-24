@@ -1,9 +1,9 @@
 """Global hotkeys such as the kill switch (``[safety] kill_switch``).
 
-:func:`parse_hotkey` turns ``"ctrl+option+cmd+."`` (shown as ⌃⌥⌘.) into a :class:`Hotkey`: the
+:func:`parse_hotkey` turns ``"ctrl+option+cmd+p"`` (shown as ⌃⌥⌘P) into a :class:`Hotkey`: the
 US-ANSI virtual key code and modifiers that the Carbon ``RegisterEventHotKey`` call in
 :mod:`axpilot.host.ui.hotkey` registers. Carbon hotkeys are bound to a physical key, so on other
-layouts the kill switch is the key in the US "." position (to check on a Mac with such a layout).
+layouts the kill switch is the key in the US "P" position (to check on a Mac with such a layout).
 """
 
 from __future__ import annotations
@@ -15,7 +15,9 @@ from axpilot.input.keys import ansi_keycode, parse_combo
 
 __all__ = ["CARBON_MODIFIERS", "DEFAULT_KILL_SWITCH", "Hotkey", "parse_hotkey"]
 
-DEFAULT_KILL_SWITCH = "ctrl+option+cmd+."
+DEFAULT_KILL_SWITCH = "ctrl+option+cmd+p"
+"""⌃⌥⌘P. The first default, ⌃⌥⌘., never fired on macOS 26: the system takes real presses of it
+before any app's hotkey sees them (#59)."""
 CARBON_MODIFIERS: dict[str, int] = {"cmd": 0x0100, "shift": 0x0200, "option": 0x0800, "ctrl": 0x1000}
 """Carbon ``cmdKey``/``shiftKey``/``optionKey``/``controlKey`` (``RegisterEventHotKey``)."""
 _GLYPHS = {"ctrl": "⌃", "option": "⌥", "shift": "⇧", "cmd": "⌘"}
@@ -40,13 +42,13 @@ class Hotkey:
 
     @property
     def label(self) -> str:
-        """How the Mac writes it: ``⌃⌥⌘.``."""
+        """How the Mac writes it: ``⌃⌥⌘P``."""
         glyphs = "".join(_GLYPHS[name] for name in _GLYPH_ORDER if name in self.modifiers)
         return glyphs + (self.key.upper() if len(self.key) == 1 else self.key)
 
 
 def parse_hotkey(text: str) -> Hotkey:
-    """The :class:`Hotkey` for ``text`` (``"ctrl+option+cmd+."``).
+    """The :class:`Hotkey` for ``text`` (``"ctrl+option+cmd+p"``).
 
     Raises ``INVALID_ARGUMENT`` for a sequence, ``fn`` (Carbon hotkeys cannot use it), a key
     without ⌘, ⌃ or ⌥ (it would take a plain key away from every app), or a key that has no
@@ -58,7 +60,7 @@ def parse_hotkey(text: str) -> Hotkey:
         raise AXPilotError(
             ErrorCode.INVALID_ARGUMENT,
             f"The kill switch {text!r} needs cmd, ctrl or option, so it does not take a key from other apps.",
-            hint='The default is "ctrl+option+cmd+." (⌃⌥⌘.).',
+            hint='The default is "ctrl+option+cmd+p" (⌃⌥⌘P).',
         )
     code, needs_shift = ansi_keycode(combo.key)
     modifiers = frozenset(combo.modifiers | ({"shift"} if needs_shift else set()))

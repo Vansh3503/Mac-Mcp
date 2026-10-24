@@ -7,7 +7,7 @@ asyncio loop, so instead of ``NSApp.run()`` :meth:`AppKitPump.pump` is called ev
 in :mod:`axpilot.engine.macos.runloop` does) and runs the tick callbacks (the indicator).
 
 The application is an accessory: no Dock icon, no menu bar. Threading: main thread only.
-**Not run on a real Mac yet** (open check in the handoff).
+Checked on macOS 26 (2026-10-24): Carbon hotkey events arrive through this pump.
 """
 
 from __future__ import annotations

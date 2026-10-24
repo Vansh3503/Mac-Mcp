@@ -8,7 +8,8 @@ and Carbon side, imported only on macOS.
 
 The UI is a side channel (QUALITY.md A7): if AppKit cannot start or a part fails, a warning is
 logged and the server runs without it. Only this package and :mod:`axpilot.engine.macos` import
-PyObjC. **Not run on a real Mac yet.**
+PyObjC. Checked on macOS 26 in direct mode (2026-10-24, #9, #59); host mode and other macOS versions are
+open checks.
 """
 
 from __future__ import annotations

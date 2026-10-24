@@ -248,7 +248,7 @@ generated from the code: [docs/tools.md](https://github.com/vansh3503/Mac-Mcp/bl
 | Yield to user | On: input pauses while you are using the mouse or keyboard |
 | Audit log | `~/Library/Logs/AXPilot/audit.jsonl`, arguments redacted |
 | Client pairing | The host asks once per client app before it may connect |
-| Kill switch, indicator | ⌃⌥⌘. stops the agent (press again to resume); a frame and pill show while it acts *(implemented, not yet run on a Mac)* |
+| Kill switch, indicator | ⌃⌥⌘P stops the agent (press again to resume); a frame and pill show while it acts *(checked on macOS 26 in direct mode)* |
 | Telemetry | **None** |
 
 Screen content is untrusted input for an agent. Read the
