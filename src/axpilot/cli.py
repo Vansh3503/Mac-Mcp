@@ -499,17 +499,27 @@ def uninstall(
     yes: YesOption = False,
     as_json: JsonOption = False,
 ) -> None:
-    """Remove the login item, the runtime and its manifest (keeps your config and logs)."""
+    """Quit AXPilot, then remove the login item, the runtime and its manifest (keeps your config and
+    logs)."""
+    from axpilot import setup  # noqa: PLC0415
+    from axpilot.host.daemon import socket_is_live  # noqa: PLC0415
     from axpilot.setup.launcher import remove_login_item  # noqa: PLC0415
+    from axpilot.system.runner import CommandRunner  # noqa: PLC0415
 
     _state.json = as_json
     targets = [paths.runtime_dir(), paths.runtime_manifest()] + (
         [paths.launcher_app_path()] if remove_launcher else []
     )
     if not yes and not typer.confirm(
-        "Remove " + ", ".join(str(t) for t in targets) + " and the login item?", default=False
+        "Quit AXPilot and remove " + ", ".join(str(t) for t in targets) + " and the login item?",
+        default=False,
     ):
         raise typer.Exit(EXIT_ERROR)
+    # A host keeps running from a deleted runtime (and can still act), so it goes first; if it does
+    # not quit, nothing is removed.
+    running = socket_is_live(paths.socket_path())
+    if running:
+        setup.stop_host(CommandRunner(), retry="axpilot uninstall")
     removed: list[str] = []
     if remove_login_item():
         removed.append("login item")
@@ -521,9 +531,12 @@ def uninstall(
             target.unlink()
             removed.append(str(target))
     if as_json:
-        _print_json({"removed": removed})
+        _print_json({"quit": running, "removed": removed})
     else:
-        _out("Removed: " + (", ".join(removed) if removed else "nothing (AXPilot was not set up)."))
+        quit_note = "Quit AXPilot. " if running else ""
+        _out(
+            quit_note + "Removed: " + (", ".join(removed) if removed else "nothing (AXPilot was not set up).")
+        )
 
 
 @app.command()

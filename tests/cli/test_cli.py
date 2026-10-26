@@ -438,8 +438,49 @@ def test_uninstall(run: Any, tmp_path: Path) -> None:
     ran = run("uninstall", "--yes", "--json")
     assert ran.code == 0
     assert set(ran.json()["removed"]) == {str(runtime), str(tmp_path / "support" / "runtime.json")}
+    assert ran.json()["quit"] is False  # no host answers on (this test's) socket: nothing to quit
     assert config.exists()  # kept
     assert run("uninstall", "--yes").out.startswith("Removed: nothing")
+
+
+def test_uninstall_quits_a_running_axpilot_first(
+    run: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = tmp_path / "support" / "runtime"
+    runtime.mkdir(parents=True)
+    stops: list[tuple[str, bool]] = []
+
+    def stop_host(runner: Any, *, retry: str) -> None:
+        stops.append((retry, runtime.exists()))
+
+    monkeypatch.setattr("axpilot.host.daemon.socket_is_live", lambda path: True)
+    monkeypatch.setattr("axpilot.setup.stop_host", stop_host)
+    ran = run("uninstall", "--yes", "--json")
+    assert ran.code == 0
+    assert ran.json()["quit"] is True
+    assert stops == [("axpilot uninstall", True)]  # quit while the runtime still existed
+    assert not runtime.exists()
+    assert run("uninstall", "--yes").out.startswith("Quit AXPilot. Removed: nothing")
+
+
+def test_uninstall_keeps_the_runtime_when_axpilot_does_not_quit(
+    run: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = tmp_path / "support" / "runtime"
+    runtime.mkdir(parents=True)
+
+    def stop_host(runner: Any, *, retry: str) -> None:
+        raise AXPilotError(
+            ErrorCode.TIMEOUT, "AXPilot did not quit within 15 s.", hint=f"Then run `{retry}` again."
+        )
+
+    monkeypatch.setattr("axpilot.host.daemon.socket_is_live", lambda path: True)
+    monkeypatch.setattr("axpilot.setup.stop_host", stop_host)
+    ran = run("uninstall", "--yes")
+    assert ran.code == 1
+    assert "TIMEOUT" in ran.err
+    assert "axpilot uninstall" in ran.err
+    assert runtime.exists()  # never deleted under a host that still runs
 
 
 def test_uninstall_asks_first(run: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

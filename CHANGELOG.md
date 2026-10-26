@@ -10,6 +10,12 @@ line; a new launcher version requires a one-time permission re-grant, which is a
 
 ## [Unreleased]
 
+### Fixed
+
+- `axpilot uninstall` removed the runtime but left AXPilot running: the host kept serving MCP clients (and
+  could still act) from the deleted files, and `axpilot doctor` called it fine. It now quits AXPilot first,
+  like `axpilot update` does when it restarts it, and removes nothing if AXPilot does not quit (#66).
+
 ## [0.1.0a3] - 2026-10-24
 
 The third alpha, mainly for the kill switch: it is now ⌃⌥⌘P, because the old ⌃⌥⌘. never fired on

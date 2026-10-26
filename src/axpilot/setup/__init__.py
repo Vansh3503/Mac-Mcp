@@ -63,6 +63,7 @@ __all__ = [
     "platform_info",
     "restart_host",
     "run_setup",
+    "stop_host",
 ]
 
 MIN_MACOS: tuple[int, int] = (14, 0)
@@ -338,6 +339,36 @@ def host_runs_old_runtime(socket_path: Path | None = None) -> bool:
     return host_predates_runtime(path) and socket_is_live(path)
 
 
+def stop_host(
+    runner: CommandRunner,
+    *,
+    socket_path: Path | None = None,
+    live: Callable[[Path], bool] | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+    retry: str = "axpilot update",
+) -> None:
+    """Quit ``AXPilot.app`` (SIGTERM: its host stops cleanly and removes the socket) and wait until
+    the launcher is gone and the socket no longer answers.
+
+    Raises ``TIMEOUT`` if it is still running after :data:`STOP_TIMEOUT_S`; the hint says to run
+    ``retry`` again once AXPilot is quit by hand."""
+    from axpilot.host.daemon import socket_is_live  # noqa: PLC0415 - the host's imports are heavy
+
+    path = socket_path or paths.socket_path()
+    is_live = live or socket_is_live
+    runner.run(["pkill", "-TERM", "-x", _LAUNCHER_PROCESS], timeout_s=10)
+    deadline = clock() + STOP_TIMEOUT_S
+    while runner.run(["pgrep", "-x", _LAUNCHER_PROCESS], timeout_s=10).ok or is_live(path):
+        if clock() >= deadline:
+            raise AXPilotError(
+                ErrorCode.TIMEOUT,
+                f"AXPilot did not quit within {STOP_TIMEOUT_S:g} s.",
+                hint=f"Quit AXPilot in Activity Monitor, then run `{retry}` again.",
+            )
+        sleep(_STOP_POLL_S)
+
+
 def restart_host(
     runner: CommandRunner,
     *,
@@ -348,8 +379,8 @@ def restart_host(
     sleep: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
 ) -> Path:
-    """Quit ``AXPilot.app`` (SIGTERM: its host stops cleanly and removes the socket), then open it
-    again and wait for the new host (:func:`axpilot.bridge.launch.ensure_host_running`).
+    """Quit ``AXPilot.app`` (:func:`stop_host`), then open it again and wait for the new host
+    (:func:`axpilot.bridge.launch.ensure_host_running`).
 
     Raises ``TIMEOUT`` if it is still running after :data:`STOP_TIMEOUT_S`, and ``HOST_UNAVAILABLE``
     if the new host does not come up."""
@@ -358,17 +389,8 @@ def restart_host(
 
     path = socket_path or paths.socket_path()
     is_live = live or socket_is_live
-    runner.run(["pkill", "-TERM", "-x", _LAUNCHER_PROCESS], timeout_s=10)
-    deadline = clock() + STOP_TIMEOUT_S
     # Opening the app while the old launcher is still quitting would only bring that one forward.
-    while runner.run(["pgrep", "-x", _LAUNCHER_PROCESS], timeout_s=10).ok or is_live(path):
-        if clock() >= deadline:
-            raise AXPilotError(
-                ErrorCode.TIMEOUT,
-                f"AXPilot did not quit within {STOP_TIMEOUT_S:g} s.",
-                hint="Quit AXPilot in Activity Monitor, then run `axpilot update` again.",
-            )
-        sleep(_STOP_POLL_S)
+    stop_host(runner, socket_path=path, live=is_live, sleep=sleep, clock=clock)
     return ensure_host_running(
         path, runner=runner, platform=platform, app_path=app_path, live=is_live, sleep=sleep, clock=clock
     )
