@@ -3,6 +3,7 @@ resolved through older snapshots (still policy-checked and re-validated), and ro
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -334,12 +335,16 @@ async def test_an_old_terminal_ref_cannot_be_typed_into() -> None:
 async def test_engine_faults_while_revalidating_an_old_ref(fault: Fault, code: str) -> None:
     faulty = FaultyEngine(FakeEngine.demo())
     ctx = fast(make_test_context({"tools.profile": "full"}, engine=faulty))
-    ctx.engine_timeout_s = 0.1
-    ctx.capture_timeout_s = 0.1  # re-validating a ref may re-capture the window: both deadlines apply
+    # Only the hang gets a short deadline, on a copy: a server keeps the context it was built with.
+    # Re-validating a ref may re-capture the window, so both deadlines apply.
+    faulted = (
+        dataclasses.replace(ctx, engine_timeout_s=0.1, capture_timeout_s=0.1) if code == "TIMEOUT" else ctx
+    )
     try:
-        async with connected_client(ctx) as client:
+        async with connected_client(ctx) as client:  # setup with normal deadlines
             notes = await snapshot(client, app="Notes")
             await snapshot(client, app="TextEdit")  # the Notes ref now resolves via an older snapshot
+        async with connected_client(faulted) as client:
             faulty.set_fault("element_valid", fault)
             result, error = await call(client, "click", {"ref": named(notes)["New Note"]})
             assert error == code, text_of(result)
@@ -347,6 +352,7 @@ async def test_engine_faults_while_revalidating_an_old_ref(fault: Fault, code: s
             assert "Traceback" not in text_of(result)
             assert not ctx.control.busy
             faulty.clear_faults()
+        async with connected_client(ctx) as client:  # normal deadlines
             result, error = await call(client, "click", {"ref": named(notes)["New Note"]})
             assert error is None, text_of(result)
     finally:

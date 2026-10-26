@@ -3,6 +3,7 @@ fault injection."""
 
 from __future__ import annotations
 
+import dataclasses
 import plistlib
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -211,14 +212,16 @@ def test_launch_queries_are_guessed_for_the_policy(tmp_path: Path) -> None:
 async def test_engine_faults_in_app(fault: Fault, code: str) -> None:
     faulty = FaultyEngine(FakeEngine.demo())
     ctx = make_ctx(engine=faulty)
-    ctx.engine_timeout_s = 0.1
+    # Only the hang gets a short deadline, on a copy: a server keeps the context it was built with.
+    faulted = dataclasses.replace(ctx, engine_timeout_s=0.1) if code == "TIMEOUT" else ctx
     try:
-        async with connected_client(ctx) as client:
+        async with connected_client(faulted) as client:
             faulty.set_fault("app_control", fault)
             result, error = await call(client, "app", {"action": "activate", "name": "Notes"})
             assert error == code, text_of(result)
             assert "/Users/me" not in text_of(result)
             faulty.clear_faults()
+        async with connected_client(ctx) as client:  # normal deadlines
             await ok(client, "app", {"action": "activate", "name": "Notes"})
     finally:
         faulty.release()

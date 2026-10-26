@@ -655,10 +655,12 @@ async def test_read_and_find_count_once_against_the_rate_limit() -> None:
 async def test_engine_faults_while_reading(fault: Fault, code: str) -> None:
     faulty = FaultyEngine(mail_engine())
     ctx = demo_ctx(faulty)  # type: ignore[arg-type]
-    ctx.engine_timeout_s = 0.1
-    ctx.capture_timeout_s = 0.1
+    # Only the hang gets a short deadline, on a copy: a server keeps the context it was built with.
+    faulted = (
+        dataclasses.replace(ctx, engine_timeout_s=0.1, capture_timeout_s=0.1) if code == "TIMEOUT" else ctx
+    )
     try:
-        async with connected_client(ctx) as client:
+        async with connected_client(faulted) as client:
             faulty.set_fault("capture_tree", fault)
             result, error = await call(client, "read", {"app": "Mail"})
             assert error == code, text_of(result)
@@ -666,7 +668,7 @@ async def test_engine_faults_while_reading(fault: Fault, code: str) -> None:
             assert "Traceback" not in text_of(result)
             assert not ctx.control.busy
             faulty.clear_faults()
-            ctx.engine_timeout_s = ctx.capture_timeout_s = 5.0
+        async with connected_client(ctx) as client:  # normal deadlines
             assert (await ok(client, "read", {"app": "Mail"}))["complete"] is True
     finally:
         faulty.release()
@@ -1015,14 +1017,16 @@ async def test_a_scroll_that_runs_out_of_time_reports_how_far_it_got() -> None:
 async def test_engine_faults_while_scrolling(fault: Fault, code: str) -> None:
     faulty = FaultyEngine(mail_engine())
     ctx = demo_ctx(faulty)  # type: ignore[arg-type]
-    ctx.engine_timeout_s = 0.1
+    # Only the hang gets a short deadline, on a copy: a server keeps the context it was built with.
+    faulted = dataclasses.replace(ctx, engine_timeout_s=0.1) if code == "TIMEOUT" else ctx
     try:
-        async with connected_client(ctx) as client:
+        async with connected_client(faulted) as client:
             faulty.set_fault("scroll", fault)
             result, error = await call(client, "scroll", {"app": "Mail"})
             assert error == code, text_of(result)
             assert not ctx.control.busy
             faulty.clear_faults()
+        async with connected_client(ctx) as client:  # normal deadlines
             assert (await ok(client, "scroll", {"app": "Mail"}))["moved"] is True
     finally:
         faulty.release()
