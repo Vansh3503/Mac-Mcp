@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -184,16 +185,19 @@ FAULTS = [
 async def test_engine_faults_during_select_option_release_the_input_lock(fault: Fault, code: str) -> None:
     faulty = FaultyEngine(FakeEngine.demo())
     ctx = make_ctx(engine=faulty)
-    ctx.engine_timeout_s = 0.1
+    # Only the hang gets a short deadline, on a copy: a server keeps the context it was built with.
+    faulted = dataclasses.replace(ctx, engine_timeout_s=0.1) if code == "TIMEOUT" else ctx
     try:
-        async with connected_client(ctx) as client:
+        async with connected_client(ctx) as client:  # setup with normal deadlines
             group = (await elements(client, "TextEdit"))["radiogroup:Text Alignment"]["ref"]
+        async with connected_client(faulted) as client:
             faulty.set_fault("perform_action", fault)
             result, error = await call(client, "select_option", {"ref": group, "option": "Center"})
             assert error == code, text_of(result)
             assert "/Users/me" not in text_of(result)
             assert not ctx.control.busy
             faulty.clear_faults()
+        async with connected_client(ctx) as client:  # normal deadlines
             await ok(client, "select_option", {"ref": group, "option": "Center"})
     finally:
         faulty.release()
@@ -245,15 +249,17 @@ async def test_engine_faults_during_handle_dialog_release_the_input_lock(
 ) -> None:
     faulty = FaultyEngine(FakeEngine.demo())
     ctx = make_ctx(engine=faulty)
-    ctx.engine_timeout_s = 0.1
+    # Only the hang gets a short deadline, on a copy: a server keeps the context it was built with.
+    faulted = dataclasses.replace(ctx, engine_timeout_s=0.1) if code == "TIMEOUT" else ctx
     try:
-        async with connected_client(ctx) as client:
+        async with connected_client(faulted) as client:
             faulty.set_fault(method, fault)
             result, error = await call(client, "handle_dialog", {"app": "Login Demo", "action": action})
             assert error == code, text_of(result)
             assert "/Users/me" not in text_of(result)
             assert not ctx.control.busy
             faulty.clear_faults()
+        async with connected_client(ctx) as client:  # normal deadlines
             assert (await ok(client, "handle_dialog", {"app": "Login Demo"}))["found"] is True
     finally:
         faulty.release()

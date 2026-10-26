@@ -400,16 +400,19 @@ async def test_engine_faults_during_a_click_release_the_input_lock(
 ) -> None:
     faulty = FaultyEngine(FakeEngine.demo())
     ctx = fast(make_test_context({"tools.profile": "full"}, engine=faulty))
-    ctx.engine_timeout_s = 0.1
+    # Only the hang gets a short deadline, on a copy: a server keeps the context it was built with.
+    faulted = dataclasses.replace(ctx, engine_timeout_s=0.1) if code == "TIMEOUT" else ctx
     try:
-        async with connected_client(ctx) as client:
+        async with connected_client(ctx) as client:  # setup with normal deadlines
             refs = await refs_of(client, "Notes")
+        async with connected_client(faulted) as client:
             faulty.set_fault(method, fault)
             result, error = await call(client, "click", {"ref": refs["New Note"], "strategy": "ax"})
             assert error == code, text_of(result)
             assert "/Users/me" not in text_of(result)
             assert not ctx.control.busy
             faulty.clear_faults()
+        async with connected_client(ctx) as client:  # normal deadlines
             _, again = await call(client, "click", {"ref": refs["New Note"]})
             assert again is None
     finally:
