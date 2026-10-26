@@ -121,7 +121,8 @@ Running it again is safe. Options: `--yes` (don't ask), `--no-setup` (skip step 
 ```sh
 uv tool upgrade axpilot   # or pipx upgrade axpilot
 axpilot update        # upgrades the runtime; the launcher is untouched, so no re-grant is needed
-axpilot uninstall     # removes the login item, the runtime and its manifest; keeps config and logs
+axpilot uninstall     # quits AXPilot, then removes the login item, the runtime and its manifest;
+                      # keeps config and logs
                       # (--remove-launcher also deletes AXPilot.app, which means granting permissions again)
 uv tool uninstall axpilot
 ```

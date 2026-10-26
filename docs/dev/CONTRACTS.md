@@ -786,7 +786,8 @@ Opt-in tools (`axpilot/server/tools/scripting.py`, `browser.py`, `computer.py`):
   `http [--host] [--port] [--allow-remote --tls-cert --tls-key] [--allow-origin ...] [--show-token]`,
   `host [--engine] [--socket] [--max-clients] [--yes]`, `setup`, `update` (then `setup.offer_host_restart`:
   in a terminal it asks before restarting a host older than the runtime), `uninstall [--remove-launcher]
-  [--yes]`, `doctor`, `connect <client>|--list [--dry-run] [--scope] [--project-dir] [--force]`, `disconnect`,
+  [--yes]` (first quits a host that answers on the socket with `setup.stop_host`, and removes nothing if it
+  does not quit), `doctor`, `connect <client>|--list [--dry-run] [--scope] [--project-dir] [--force]`, `disconnect`,
   `config get|set|edit|path|show`, `skill install [--target claude|claude-project|codex] [--dest] [--force]`,
   `debug dump-tree`, `tools`, `call`, `version`; most take `--json`. `main()` is the console-script entry
   point and `python -m axpilot` runs it; `python -m axpilot.host` (what `AXPilot.app` starts, `HOST_ARGS` in

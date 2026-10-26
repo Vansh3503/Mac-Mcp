@@ -23,6 +23,7 @@ from axpilot.setup import (
     platform_info,
     restart_host,
     run_setup,
+    stop_host,
 )
 from axpilot.setup.launcher import login_item_installed
 from axpilot.setup.runtime import write_manifest
@@ -343,6 +344,36 @@ def test_restart_host_quits_the_app_then_opens_it_again(env: Path, make_app: Cal
         ["pgrep", "-x", "AXPilot"],
         ["open", "-g", "-a", str(app)],
     ]
+
+
+def test_stop_host_quits_the_app_and_waits_until_it_is_gone(env: Path) -> None:
+    runner = FakeRunner()
+    runner.register(["pkill"])
+    runner.register(["pgrep"], handler=scripted(0, 1, 1))  # still quitting once, then gone
+    live = iter([True, False])  # with the launcher gone, the socket still answers once, then not
+    clock = Clock()
+    stop_host(runner, socket_path=env / "s.sock", live=lambda _: next(live), sleep=clock.sleep, clock=clock)
+    assert [call.argv for call in runner.calls] == [
+        ["pkill", "-TERM", "-x", "AXPilot"],
+        ["pgrep", "-x", "AXPilot"],
+        ["pgrep", "-x", "AXPilot"],
+        ["pgrep", "-x", "AXPilot"],
+    ]
+
+
+def test_stop_host_names_the_command_to_retry_when_the_app_does_not_quit(env: Path) -> None:
+    runner = FakeRunner()
+    runner.register(["pkill"])
+    runner.register(["pgrep"])  # always still running
+    clock = Clock()
+    with pytest.raises(AXPilotError) as caught:
+        stop_host(
+            runner, socket_path=env / "s.sock", live=never, sleep=clock.sleep, clock=clock,
+            retry="axpilot uninstall",
+        )  # fmt: skip
+    assert caught.value.code is ErrorCode.TIMEOUT
+    assert "axpilot uninstall" in (caught.value.hint or "")
+    assert clock.now >= STOP_TIMEOUT_S
 
 
 def test_restart_host_gives_up_when_the_app_does_not_quit(env: Path, make_app: Callable[..., Path]) -> None:
